@@ -32,7 +32,6 @@ local.properties
 *.hprof
 .cxx/
 *.keystore
-!debug.keystore
 .kotlin/
 
 # node.js
@@ -73,3 +72,27 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Ambiente, credenciais e artefatos locais
+.env
+.env.*
+*.jks
+*.pem
+*.key
+dist/
+coverage/
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+.vscode/
+
+# Somente a chave padrão de debug do projeto principal é permitida
+!android/app/debug.keystore
+key.properties
+*.p12
+*.pfx
+
+# Impedir reinclusão da antiga cópia redundante do template
+/GerenciadorTarefas/
