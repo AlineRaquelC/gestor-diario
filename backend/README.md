@@ -1,6 +1,7 @@
 # Mini API — Gestor Diário
 
-Mini API da Sprint 1, com base técnica (Issue #1) e schema SQLite (Issue #2), conforme as ADRs 001 e 002.
+Mini API da Sprint 1, com base técnica (Issue #1), schema SQLite (Issue #2)
+e CRUD de projetos (Issue #3), conforme as ADRs 001 e 002.
 
 ## Desenvolvimento local
 
@@ -11,6 +12,7 @@ A partir da raiz do repositório:
 ```bash
 cd backend
 npm install
+npm run db:migrate
 npm run dev
 ```
 
@@ -41,15 +43,16 @@ build e requer `npm run build` antes.
 
 ## Estrutura
 
-`app.ts` configura Express, CORS, JSON e rotas sem abrir uma porta.
-`server.ts` carrega a configuração de ambiente e inicia o servidor.
+`createApp(db)` em `app.ts` configura Express, CORS, JSON e rotas sem abrir uma porta
+ou conectar ao banco; os testes injetam uma conexão isolada.
+`server.ts` carrega a configuração de ambiente, abre a conexão e inicia o servidor;
+fecha a conexão ao receber SIGINT/SIGTERM.
 O health check usa uma rota e um controller, sem regra de negócio adicional.
 O teste HTTP utiliza Vitest e Supertest.
 
 `database/` contém a conexão, o schema e o executor de migrations.
-Os diretórios `services`, `repositories`, `schemas`, `middlewares` e `errors`
-estão reservados para evolução nas próximas Issues.
-Ainda não há CRUD nem integração mobile.
+O CRUD de projetos segue Route → Controller → Service → Repository → Drizzle → SQLite.
+Não há integração mobile ou sincronização.
 
 ## SQLite e migrations
 
@@ -100,3 +103,91 @@ DATABASE_PATH=:memory: npm run db:migrate
 Para recuperação de um banco local existente, preserve uma cópia do arquivo
 com as conexões fechadas antes de aplicar futuras migrations. Não há comando
 de rollback automático; um banco vazio pode ser reconstruído com `db:migrate`.
+
+
+## API de projetos
+
+As respostas usam propriedades camelCase (`createdAt`, `updatedAt`, `deletedAt`).
+Projetos novos recebem UUID gerado por `crypto.randomUUID()` e timestamps ISO 8601
+UTC no Service. IDs string existentes também são aceitos nas consultas.
+
+| Método | Endpoint | Sucesso | Comportamento |
+|---|---|---|---|
+| POST | `/projects` | 201 | Cria e retorna o projeto |
+| GET | `/projects` | 200 | Retorna um array de projetos ativos |
+| GET | `/projects/:id` | 200 | Retorna o projeto ativo |
+| PATCH | `/projects/:id` | 200 | Atualiza campos enviados e retorna o projeto |
+| DELETE | `/projects/:id` | 204 | Exclui logicamente, sem corpo de resposta |
+
+Criar projeto:
+
+```bash
+curl -i http://localhost:3000/projects \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Faculdade","description":"Atividades acadêmicas","color":"#8B5CF6","icon":"🎓"}'
+```
+
+Exemplo de resposta (201):
+
+```json
+{
+  "id": "0e059f31-cc73-451f-8c43-dc7c253f50c3",
+  "name": "Faculdade",
+  "description": "Atividades acadêmicas",
+  "color": "#8B5CF6",
+  "icon": "🎓",
+  "createdAt": "2026-10-02T12:00:00.000Z",
+  "updatedAt": "2026-10-02T12:00:00.000Z",
+  "deletedAt": null
+}
+```
+
+Listar e consultar (200; listagem retorna um array, consulta retorna um objeto):
+
+```bash
+curl http://localhost:3000/projects
+curl http://localhost:3000/projects/0e059f31-cc73-451f-8c43-dc7c253f50c3
+```
+
+Editar (200, com o objeto atualizado):
+
+```bash
+curl -X PATCH http://localhost:3000/projects/0e059f31-cc73-451f-8c43-dc7c253f50c3 \
+  -H 'Content-Type: application/json' -d '{"name":"Estudos","description":null}'
+```
+
+Excluir (204 sem corpo, quando não houver dependências):
+
+```bash
+curl -i -X DELETE http://localhost:3000/projects/0e059f31-cc73-451f-8c43-dc7c253f50c3
+```
+
+Zod exige `name`, `color` e `icon` como strings não vazias na criação; espaços
+nas extremidades desses campos são removidos. `description` é opcional, aceita
+string ou null (null limpa a descrição). PATCH aceita somente esses quatro campos,
+exige ao menos um deles e atualiza `updatedAt`. Campos desconhecidos são rejeitados,
+inclusive tentativas de alterar IDs ou timestamps. IDs devem ser strings não vazias.
+Não há validação de formato hexadecimal de cor: o modelo permite strings compatíveis
+com o mobile, sem definir um formato exclusivo.
+
+DELETE verifica todas as tarefas vinculadas, inclusive as excluídas logicamente.
+Se houver alguma, retorna 409 `PROJECT_HAS_TASKS`, sem reassociar ou alterar tarefas.
+A verificação e a exclusão acontecem na mesma transação SQLite IMMEDIATE para impedir
+que outra conexão grave uma dependência entre as duas operações.
+Sem dependências, define `deletedAt` e `updatedAt` com o mesmo timestamp e preserva
+a linha física. Listagem omite projetos excluídos; consulta, PATCH e DELETE retornam
+404 para eles. Não há endpoint de restauração nesta Issue.
+
+Erros possuem o formato:
+
+```json
+{"error":{"code":"PROJECT_NOT_FOUND","message":"Projeto não encontrado."}}
+```
+
+- 400 `VALIDATION_ERROR`: payload/ID inválido, PATCH vazio ou JSON malformado.
+- 404 `PROJECT_NOT_FOUND`: projeto inexistente ou excluído.
+- 409 `PROJECT_HAS_TASKS`: exclusão bloqueada por tarefas vinculadas.
+- 500 `INTERNAL_ERROR`: falha inesperada, sem expor detalhes internos.
+
+Os testes de API usam Supertest com SQLite `:memory:` novo e migrations aplicadas
+antes de cada caso. A exclusão e os conflitos são conferidos também no banco.
