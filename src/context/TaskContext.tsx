@@ -3,10 +3,15 @@ import React, {
   useContext,
   useEffect,
   useState,
+  useRef,
+  useCallback,
   ReactNode,
 } from 'react';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useProjects } from './ProjectContext';
+import { createTask, resolveProject } from '../services/taskService';
+import type { NewTask } from '../services/taskService';
 
 export type Priority =
   | 'high'
@@ -27,6 +32,9 @@ export type Subtask = {
 
 export type Task = {
   id: string;
+  projectId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 
   title: string;
 
@@ -63,8 +71,8 @@ type TaskContextType = {
   ) => void;
 
   addTask: (
-    task: Task,
-  ) => void;
+    task: NewTask,
+  ) => Promise<{ task: Task; cacheSaved: boolean }>;
 
   updateTask: (
     id: string,
@@ -306,6 +314,20 @@ export function TaskProvider({
     initialTasks,
   );
 
+  const { projects, updateProject, hydrated: projectsHydrated } = useProjects();
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const creating = useRef(false);
+  const storageQueue = useRef<Promise<unknown>>(Promise.resolve());
+
+  const persistTasks = useCallback((list: Task[]) => {
+    const write = storageQueue.current.catch(() => undefined).then(() =>
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list)),
+    );
+    storageQueue.current = write;
+    return write;
+  }, []);
+
   /*
    * Evita salvar os dados iniciais
    * antes de terminar de carregar
@@ -362,12 +384,7 @@ export function TaskProvider({
 
     async function saveTasks() {
       try {
-        await AsyncStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(
-            tasks,
-          ),
-        );
+        await persistTasks(tasks);
       } catch (error) {
         console.log(
           'Erro ao salvar tarefas:',
@@ -380,6 +397,7 @@ export function TaskProvider({
   }, [
     tasks,
     hydrated,
+    persistTasks,
   ]);
 
   function toggleTask(
@@ -422,13 +440,29 @@ export function TaskProvider({
     );
   }
 
-  function addTask(
-    task: Task,
-  ) {
-    setTasks(current => [
-      ...current,
-      task,
-    ]);
+  async function addTask(draft: NewTask) {
+    if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    if (creating.current) {throw new Error('A criação de tarefa já está em andamento.');}
+    const project = projects.find(item => item.id === draft.projectId);
+    if (!project) {throw new Error('Selecione um projeto válido.');}
+    creating.current = true;
+    try {
+      const remoteId = await resolveProject(project);
+      if (remoteId !== project.remoteId) {updateProject(project.id, { remoteId });}
+      const task = await createTask(draft, remoteId);
+      const nextTasks = [...tasksRef.current.filter(item => item.id !== task.id), task];
+      tasksRef.current = nextTasks;
+      setTasks(nextTasks);
+      try {
+        await persistTasks(nextTasks);
+        return { task, cacheSaved: true };
+      } catch {
+        // The remote task exists: report a cache warning, never repeat POST.
+        return { task, cacheSaved: false };
+      }
+    } finally {
+      creating.current = false;
+    }
   }
 
   function updateTask(
