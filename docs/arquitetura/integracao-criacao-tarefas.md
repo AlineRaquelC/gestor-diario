@@ -60,3 +60,20 @@ npm test -- --runInBand __tests__/taskService.test.ts __tests__/TaskContext.inte
 Os testes cobrem mapeamento, datas locais, chamadas HTTP, falhas, criação única,
 AsyncStorage e reabertura. O Jest global e o TypeScript do mobile já possuíam
 falhas em telas/testes antigos antes desta Issue; não foram refatorados aqui.
+
+## Validação manual Android — 2026-10-03
+
+Teste realizado no **Android Emulator**, conforme resultados confirmados:
+
+- Backend iniciado localmente, com migrations SQLite aplicadas.
+- `GET /health` funcionando.
+- Criação de projeto funcionando.
+- Criação de tarefa pelo aplicativo funcionando; `POST /tasks` persistindo no SQLite.
+- Tarefa visível na Home após a criação.
+- Após force-stop/fechar e reabrir o aplicativo, a tarefa permaneceu pelo cache; AsyncStorage preservado.
+- Com o backend desligado, a tentativa de criação foi rejeitada corretamente e o aplicativo informou erro.
+- Nenhuma falsa confirmação de salvamento.
+
+**Resultado:** teste manual aprovado para o fluxo de criação da Issue #4.
+A reabertura valida o cache local; GET de Tasks e sincronização geral continuam pendentes.
+As [dívidas técnicas registradas na Sprint](../sprints/sprint-1.md#dívidas-técnicas-e-funcionalidades-pendentes) permanecem sem correção nesta tarefa.

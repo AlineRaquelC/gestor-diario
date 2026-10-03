@@ -79,7 +79,9 @@ sprint-1
 
 # 4. Issues da Sprint 1
 
-## ISSUE — Base técnica da mini API Node.js
+## ISSUE #1 — Base técnica da mini API Node.js
+
+**Status:** Concluída — PR #14.
 
 ### Tipo
 
@@ -116,16 +118,16 @@ Supertest
 
 ### Critérios de aceite
 
-- [ ] diretório `backend/` criado;
-- [ ] `package.json` próprio do backend;
-- [ ] TypeScript configurado;
-- [ ] estrutura básica de camadas criada;
-- [ ] servidor Express inicia localmente;
-- [ ] endpoint simples de health check responde;
-- [ ] scripts de desenvolvimento e teste definidos;
-- [ ] `.env.example` criado sem secrets;
-- [ ] `.gitignore` revisado;
-- [ ] documentação de execução atualizada.
+- [x] diretório `backend/` criado;
+- [x] `package.json` próprio do backend;
+- [x] TypeScript configurado;
+- [x] estrutura básica de camadas criada;
+- [x] servidor Express inicia localmente;
+- [x] endpoint simples de health check responde;
+- [x] scripts de desenvolvimento e teste definidos;
+- [x] `.env.example` criado sem secrets;
+- [x] `.gitignore` revisado;
+- [x] documentação de execução atualizada.
 
 ### Branch sugerida
 
@@ -135,7 +137,9 @@ feature/backend-foundation
 
 ---
 
-## ISSUE — Implementar schema SQLite e migrations iniciais
+## ISSUE #2 — Implementar schema SQLite e migrations iniciais
+
+**Status:** Concluída — PR #15.
 
 ### Tipo
 
@@ -167,14 +171,14 @@ TaskHistory
 
 ### Critérios de aceite
 
-- [ ] tabelas criadas por migration;
-- [ ] chaves primárias definidas;
-- [ ] relacionamentos definidos;
-- [ ] timestamps definidos;
-- [ ] constraints principais aplicadas;
-- [ ] migration executa em banco vazio;
-- [ ] banco de desenvolvimento não é versionado indevidamente;
-- [ ] estratégia de banco de testes preparada.
+- [x] tabelas criadas por migration;
+- [x] chaves primárias definidas;
+- [x] relacionamentos definidos;
+- [x] timestamps definidos;
+- [x] constraints principais aplicadas;
+- [x] migration executa em banco vazio;
+- [x] banco de desenvolvimento não é versionado indevidamente;
+- [x] estratégia de banco de testes preparada.
 
 ### Branch sugerida
 
@@ -184,7 +188,9 @@ feature/database-schema
 
 ---
 
-## ISSUE — Gerenciar projetos
+## ISSUE #3 — Gerenciar projetos
+
+**Status:** Concluída — PR #16.
 
 ### Requisito de origem
 
@@ -217,17 +223,17 @@ A Sprint deve preservar esse comportamento e integrá-lo progressivamente à API
 
 ### Critérios de aceite
 
-- [ ] listar projetos;
-- [ ] criar projeto;
-- [ ] visualizar projeto;
-- [ ] editar projeto;
-- [ ] excluir projeto com tratamento seguro das tarefas vinculadas;
-- [ ] nome, descrição, cor e ícone persistidos;
-- [ ] vínculo baseado em identificador no backend;
-- [ ] integração com SQLite;
-- [ ] erros tratados;
-- [ ] testes de API;
-- [ ] mobile continua funcional.
+- [x] listar projetos;
+- [x] criar projeto;
+- [x] visualizar projeto;
+- [x] editar projeto;
+- [x] excluir projeto com tratamento seguro das tarefas vinculadas;
+- [x] nome, descrição, cor e ícone persistidos;
+- [x] vínculo baseado em identificador no backend;
+- [x] integração com SQLite;
+- [x] erros tratados;
+- [x] testes de API;
+- [x] mobile continua funcional.
 
 ### Endpoints esperados
 
@@ -247,7 +253,9 @@ feature/projects-crud
 
 ---
 
-## ISSUE — Criar e persistir tarefas
+## ISSUE #4 — Criar e persistir tarefas
+
+**Status:** Concluída — PR #17.
 
 ### Requisito de origem
 
@@ -274,21 +282,21 @@ priority-high
 
 ### Critérios de aceite
 
-- [ ] título obrigatório;
-- [ ] descrição suportada;
-- [ ] projeto válido;
-- [ ] data inicial;
-- [ ] prazo;
-- [ ] horário quando informado;
-- [ ] prioridade;
-- [ ] status inicial;
-- [ ] `startDate` não pode ser anterior ao dia atual na criação;
-- [ ] `dueDate` não pode ser anterior a `startDate`;
-- [ ] tarefa persistida no SQLite;
-- [ ] resposta HTTP adequada;
-- [ ] mobile exibe a nova tarefa;
-- [ ] cache local permanece consistente;
-- [ ] testes de validação e endpoint.
+- [x] título obrigatório;
+- [x] descrição suportada;
+- [x] projeto válido;
+- [x] data inicial;
+- [x] prazo;
+- [x] horário quando informado;
+- [x] prioridade;
+- [x] status inicial;
+- [x] `startDate` não pode ser anterior ao dia atual na criação;
+- [x] `dueDate` não pode ser anterior a `startDate`;
+- [x] tarefa persistida no SQLite;
+- [x] resposta HTTP adequada;
+- [x] mobile exibe a nova tarefa;
+- [x] cache local permanece consistente;
+- [x] testes de validação e endpoint.
 
 ### Endpoint principal
 
@@ -304,7 +312,9 @@ feature/tasks-create
 
 ---
 
-## ISSUE — Consultar e visualizar tarefas
+## ISSUE #5 — Consultar e visualizar tarefas
+
+**Status:** Pendente — próxima Issue; ainda não iniciada.
 
 ### Tipo
 
@@ -351,7 +361,9 @@ feature/tasks-read
 
 ---
 
-## ISSUE — Editar tarefas
+## ISSUE #6 — Editar tarefas
+
+**Status:** Pendente.
 
 ### Requisito de origem
 
@@ -401,7 +413,9 @@ feature/tasks-update
 
 ---
 
-## ISSUE — Status, conclusão e histórico da tarefa
+## ISSUE #7 — Status, conclusão e histórico da tarefa
+
+**Status:** Pendente.
 
 ### Requisitos de origem
 
@@ -458,7 +472,9 @@ feature/task-status-history
 
 ---
 
-## ISSUE — Gerenciar subtarefas e calcular progresso
+## ISSUE #8 — Gerenciar subtarefas e calcular progresso
+
+**Status:** Pendente.
 
 ### Requisitos de origem
 
@@ -506,7 +522,9 @@ feature/subtasks-progress
 
 ---
 
-## ISSUE — Implementar múltiplas observações por tarefa
+## ISSUE #9 — Implementar múltiplas observações por tarefa
+
+**Status:** Pendente.
 
 ### Requisito de origem
 
@@ -550,7 +568,9 @@ feature/task-notes
 
 ---
 
-## ISSUE — Excluir tarefa com confirmação e desfazer
+## ISSUE #10 — Excluir tarefa com confirmação e desfazer
+
+**Status:** Pendente.
 
 ### Requisito de origem
 
@@ -594,7 +614,9 @@ feature/task-delete-undo
 
 ---
 
-## ISSUE — Dashboard com dados reais
+## ISSUE #11 — Dashboard com dados reais
+
+**Status:** Pendente.
 
 ### Requisito de origem
 
@@ -647,7 +669,9 @@ feature/dashboard-real-data
 
 ---
 
-## ISSUE — Implementar sincronização manual Mobile ↔ API
+## ISSUE #12 — Implementar sincronização manual Mobile ↔ API
+
+**Status:** Pendente.
 
 ### Requisito de origem
 
@@ -696,7 +720,9 @@ feature/manual-sync
 
 ---
 
-## ISSUE — Pipeline CI inicial
+## ISSUE #13 — Pipeline CI inicial
+
+**Status:** Pendente.
 
 ### Tipo
 
@@ -841,8 +867,7 @@ Dados continuam consistentes
 
 ## Status
 
-**Planejamento das Issues da Sprint 1 definido.**
+**Sprint 1 em andamento — 4/13 Issues concluídas (30,8%).**
 
-Próximo passo:
-
-> Criar milestone, labels e Issues no GitHub sem iniciar implementação.
+Issues #1 → PR #14, #2 → PR #15, #3 → PR #16 e #4 → PR #17 concluídas.
+Issues #5 a #13 permanecem pendentes. Próxima: #5 — Consultar e visualizar tarefas.

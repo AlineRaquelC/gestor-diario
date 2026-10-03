@@ -37,6 +37,14 @@ Cada entrega deve resultar em um incremento executável, demonstrável e version
 
 # 3. Entrega 1 — MVP funcional e integrado
 
+## Status atual da Entrega 1 — 2026-10-03
+
+**Em andamento.** Sprint 1: 4/13 Issues concluídas (30,8%); próxima: #5 — Consultar e visualizar tarefas.
+
+Concluídos: base da API Node.js (#1 / PR #14), SQLite + Drizzle + migrations (#2 / PR #15), CRUD de projetos (#3 / PR #16) e criação de tarefas integrada Android → API → SQLite (#4 / PR #17).
+Teste manual Android aprovado para criação, persistência, cache após reabertura e rejeição correta com backend desligado.
+Consulta/edição/exclusão de Tasks e sincronização geral permanecem pendentes. Os demais escopos e a divisão das entregas são preservados.
+
 ## 3.1 Objetivo
 
 Entregar o núcleo funcional do Gestor Diário, consolidando o fluxo principal de gerenciamento de tarefas e estabelecendo a primeira integração entre o aplicativo React Native, a mini API Node.js e a camada de persistência em banco de dados.

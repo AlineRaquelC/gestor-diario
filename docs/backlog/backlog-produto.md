@@ -35,6 +35,9 @@ Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à p
 
 | Status | Significado |
 |---|---|
+| **Concluído** | Trabalho correspondente concluído e validado |
+| **Parcial — Integrado** | Parte do fluxo integrada Mobile → API → SQLite; demais critérios pendentes |
+| **Em andamento** | Base técnica disponível, com trabalho restante |
 | **Parcial — Mobile** | Há implementação conhecida no aplicativo, mas ainda falta validar critérios oficiais e/ou integrar API/Banco |
 | **A validar** | Existe indício de implementação, mas deve ser confirmado no código/testes |
 | **Planejado** | Ainda não entrou em implementação |
@@ -44,19 +47,19 @@ Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à p
 
 # 4. Visão consolidada do Product Backlog
 
-| PBI | User Story / Capacidade | Requisitos de origem | Área principal | Prioridade | Entrega | Status inicial |
+| PBI | User Story / Capacidade | Requisitos de origem | Área principal | Prioridade | Entrega | Status atual |
 |---|---|---|---|---|---|---|
-| **PBI-01** | Criar tarefa com dados obrigatórios e validação | RF01 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
+| **PBI-01** | Criar tarefa com dados obrigatórios e validação | RF01 | Front / Backend / Banco | Alta | 1 | Concluído |
 | **PBI-02** | Editar tarefa e registrar última modificação | RF03 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
 | **PBI-03** | Excluir tarefa com confirmação e desfazer | RF04 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
 | **PBI-04** | Controlar status e histórico da tarefa | RF05, RF17 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
 | **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | A validar |
 | **PBI-06** | Criar subtarefas e calcular progresso | RF09, RF10 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
 | **PBI-07** | Registrar múltiplas observações por tarefa | RF11 | Front / Backend / Banco | Alta | 1 | Planejado |
-| **PBI-08** | Organizar tarefas em projetos/etiquetas | RF12 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
+| **PBI-08** | Organizar tarefas em projetos/etiquetas | RF12 | Front / Backend / Banco | Alta | 1 | Parcial — Integrado |
 | **PBI-09** | Exibir dashboard de produtividade | RF23 | Front / Backend | Alta | 1 | Parcial — Mobile |
 | **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | A validar |
-| **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Bloqueado por arquitetura |
+| **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Em andamento |
 | **PBI-12** | Priorização inteligente e prioridades personalizadas | RF02, RF24, RF63, RF64, RF65, REQ120–REQ122 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-13** | Tarefas recorrentes, lembretes e notificações | RF08, RF15, RF16, RF43, RF44, RF45, REQ114–REQ116 | Front / Backend / Banco / Android | Média | 2 | Planejado |
 | **PBI-14** | Busca, ordenação manual, filtros salvos e favoritos | RF13, RF14, RF49, RF51 | Front / Backend / Banco | Média | 2 | Planejado |
@@ -112,7 +115,7 @@ Como pessoa usuária, quero criar uma tarefa informando seus dados principais pa
 - apresentar mensagens de erro claras;
 - persistir os dados da tarefa.
 
-**Situação inicial:** o fluxo existe no mobile e deverá ser validado contra o requisito oficial e integrado à API/Banco.
+**Status atual:** criação integrada Android → API → SQLite concluída (Issue #4, PR #17), com validação manual aprovada e cache preservado.
 
 ---
 
@@ -258,7 +261,7 @@ Como pessoa usuária, quero categorizar tarefas em projetos ou etiquetas para or
 - preservar vínculo após edição;
 - persistir as relações.
 
-**Situação inicial:** gerenciamento de projetos já existe no mobile; deve ser integrado ao modelo definitivo da API/Banco.
+**Status atual:** parcialmente integrado. CRUD de projetos na API/SQLite concluído (Issue #3, PR #16), com vínculo remoto na criação de tarefas. Integração geral do gerenciamento mobile e demais critérios do PBI permanecem pendentes.
 
 ---
 
@@ -324,7 +327,7 @@ Como pessoa usuária, quero sincronizar minhas tarefas com um servidor local par
 - tratar sucesso e falha de sincronização;
 - não perder os dados locais em caso de indisponibilidade do servidor.
 
-**Situação inicial:** ainda não implementado; é o principal gap arquitetural do MVP.
+**Status atual:** em andamento. API, SQLite e comunicação HTTP para criação de tarefas disponíveis; sincronização manual/geral ainda não implementada.
 
 ---
 
@@ -334,18 +337,20 @@ Os itens abaixo são **enablers técnicos de planejamento**. Eles não são apre
 
 | ID técnico | Item | Área | Prioridade | Status |
 |---|---|---|---|---|
-| **TEC-01** | Estruturar a mini API Node.js do Gestor Diário | Backend | Alta | Planejado |
-| **TEC-02** | Definir e documentar o banco de dados do MVP | Banco / Arquitetura | Alta | Planejado |
-| **TEC-03** | Modelar Task, Project/Tag, Subtask, Note e History | Banco / Backend | Alta | Planejado |
-| **TEC-04** | Criar camada `services` no mobile para comunicação HTTP | Front / Arquitetura | Alta | Planejado |
-| **TEC-05** | Definir estratégia entre AsyncStorage e servidor para evitar duas fontes de verdade conflitantes | Arquitetura | Alta | Planejado |
-| **TEC-06** | Implementar validações de negócio também no backend | Backend | Alta | Planejado |
-| **TEC-07** | Implementar tratamento padronizado de erros da API | Backend / Front | Alta | Planejado |
-| **TEC-08** | Adicionar testes mínimos do CRUD e regras críticas | Testes | Alta | Planejado |
+| **TEC-01** | Estruturar a mini API Node.js do Gestor Diário | Backend | Alta | Concluído |
+| **TEC-02** | Definir e documentar o banco de dados do MVP | Banco / Arquitetura | Alta | Concluído |
+| **TEC-03** | Modelar Task, Project/Tag, Subtask, Note e History | Banco / Backend | Alta | Concluído |
+| **TEC-04** | Criar camada `services` no mobile para comunicação HTTP | Front / Arquitetura | Alta | Em andamento |
+| **TEC-05** | Definir estratégia entre AsyncStorage e servidor para evitar duas fontes de verdade conflitantes | Arquitetura | Alta | Em andamento |
+| **TEC-06** | Implementar validações de negócio também no backend | Backend | Alta | Em andamento |
+| **TEC-07** | Implementar tratamento padronizado de erros da API | Backend / Front | Alta | Em andamento |
+| **TEC-08** | Adicionar testes mínimos do CRUD e regras críticas | Testes | Alta | Em andamento |
 | **TEC-09** | Configurar CI inicial para TypeScript/lint/testes | DevOps | Alta | Planejado |
 | **TEC-10** | Manter documentação e rastreabilidade requisito → PBI → Issue → PR → teste | Documentação / DevOps | Alta | Em andamento |
 
 ---
+
+TEC-04 a TEC-08 avançaram no fluxo de projetos/criação de tarefas; seus escopos gerais permanecem em andamento. A Entrega 1 continua em andamento; a Sprint 1 registra 4/13 Issues concluídas (30,8%).
 
 # 7. Entrega 2 — Produtividade, automação e sincronização avançada
 
