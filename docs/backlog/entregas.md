@@ -39,11 +39,15 @@ Cada entrega deve resultar em um incremento executável, demonstrável e version
 
 ## Status atual da Entrega 1 — 2026-10-03
 
-**Em andamento.** Sprint 1: 4/13 Issues concluídas (30,8%); próxima: #5 — Consultar e visualizar tarefas.
+**Em andamento.** Sprint 1 refinada: 4/15 Issues concluídas (26,7%); próxima: #5 — Consultar e visualizar tarefas, ainda não iniciada.
 
 Concluídos: base da API Node.js (#1 / PR #14), SQLite + Drizzle + migrations (#2 / PR #15), CRUD de projetos (#3 / PR #16) e criação de tarefas integrada Android → API → SQLite (#4 / PR #17).
 Teste manual Android aprovado para criação, persistência, cache após reabertura e rejeição correta com backend desligado.
 Consulta/edição/exclusão de Tasks e sincronização geral permanecem pendentes. Os demais escopos e a divisão das entregas são preservados.
+
+PBI-05 (RF06/RF07) e PBI-10 (RF48/RF50) passaram a fazer parte formal do trabalho rastreado da Sprint 1 após auditoria/refinamento, via [#20 — Calendário do MVP](https://github.com/AlineRaquelC/gestor-diario/issues/20) e [#21 — Filtros e ordenação](https://github.com/AlineRaquelC/gestor-diario/issues/21). Nenhum requisito foi criado pela auditoria: os itens já pertenciam ao MVP, com escopo, prioridade e divisão das entregas preservados.
+
+O planejamento inicial possuía 13 Issues e registrava 4/13 = 30,8%. O novo percentual 4/15 = 26,7% resulta da formalização desses dois itens, não de perda de trabalho. A Entrega 1 continua em andamento. Integridade de projetos foi absorvida em #6/#12; nenhuma terceira Issue será criada neste refinamento.
 
 ## 3.1 Objetivo
 

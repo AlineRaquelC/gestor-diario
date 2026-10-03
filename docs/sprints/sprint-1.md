@@ -17,9 +17,10 @@
 
 ---
 
-## Status atual — 2026-10-03
+## Status atual após refinamento — 2026-10-03
 
-- **Progresso formal:** 4/13 Issues concluídas = **30,8%**.
+- **Sprint refinada:** 15 Issues planejadas, 4 concluídas e 11 pendentes.
+- **Progresso formal atual:** 4/15 = **26,7%**.
 - **Concluídas:** #1 (PR #14), #2 (PR #15), #3 (PR #16) e #4 (PR #17).
 - **Próxima:** #5 — Consultar e visualizar tarefas; ainda não iniciada.
 - Base da API Node.js concluída, com `GET /health` funcionando.
@@ -27,7 +28,7 @@
 - CRUD de projetos concluído.
 - Criação de tarefas integrada mobile → API → SQLite concluída.
 - **Teste manual Android aprovado**, conforme [registro de integração](../arquitetura/integracao-criacao-tarefas.md#validação-manual-android--2026-10-03).
-- Entrega 1 permanece em andamento. O planejamento original abaixo é preservado como referência; seus critérios não representam a conclusão de toda a Sprint.
+- Entrega 1 permanece em andamento. O planejamento original abaixo é preservado como referência histórica e complementado pelo refinamento; seus critérios não representam a conclusão de toda a Sprint.
 
 ### Dívidas técnicas e funcionalidades pendentes
 
@@ -38,6 +39,33 @@
 - Sincronização geral ainda não implementada; reabertura restaura o cache AsyncStorage.
 
 Esses itens permanecem registrados, sem correções nesta atualização documental.
+
+---
+
+## Refinamento formal do Sprint Backlog após auditoria — 2026-10-03
+
+O planejamento inicial possuía **13 Issues**. Com #1–#4 concluídas, o status anterior era **4/13 = 30,8%**. Após a [auditoria do Front-end do MVP](../auditorias/auditoria-front-mvp.md), foram formalizados dois itens que **já pertenciam à Entrega 1 — MVP**:
+
+| Issue adicionada | PBI | Requisitos | Status |
+|---|---|---|---|
+| [#20 — Complementar visualizações do calendário do MVP](https://github.com/AlineRaquelC/gestor-diario/issues/20) | PBI-05 — Visualizar tarefas por dia, semana e mês | RF06/RF07 | Pendente — não iniciada |
+| [#21 — Completar filtros e ordenação do MVP](https://github.com/AlineRaquelC/gestor-diario/issues/21) | PBI-10 — Filtrar e ordenar tarefas | RF48/RF50 | Pendente — não iniciada |
+
+**Novo total: 15 Issues; concluídas: 4; progresso formal: 4/15 = 26,7%.** A redução de **30,8% para 26,7% não representa perda de trabalho**: a auditoria identificou dois itens do MVP ainda não representados no Sprint Backlog. Trata-se de refinamento do planejamento, sem novo requisito e sem alteração da prioridade ou divisão das entregas.
+
+A **Issue #5 continua sendo a próxima implementação**, ainda não iniciada. Ordem geral: #5 → #6 → #7 → #8 → #9 → #10 → #11 → #20 (calendário) → #21 (filtros) → #12 → #13. Calendário/filtros podem ser executados em outra ordem após #5 se suas dependências forem respeitadas; #20 coordena regras de atrasadas/períodos com #11 quando compartilhadas. O CI pode começar antes e evoluir durante a Sprint.
+
+### Decisões de preservação e integridade
+
+- Decisão de calendário **aprovada para planejamento**: conectar Calendário às tarefas reais, preservando identidade visual, navegação e componentes existentes aproveitáveis. Não escolher nova biblioteca por preferência técnica nem redesenhar o Front.
+- Calendário: mês com indicadores e seleção de dia; semana com 7 dias e navegação; dia selecionado com Manhã/Tarde/Noite pelo horário; destaques de atraso/prazo próximo preservando prioridade; dados de TaskContext/API, sem mocks. Critérios completos na [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20) e no [planejamento de Issues](sprint-1-issues.md).
+- Filtros/ordenação: critérios de RF48/RF50 conforme a [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21), usando dados reais, identidade por ID quando disponível e componentes atuais, sem modificar permanentemente a ordem armazenada.
+- **Não criar terceira Issue de integridade de projetos.** Trabalho absorvido em **#6 + #12**: #6 tratará projectId, projeto ativo, updatedAt, UX e reabertura; #12 tratará identidades estáveis, dados locais antigos, projetos removidos, tarefas vinculadas, política única de exclusão e consistência AsyncStorage/API.
+- Nenhuma política foi alterada no código; não houve implementação de calendário/filtros ou correção de Front neste refinamento.
+
+### Evolução do escopo selecionado
+
+A tabela e as exclusões originais abaixo registram o planejamento inicial. **PBI-05 e PBI-10 passam a integrar formalmente o trabalho rastreado da Sprint 1 por #20/#21**, superando suas exclusões originais mediante este replanejamento explícito. PBI-07 continua com a rastreabilidade já existente na Issue #9; este refinamento não altera esse item.
 
 ---
 
@@ -97,7 +125,7 @@ O aplicativo mobile já possui implementação conhecida para parte relevante do
 
 ---
 
-# 4. Escopo selecionado da Sprint 1
+# 4. Escopo selecionado inicialmente da Sprint 1
 
 A Sprint 1 seleciona apenas parte da Entrega 1. Os demais PBIs da Entrega 1 permanecem no Product Backlog para Sprints posteriores.
 
@@ -112,7 +140,7 @@ A Sprint 1 seleciona apenas parte da Entrega 1. Os demais PBIs da Entrega 1 perm
 | **PBI-09** | Exibir dashboard de produtividade | RF23 | Front / Backend | Alta | Parcial — Mobile |
 | **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | Bloqueado por arquitetura |
 
-## PBIs da Entrega 1 fora desta Sprint
+## PBIs da Entrega 1 fora do compromisso inicial — histórico
 
 Os seguintes itens continuam importantes, mas não fazem parte do compromisso inicial da Sprint 1:
 
@@ -426,9 +454,11 @@ A Sprint 1 pode ser encerrada quando:
 
 ---
 
-# 12. Fora do escopo desta Sprint
+# 12. Fora do escopo no planejamento inicial — histórico
 
-Não implementar nesta Sprint, salvo replanejamento explícito:
+O refinamento acima inclui explicitamente PBI-05/PBI-10 via #20/#21; as exclusões desses itens abaixo são históricas, não o escopo vigente. Os demais itens conservam seu planejamento, inclusive a rastreabilidade já existente de PBI-07 na #9.
+
+Lista original, sujeita a replanejamento explícito:
 
 - visualização semanal/mensal completa do PBI-05;
 - múltiplas observações do PBI-07;

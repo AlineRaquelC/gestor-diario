@@ -69,7 +69,9 @@ Testes, TypeScript e lint foram executados e falharam; consultar a auditoria ant
 
 ## Status do projeto
 
-Sprint 1 em andamento — 30,8% (4/13 Issues concluídas).
+Sprint 1 em andamento — 26,7% (4/15 Issues concluídas).
+
+Percentual recalculado após refinamento do Sprint Backlog decorrente da auditoria do MVP.
 
 Concluído:
 

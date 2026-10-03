@@ -53,12 +53,12 @@ Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à p
 | **PBI-02** | Editar tarefa e registrar última modificação | RF03 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
 | **PBI-03** | Excluir tarefa com confirmação e desfazer | RF04 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
 | **PBI-04** | Controlar status e histórico da tarefa | RF05, RF17 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
-| **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | A validar |
+| **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | Planejado — Issue #20 / Sprint 1 |
 | **PBI-06** | Criar subtarefas e calcular progresso | RF09, RF10 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
 | **PBI-07** | Registrar múltiplas observações por tarefa | RF11 | Front / Backend / Banco | Alta | 1 | Planejado |
 | **PBI-08** | Organizar tarefas em projetos/etiquetas | RF12 | Front / Backend / Banco | Alta | 1 | Parcial — Integrado |
 | **PBI-09** | Exibir dashboard de produtividade | RF23 | Front / Backend | Alta | 1 | Parcial — Mobile |
-| **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | A validar |
+| **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | Planejado — Issue #21 / Sprint 1 |
 | **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Em andamento |
 | **PBI-12** | Priorização inteligente e prioridades personalizadas | RF02, RF24, RF63, RF64, RF65, REQ120–REQ122 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-13** | Tarefas recorrentes, lembretes e notificações | RF08, RF15, RF16, RF43, RF44, RF45, REQ114–REQ116 | Front / Backend / Banco / Android | Média | 2 | Planejado |
@@ -202,6 +202,8 @@ Como pessoa usuária, quero visualizar minhas tarefas por diferentes períodos p
 
 **Situação inicial:** deve ser validada no aplicativo atual antes de marcar como concluída.
 
+**Planejamento atual:** [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+
 ---
 
 ### PBI-06 — Subtarefas e progresso
@@ -307,6 +309,8 @@ Como pessoa usuária, quero filtrar e ordenar tarefas para localizar rapidamente
 
 **Situação inicial:** deve ser validada no código atual.
 
+**Planejamento atual:** [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+
 ---
 
 ### PBI-11 — Sincronização manual com Node.js
@@ -350,7 +354,7 @@ Os itens abaixo são **enablers técnicos de planejamento**. Eles não são apre
 
 ---
 
-TEC-04 a TEC-08 avançaram no fluxo de projetos/criação de tarefas; seus escopos gerais permanecem em andamento. A Entrega 1 continua em andamento; a Sprint 1 registra 4/13 Issues concluídas (30,8%).
+TEC-04 a TEC-08 avançaram no fluxo de projetos/criação de tarefas; seus escopos gerais permanecem em andamento. A Entrega 1 continua em andamento; a Sprint 1 registra 4/15 Issues concluídas (26,7%) após refinamento. O planejamento inicial tinha 13 Issues e registrava 4/13 = 30,8%; a redução decorre da formalização de PBI-05/PBI-10, sem perda de trabalho ou criação de requisitos. Integridade de projetos será tratada em #6/#12, sem terceira Issue.
 
 # 7. Entrega 2 — Produtividade, automação e sincronização avançada
 
