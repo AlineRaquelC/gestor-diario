@@ -4,7 +4,7 @@
 
 - **Produto:** Gestor Diário
 - **Entrega associada:** Entrega 1 — MVP
-- **Status:** Em planejamento / preparação técnica
+- **Status:** Em andamento
 - **Base documental:** `docs/requisitos/requisitos-oficiais.md`, `docs/backlog/backlog-produto.md` e `docs/backlog/entregas.md`
 - **Plataforma:** Android
 - **Mobile:** React Native + TypeScript
@@ -14,6 +14,30 @@
 - **Fluxo de desenvolvimento:** Issue → Branch → Commit → Pull Request → `dev` → testes/CI → Pull Request → `main`
 
 > **Nota de rastreabilidade:** o conteúdo desta Sprint é uma **decisão de planejamento do projeto**. Os requisitos de origem vêm exclusivamente das páginas 1 a 35 do documento fornecido pelo professor. A Sprint não altera nem substitui os requisitos oficiais.
+
+---
+
+## Status atual — 2026-10-03
+
+- **Progresso formal:** 4/13 Issues concluídas = **30,8%**.
+- **Concluídas:** #1 (PR #14), #2 (PR #15), #3 (PR #16) e #4 (PR #17).
+- **Próxima:** #5 — Consultar e visualizar tarefas; ainda não iniciada.
+- Base da API Node.js concluída, com `GET /health` funcionando.
+- SQLite + Drizzle + migrations concluídos.
+- CRUD de projetos concluído.
+- Criação de tarefas integrada mobile → API → SQLite concluída.
+- **Teste manual Android aprovado**, conforme [registro de integração](../arquitetura/integracao-criacao-tarefas.md#validação-manual-android--2026-10-03).
+- Entrega 1 permanece em andamento. O planejamento original abaixo é preservado como referência; seus critérios não representam a conclusão de toda a Sprint.
+
+### Dívidas técnicas e funcionalidades pendentes
+
+- 14 erros globais preexistentes de TypeScript no mobile.
+- Falhas antigas da configuração global do Jest.
+- Quatro alertas moderados conhecidos do Drizzle Kit.
+- GET/PATCH/DELETE de Tasks ainda não implementados.
+- Sincronização geral ainda não implementada; reabertura restaura o cache AsyncStorage.
+
+Esses itens permanecem registrados, sem correções nesta atualização documental.
 
 ---
 

@@ -7,7 +7,7 @@ CRUD de projetos (Issue #3) e criação de tarefas (Issue #4), conforme as ADRs 
 
 Use Node.js 24 LTS e npm. A API tem dependências e lockfile próprios.
 
-A partir da raiz do repositório:
+Em um banco local novo ou ainda não migrado, execute a partir da raiz do repositório:
 
 ```bash
 cd backend
@@ -15,6 +15,11 @@ npm install
 npm run db:migrate
 npm run dev
 ```
+
+`npm run db:migrate` prepara/aplica o schema SQLite. `npm run dev` apenas
+inicia a API; não executa migrations automaticamente. Um banco novo sem migration
+pode causar HTTP 500 ao acessar Projects/Tasks. Aplique as migrations antes de
+usá-lo.
 
 O servidor usa `PORT=3000` por padrão. Opcionalmente, copie `.env.example`
 para `.env` e ajuste `PORT`, `NODE_ENV` e `DATABASE_PATH`; `.env` não é versionado.
