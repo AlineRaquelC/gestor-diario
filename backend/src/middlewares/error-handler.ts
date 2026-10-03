@@ -1,12 +1,18 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
+import { TaskValidationError } from '../errors/tasks.js';
 import { ProjectError } from '../errors/projects.js';
 
 export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, next) => {
   if (res.headersSent) return next(error);
 
   if (error instanceof ZodError) {
-    res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Dados de projeto inválidos.' } });
+    res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.' } });
+    return;
+  }
+
+  if (error instanceof TaskValidationError) {
+    res.status(400).json({ error: { code: error.code, message: error.message } });
     return;
   }
 

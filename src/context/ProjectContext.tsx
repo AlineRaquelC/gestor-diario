@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Project = {
   id: string;
+  remoteId?: string;
   name: string;
   description?: string;
   color: string;
@@ -18,6 +19,7 @@ export type Project = {
 
 type ProjectContextType = {
   projects: Project[];
+  hydrated: boolean;
 
   addProject: (
     project: Project,
@@ -228,6 +230,7 @@ export function ProjectProvider({
     <ProjectContext.Provider
       value={{
         projects,
+        hydrated,
         addProject,
         updateProject,
         deleteProject,

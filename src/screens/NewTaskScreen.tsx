@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -106,8 +106,8 @@ export default function NewTaskScreen() {
     projects.find(
       item =>
         item.name === 'Geral',
-    )?.name ??
-    projects[0]?.name ??
+    )?.id ??
+    projects[0]?.id ??
     '';
 
   const [title, setTitle] =
@@ -197,6 +197,9 @@ export default function NewTaskScreen() {
     setShowReminderPicker,
   ] = useState(false);
 
+  const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
+
   const canSubmit =
     title.trim().length >
       0 &&
@@ -284,7 +287,8 @@ export default function NewTaskScreen() {
     );
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (submitting.current) {return;}
     if (
       !title.trim()
     ) {
@@ -351,68 +355,83 @@ export default function NewTaskScreen() {
       return;
     }
 
-    addTask({
-      id:
-        Date.now().toString(),
+    const selectedProject = projects.find(item => item.id === project);
+    if (!selectedProject) {
+      Alert.alert('Projeto obrigatório', 'Selecione um projeto válido.');
+      return;
+    }
+    submitting.current = true;
+    setSaving(true);
+    try {
+      const result = await addTask({
 
-      title:
-        title.trim(),
+        title:
+          title.trim(),
 
-      description:
-        description.trim(),
+        description:
+          description.trim(),
 
-      project,
+        project: selectedProject.name,
+        projectId: selectedProject.id,
 
-      time,
+        time,
 
-      priority,
+        priority,
 
-      status,
+        status,
 
-      done:
-        status ===
-        'completed',
+        done:
+          status ===
+          'completed',
 
-      startDate:
-        startDate.toISOString(),
+        startDate:
+          startDate.toISOString(),
 
-      dueDate:
-        dueDate.toISOString(),
+        dueDate:
+          dueDate.toISOString(),
 
-      subtasks:
-        subtasks.map(
-          (
-            item,
-            index,
-          ) => ({
-            id:
-              `${Date.now()}-${index}`,
-
-            title:
+        subtasks:
+          subtasks.map(
+            (
               item,
+              index,
+            ) => ({
+              id:
+                `${Date.now()}-${index}`,
 
-            done:
-              false,
-          }),
-        ),
+              title:
+                item,
 
-      reminders,
-    });
+              done:
+                false,
+            }),
+          ),
 
-    Alert.alert(
-      'Tarefa criada',
-      'A tarefa foi criada com sucesso.',
-      [
-        {
-          text: 'OK',
+        reminders,
+      });
 
-          onPress: () =>
-            navigation.navigate(
-              'Home',
-            ),
-        },
-      ],
-    );
+      Alert.alert(
+        'Tarefa criada',
+        result.cacheSaved
+          ? 'A tarefa foi criada com sucesso.'
+          : 'A tarefa foi salva no servidor, mas o cache local falhou. Não envie novamente.',
+        [
+          {
+            text: 'OK',
+
+            onPress: () =>
+              navigation.navigate(
+                'Home',
+              ),
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert('Não foi possível criar a tarefa', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
   }
 
   return (
@@ -848,7 +867,7 @@ export default function NewTaskScreen() {
                 item => {
                   const active =
                     project ===
-                    item.name;
+                    item.id;
 
                   return (
                     <Pressable
@@ -869,7 +888,7 @@ export default function NewTaskScreen() {
                       ]}
                       onPress={() =>
                         setProject(
-                          item.name,
+                          item.id,
                         )
                       }>
 
@@ -1286,7 +1305,7 @@ export default function NewTaskScreen() {
 
         <Pressable
           disabled={
-            !canSubmit
+            !canSubmit || saving
           }
           style={[
             styles.createButton,
@@ -1305,7 +1324,7 @@ export default function NewTaskScreen() {
               !canSubmit &&
                 styles.createButtonTextDisabled,
             ]}>
-            Criar tarefa
+            {saving ? 'Salvando...' : 'Criar tarefa'}
           </Text>
 
         </Pressable>

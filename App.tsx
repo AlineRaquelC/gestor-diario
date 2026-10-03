@@ -12,14 +12,14 @@ import {
 
 export default function App() {
   return (
-    <TaskProvider>
+    <ProjectProvider>
 
-      <ProjectProvider>
+      <TaskProvider>
 
         <AppNavigator />
 
-      </ProjectProvider>
+      </TaskProvider>
 
-    </TaskProvider>
+    </ProjectProvider>
   );
 }
