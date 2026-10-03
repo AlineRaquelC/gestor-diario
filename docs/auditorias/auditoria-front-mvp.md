@@ -341,3 +341,13 @@ Se a correção de integridade local for explicitamente incorporada aos critéri
 ### Validação e preservação desta entrega documental
 
 Apenas `docs/auditorias/auditoria-front-mvp.md` é criado. Revisão de contagens da matriz, links de arquivos e `git diff --check` são as validações desta documentação. Não há alteração do backlog, progresso formal, requisitos, código, bibliotecas ou calendário. Não há merge automático. Após entregar o PR, encerrar sem iniciar #5.
+
+## Resultado do refinamento
+
+Após esta auditoria, foram criadas no milestone Sprint 1 as Issues [#20 — Complementar visualizações do calendário do MVP](https://github.com/AlineRaquelC/gestor-diario/issues/20) (PBI-05 / RF06/RF07) e [#21 — Completar filtros e ordenação do MVP](https://github.com/AlineRaquelC/gestor-diario/issues/21) (PBI-10 / RF48/RF50). Calendário e filtros agora possuem rastreabilidade formal; já pertenciam à Entrega 1, sem requisito novo.
+
+A decisão de calendário está aprovada para planejamento: mês com indicadores/seleção de dia, semana com 7 dias/navegação, dia com Manhã/Tarde/Noite pelo horário, destaques de atraso/prazo próximo e Tasks reais de TaskContext/API; identidade visual, navegação e componentes aproveitáveis serão preservados, sem troca desnecessária de biblioteca. Isso registra a decisão posterior ao achado da auditoria, sem reescrever suas evidências históricas.
+
+Integridade de projetos foi **absorvida em #6/#12**: projectId/projeto ativo/updatedAt/UX/reabertura na edição; identidades estáveis, vínculos remotos/locais, projetos removidos, preservação de tarefas, política única de exclusão e consistência API/AsyncStorage na sincronização. **Não criar terceira Issue de projetos.** A política será definida no trabalho futuro, sem alteração de código agora.
+
+Sprint refinada: **15 Issues, 4 concluídas, 4/15 = 26,7%**. O histórico anterior **13 Issues, 4/13 = 30,8%** permanece na auditoria. A redução percentual representa refinamento do planejamento, não perda de trabalho. As métricas do Front (52 itens, 21 atendidos, 16 parciais, 15 não atendidos e 55,8% ponderados) permanecem inalteradas: **nenhuma correção de Front foi implementada ainda**. #5 continua próxima e não iniciada.

@@ -411,6 +411,20 @@ PATCH /tasks/:id
 feature/tasks-update
 ```
 
+### Refinamento após auditoria do MVP
+
+Critérios adicionais, preservando todos os critérios anteriores:
+
+- [ ] ao alterar o projeto da tarefa, atualizar o vínculo por projectId;
+- [ ] não depender somente do nome do projeto;
+- [ ] projeto selecionado deve existir e estar ativo;
+- [ ] updatedAt deve ser atualizado;
+- [ ] preservar UX atual da EditTaskScreen;
+- [ ] evitar inconsistência entre project e projectId;
+- [ ] validar integração após fechar/reabrir.
+
+Decisão: o trabalho de integridade local de projetos sugerido pela auditoria será absorvido em #6 e #12. Não criar terceira Issue de projetos nem alterar a política no código nesta etapa de planejamento.
+
 ---
 
 ## ISSUE #7 — Status, conclusão e histórico da tarefa
@@ -718,6 +732,22 @@ priority-high
 feature/manual-sync
 ```
 
+### Refinamento após auditoria do MVP
+
+Critérios adicionais, preservando todos os critérios anteriores:
+
+- [ ] sincronizar projetos utilizando identificadores estáveis;
+- [ ] manter remoteId/projectId coerentes;
+- [ ] não usar apenas nome como identidade;
+- [ ] tratar projetos locais antigos sem vínculo remoto;
+- [ ] definir comportamento para projeto removido no servidor;
+- [ ] preservar tarefas vinculadas;
+- [ ] evitar projetos/tarefas órfãos;
+- [ ] definir política única de exclusão de projeto no mobile;
+- [ ] manter AsyncStorage consistente com API após sincronização.
+
+Decisão: a integridade geral de projetos será absorvida em #6 e #12, sem terceira Issue. A política única de exclusão deverá ser definida no trabalho futuro; nenhuma política foi alterada no código neste refinamento.
+
 ---
 
 ## ISSUE #13 — Pipeline CI inicial
@@ -762,25 +792,174 @@ ci/sprint-1-validation
 
 ---
 
+## ISSUE #20 — Complementar visualizações do calendário do MVP
+
+**GitHub:** [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20). **Status:** Pendente — não iniciada.
+
+### Requisitos de origem
+
+RF06 e RF07.
+
+### PBI
+
+PBI-05 — Visualizar tarefas por dia, semana e mês.
+
+### Tipo e planejamento
+
+`user-story` — Front-end, prioridade alta, milestone Sprint 1.
+Labels: `frontend`, `test`, `sprint-1`, `user-story`, `priority-high`.
+Status: pendente, não iniciada. Item já pertencente à Entrega 1 — MVP, formalizado após a auditoria do Front; nenhum requisito novo foi criado.
+
+### User Story
+
+Como usuário, quero visualizar minhas tarefas por dia, semana e mês para organizar melhor minha rotina e identificar tarefas próximas do prazo ou atrasadas.
+
+### Decisão de calendário aprovada para planejamento
+
+Preservar identidade visual atual, navegação atual, componentes já existentes quando aproveitáveis e a decisão anterior de conectar Calendário às tarefas reais. Não escolher nova biblioteca por preferência técnica nem redesenhar o Front.
+
+**Visão mensal:** exibir calendário do mês; dias com tarefas possuem indicador visual; selecionar um dia permite visualizar suas tarefas.
+
+**Visão semanal:** exibir os 7 dias da semana, permitir navegação entre semanas e apresentar tarefas correspondentes aos dias.
+
+**Visão diária:** apresentar tarefas da data selecionada agrupadas por Manhã, Tarde e Noite, utilizando o horário da tarefa.
+
+**Destaques:** tarefa atrasada e tarefa com prazo próximo; preservar os indicadores visuais de prioridade existentes.
+
+**Dados:** Tasks reais de TaskContext/API, sem mocks ou valores hardcoded como fonte operacional.
+
+### Critérios de aceite
+
+- [ ] visualização diária;
+- [ ] agrupamento manhã/tarde/noite;
+- [ ] visualização semanal;
+- [ ] navegação entre semanas;
+- [ ] visualização mensal;
+- [ ] indicador de dias com tarefas;
+- [ ] seleção de dia mostra tarefas reais;
+- [ ] destaque de prazo próximo;
+- [ ] destaque de tarefa atrasada;
+- [ ] dados reais;
+- [ ] estados vazios;
+- [ ] identidade visual preservada;
+- [ ] teste Android;
+- [ ] testes focados de data/período.
+
+### Dependências
+
+- #5 — Consultar e visualizar tarefas.
+- #11 — Dashboard com dados reais, quando houver regra compartilhada de atrasadas/períodos.
+
+A ordem geral prevê calendário após #11 e antes de sincronização manual/CI. Pode ser ajustada após #5 conforme as dependências. Limites dos períodos e janela de prazo próximo devem ser explicitados no refinamento técnico futuro, sem inventar regra oficial ou implementar nesta etapa.
+
+### Fora de escopo
+
+- Google Calendar;
+- calendário externo;
+- recorrência;
+- notificações;
+- troca desnecessária de biblioteca;
+- funcionalidades da Entrega 2/3.
+
+### Branch sugerida futura
+
+`feature/calendar-mvp`
+
+### Rastreabilidade
+
+`docs/auditorias/auditoria-front-mvp.md` (F19–F24), `docs/sprints/sprint-1.md` e `docs/sprints/sprint-1-issues.md`.
+
+---
+
+## ISSUE #21 — Completar filtros e ordenação do MVP
+
+**GitHub:** [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21). **Status:** Pendente — não iniciada.
+
+### Requisitos de origem
+
+RF48 e RF50.
+
+### PBI
+
+PBI-10 — Filtrar e ordenar tarefas.
+
+### Tipo e planejamento
+
+`user-story` — Front-end, prioridade alta, milestone Sprint 1.
+Labels: `frontend`, `test`, `sprint-1`, `user-story`, `priority-high`.
+Status: pendente, não iniciada. Item já pertencente à Entrega 1 — MVP, formalizado após a auditoria do Front; nenhum requisito novo foi criado.
+
+### User Story
+
+Como usuário, quero filtrar e ordenar minhas tarefas para localizar rapidamente as atividades relevantes.
+
+### Critérios de aceite
+
+- [ ] filtrar por status;
+- [ ] filtrar por prioridade;
+- [ ] filtrar por projeto/categoria;
+- [ ] filtrar por período quando aplicável;
+- [ ] usar dados reais;
+- [ ] permitir combinações coerentes de filtros;
+- [ ] tratar estado sem resultados;
+- [ ] ordenar por critérios coerentes com RF50;
+- [ ] definir direção crescente/decrescente quando aplicável;
+- [ ] ordenação não modifica permanentemente os dados armazenados;
+- [ ] evitar uso do nome do projeto como identidade quando ID estiver disponível;
+- [ ] preservar componentes/telas atuais;
+- [ ] testes focados;
+- [ ] teste Android.
+
+Critérios de ordenação devem contemplar prioridade/prazo e combinação coerente, conforme RF50. RF48 permanece integralmente preservado no catálogo oficial; este planejamento usa projeto/categoria sem criar um sistema novo de etiquetas nem declarar o requisito inteiro concluído.
+
+### Dependências
+
+- Principal: #5 — Consultar e visualizar tarefas.
+- Coordenar coerência de projectId com #6/#12, aproveitando identificadores quando disponíveis.
+
+A ordem geral prevê filtros após calendário e antes de sincronização manual/CI. Pode ser ajustada após #5 conforme as dependências técnicas.
+
+### Fora de escopo
+
+- filtros salvos;
+- busca avançada;
+- favoritos;
+- drag-and-drop;
+- recursos posicionados na Entrega 2.
+
+### Branch sugerida futura
+
+`feature/task-filters-sorting`
+
+### Rastreabilidade
+
+`docs/auditorias/auditoria-front-mvp.md` (F36/F40–F44), `docs/sprints/sprint-1.md` e `docs/sprints/sprint-1-issues.md`.
+
+---
+
 # 5. Ordem sugerida de execução
 
 ```text
-1. Base técnica da API
-2. Schema SQLite / migrations
-3. Projects CRUD
-4. Tasks Create
-5. Tasks Read
-6. Tasks Update
-7. Status + History
-8. Subtasks + Progress
-9. Notes
-10. Delete + Undo
-11. Dashboard com dados reais
-12. Sincronização manual
-13. CI / refinamentos finais
+#1 Base técnica da API — concluída (PR #14)
+#2 Schema SQLite / migrations — concluída (PR #15)
+#3 Projects CRUD — concluída (PR #16)
+#4 Tasks Create — concluída (PR #17)
+#5 Consultar e visualizar tarefas — próxima, não iniciada
+#6 Editar tarefas
+#7 Status + History
+#8 Subtasks + Progress
+#9 Notes
+#10 Delete + Undo
+#11 Dashboard com dados reais
+#20 Calendário do MVP
+#21 Filtros e ordenação do MVP
+#12 Sincronização manual
+#13 CI / refinamentos finais
 ```
 
-O CI pode começar antes e ser ampliado ao longo da Sprint.
+O CI pode começar antes e ser ampliado ao longo da Sprint. #20/#21 dependem de #5 e podem ser executadas em outra ordem após essa dependência, se tecnicamente necessário. #20 coordena regras compartilhadas de atrasadas/períodos com #11; #21 coordena identidade de projeto com #6/#12 quando disponível, sem exigir a sincronização geral antes de filtros locais.
+
+O planejamento inicial tinha 13 Issues (4/13 = 30,8%). Após auditoria/refinamento, passa a 15 (4/15 = 26,7%). A redução percentual não representa perda de trabalho: dois itens já pertencentes à Entrega 1 foram formalizados. Integridade de projetos foi absorvida em #6/#12; não criar terceira Issue.
 
 ---
 
@@ -867,7 +1046,7 @@ Dados continuam consistentes
 
 ## Status
 
-**Sprint 1 em andamento — 4/13 Issues concluídas (30,8%).**
+**Sprint 1 em andamento — 4/15 Issues concluídas (26,7%), após refinamento.**
 
 Issues #1 → PR #14, #2 → PR #15, #3 → PR #16 e #4 → PR #17 concluídas.
-Issues #5 a #13 permanecem pendentes. Próxima: #5 — Consultar e visualizar tarefas.
+Issues #5 a #13, #20 e #21 permanecem pendentes. Próxima: #5 — Consultar e visualizar tarefas, ainda não iniciada. Planejamento inicial: 13 Issues; histórico de 30,8% preservado acima.
