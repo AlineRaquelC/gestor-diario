@@ -1,7 +1,7 @@
 # Mini API — Gestor Diário
 
 Mini API da Sprint 1, com base técnica (Issue #1), schema SQLite (Issue #2)
-e CRUD de projetos (Issue #3), conforme as ADRs 001 e 002.
+CRUD de projetos (Issue #3) e criação de tarefas (Issue #4), conforme as ADRs 001 e 002.
 
 ## Desenvolvimento local
 
@@ -52,7 +52,7 @@ O teste HTTP utiliza Vitest e Supertest.
 
 `database/` contém a conexão, o schema e o executor de migrations.
 O CRUD de projetos segue Route → Controller → Service → Repository → Drizzle → SQLite.
-Não há integração mobile ou sincronização.
+A criação de tarefas está integrada ao mobile; não há sincronização geral.
 
 ## SQLite e migrations
 
@@ -191,3 +191,62 @@ Erros possuem o formato:
 
 Os testes de API usam Supertest com SQLite `:memory:` novo e migrations aplicadas
 antes de cada caso. A exclusão e os conflitos são conferidos também no banco.
+
+
+## Criar tarefas — POST /tasks
+
+`POST /tasks` cria e retorna a tarefa persistida (HTTP 201). Não existem rotas
+GET, PATCH ou DELETE de tarefas nesta Issue. Exemplo de request:
+
+```json
+{
+  "title": "Finalizar documentação",
+  "description": "Entrega da Sprint 1",
+  "projectId": "ID_DO_PROJETO_ATIVO",
+  "startDate": "2026-10-02",
+  "dueDate": "2026-10-04",
+  "time": "18:00",
+  "priority": "HIGH",
+  "status": "PENDING"
+}
+```
+
+Use datas atuais/futuras ao executar o exemplo. `description` e `time` são
+opcionais; `status` omitido recebe PENDING. Prioridades: LOW, MEDIUM, HIGH.
+Status: PENDING, PARTIAL, COMPLETED. Horário, quando informado, usa HH:mm.
+Zod rejeita título/ID vazio, enums inválidos e campos desconhecidos.
+O Service verifica datas reais YYYY-MM-DD, início >= hoje e prazo >= início;
+o dia atual usa `TASK_TIMEZONE` (padrão America/Sao_Paulo), sem truncar a data UTC.
+Projetos inexistentes ou logicamente excluídos retornam 404 PROJECT_NOT_FOUND.
+Validação do projeto e inserção usam uma transação IMMEDIATE.
+
+Exemplo de resposta (201):
+
+```json
+{
+  "id": "46d5a6a2-62a7-4b36-b558-98d72a3b3c0b",
+  "title": "Finalizar documentação",
+  "description": "Entrega da Sprint 1",
+  "projectId": "ID_DO_PROJETO_ATIVO",
+  "startDate": "2026-10-02",
+  "dueDate": "2026-10-04",
+  "time": "18:00",
+  "priority": "HIGH",
+  "status": "PENDING",
+  "done": false,
+  "progress": 0,
+  "favorite": false,
+  "createdAt": "2026-10-02T12:00:00.000Z",
+  "updatedAt": "2026-10-02T12:00:00.000Z",
+  "deletedAt": null,
+  "undoUntil": null
+}
+```
+
+IDs usam crypto.randomUUID(). Status PENDING/PARTIAL inicia com done=false e
+progress=0. Se COMPLETED for solicitado, done=true e progress=100 mantêm a
+coerência do modelo para tarefas sem subtarefas. Não há histórico automático.
+Erros seguem o formato existente: 400 VALIDATION_ERROR (payload/data/regra inválida),
+404 PROJECT_NOT_FOUND (projeto inválido) e 500 INTERNAL_ERROR (falha inesperada).
+
+Integração Android: ver [configuração mobile](../docs/arquitetura/integracao-criacao-tarefas.md).
