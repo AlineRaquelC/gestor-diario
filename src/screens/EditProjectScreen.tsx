@@ -64,7 +64,7 @@ export default function EditProjectScreen() {
 
   const {
     tasks,
-    updateTask,
+    updateTaskLocal: updateTask,
   } = useTasks();
 
   const project =

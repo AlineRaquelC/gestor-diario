@@ -10,7 +10,7 @@ import React, {
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProjects } from './ProjectContext';
-import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById } from '../services/taskService';
+import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask } from '../services/taskService';
 import type { NewTask } from '../services/taskService';
 
 export type Priority =
@@ -81,7 +81,9 @@ type TaskContextType = {
   updateTask: (
     id: string,
     updatedTask: Partial<Task>,
-  ) => void;
+  ) => Promise<{ task: Task; cacheSaved: boolean }>;
+
+  updateTaskLocal: (id: string, changes: Partial<Task>) => void;
 
   getTaskById: (
     id: string,
@@ -96,6 +98,8 @@ function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
   const byId = new Map(current.map(task => [task.id, task]));
   for (const task of remote) {
     const cached = byId.get(task.id);
+    // An older in-flight GET must not undo a confirmed PATCH.
+    if (cached?.updatedAt && task.updatedAt && Date.parse(task.updatedAt) < Date.parse(cached.updatedAt)) {continue;}
     byId.set(task.id, {
       ...cached, ...task,
       subtasks: task.subtasks ?? cached?.subtasks,
@@ -126,6 +130,7 @@ export function TaskProvider({
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
   const creating = useRef(false);
+  const updating = useRef(new Set<string>());
   const cacheWritable = useRef(false);
   const [loading, setLoading] = useState(true);
   const [readError, setReadError] = useState<string | null>(null);
@@ -290,7 +295,45 @@ export function TaskProvider({
     }
   }
 
-  function updateTask(
+  async function updateTask(id: string, changes: Partial<Task>) {
+    if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    const current = tasksRef.current.find(task => task.id === id);
+    if (!current) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
+    updating.current.add(id);
+    try {
+      const payload = { ...changes };
+      if (changes.projectId !== undefined) {
+        const project = projects.find(item => item.id === changes.projectId || item.remoteId === changes.projectId);
+        if (project) {
+          const remoteId = await resolveProject(project);
+          if (remoteId !== project.remoteId) {updateProject(project.id, { remoteId });}
+          payload.projectId = remoteId;
+        } else if (changes.projectId !== current.projectId) {
+          throw new Error('Selecione um projeto válido.');
+        }
+      }
+      const remote = await patchTask(id, payload, current);
+      const task: Task = {
+        ...remote,
+        subtasks: changes.subtasks ?? remote.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks,
+        reminders: changes.reminders ?? current.reminders,
+      };
+      const next = tasksRef.current.map(item => item.id === id ? task : item);
+      tasksRef.current = next;
+      setTasks(next);
+      try {
+        await persistTasks(next);
+        return { task, cacheSaved: true };
+      } catch {
+        return { task, cacheSaved: false };
+      }
+    } finally {
+      updating.current.delete(id);
+    }
+  }
+
+  function updateTaskLocal(
     id: string,
     updatedTask:
       Partial<Task>,
@@ -327,6 +370,7 @@ export function TaskProvider({
         deleteTask,
         addTask,
         updateTask,
+        updateTaskLocal,
         getTaskById,
       }}>
 

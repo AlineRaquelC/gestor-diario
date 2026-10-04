@@ -62,6 +62,24 @@ export async function getTaskById(id: string): Promise<Task> {
   return fromApiTask(await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}`));
 }
 
+export function toApiTaskUpdate(input: Partial<Task>) {
+  return {
+    ...(input.title !== undefined ? { title: input.title } : {}),
+    ...(input.description !== undefined ? { description: input.description } : {}),
+    ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
+    ...(input.startDate !== undefined ? { startDate: calendarDate(input.startDate) } : {}),
+    ...(input.dueDate !== undefined ? { dueDate: calendarDate(input.dueDate) } : {}),
+    ...(input.time !== undefined ? { time: input.time || null } : {}),
+    ...(input.priority !== undefined ? { priority: priorities[input.priority] } : {}),
+    ...(input.status !== undefined ? { status: statuses[input.status] } : {}),
+  };
+}
+
+export async function updateTask(id: string, input: Partial<Task>, local?: Pick<Task, 'project' | 'subtasks' | 'reminders'>): Promise<Task> {
+  const response = await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}`, 'PATCH', toApiTaskUpdate(input));
+  return fromApiTask(response, local);
+}
+
 export async function resolveProject(project: Project): Promise<string> {
   if (project.remoteId) {return project.remoteId;}
   try {
