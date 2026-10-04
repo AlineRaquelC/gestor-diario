@@ -28,7 +28,7 @@ export default function TaskDetailsScreen() {
     tasks,
     deleteTask,
     toggleTask,
-    updateTaskLocal: updateTask,
+    toggleSubtask: toggleChild,
     loading,
     loadTaskById,
     taskHistory,
@@ -43,6 +43,7 @@ export default function TaskDetailsScreen() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const hasTask = Boolean(task);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [subtaskSaving, setSubtaskSaving] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const updatedAt = task?.updatedAt;
@@ -151,32 +152,19 @@ export default function TaskDetailsScreen() {
     }
   }
 
-  function toggleSubtask(
-    id: string,
-  ) {
-    const updatedSubtasks =
-      subtasks.map(
-        subtask =>
-          subtask.id === id
-            ? {
-                ...subtask,
-                done:
-                  !subtask.done,
-              }
-            : subtask,
-      );
-
-    updateTask(
-      taskId,
-      {
-        subtasks:
-          updatedSubtasks,
-      },
-    );
+  async function toggleSubtask(id: string) {
+    if (subtaskSaving || statusSaving) {return;}
+    setSubtaskSaving(id);
+    try {
+      const result = await toggleChild(taskId, id);
+      if (!result.cacheSaved) {Alert.alert('Subtarefa salva no servidor', 'Não foi possível atualizar o cache local.');}
+    } catch (error) {
+      Alert.alert('Não foi possível alterar a subtarefa', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+    } finally { setSubtaskSaving(null); }
   }
 
   async function handleToggleCompleted() {
-    if (statusSaving) {return;}
+    if (statusSaving || subtaskSaving) {return;}
     setStatusSaving(true);
     try {
       const result = await toggleTask(taskId);
@@ -453,6 +441,7 @@ export default function TaskDetailsScreen() {
 
                 <Pressable
                   key={subtask.id}
+                  disabled={subtaskSaving === subtask.id || statusSaving}
                   style={[
                     styles.subtaskRow,
                     index <
@@ -569,7 +558,7 @@ export default function TaskDetailsScreen() {
           onPress={
             handleToggleCompleted
           }
-          disabled={statusSaving}>
+          disabled={statusSaving || subtaskSaving !== null}>
 
           <Text style={styles.completeButtonText}>
             {statusSaving ? 'Salvando…' : task.done

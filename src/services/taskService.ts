@@ -54,11 +54,27 @@ export function fromApiTask(task: ApiTask, draft?: Pick<Task, 'project' | 'subta
     startDate: mobileDate(task.startDate), dueDate: mobileDate(task.dueDate),
     createdAt: task.createdAt, updatedAt: task.updatedAt,
     progress: task.progress,
-    // Empty remote children do not erase local subtasks before Issue #8.
-    subtasks: task.subtasks?.length ? task.subtasks.map(({ id, title, done }) => ({ id, title, done })) : draft?.subtasks,
+    subtasks: mergeSubtasks(task.subtasks?.map(({ id, title, done }) => ({ id, title, done, remote: true })), draft?.subtasks),
     reminders: draft?.reminders,
   };
 }
+
+export function mergeSubtasks(remote: Subtask[] | undefined, cached: Subtask[] | undefined) {
+  if (remote === undefined) {return cached;}
+  const confirmed = new Map(remote.map(child => [child.id, child]));
+  for (const child of cached ?? []) {
+    if (!child.remote && !confirmed.has(child.id)) {confirmed.set(child.id, child);}
+  }
+  return [...confirmed.values()];
+}
+const subtaskPath = (taskId: string, subtaskId?: string) => `/tasks/${encodeURIComponent(taskId)}/subtasks${subtaskId === undefined ? '' : '/' + encodeURIComponent(subtaskId)}`;
+async function subtaskRequest(path: string, method: string, payload?: unknown): Promise<Task> {
+  const result = await apiRequest<{ task: ApiTask }>(path, method, payload);
+  return fromApiTask(result.task);
+}
+export const createSubtask = (taskId: string, title: string) => subtaskRequest(subtaskPath(taskId), 'POST', { title });
+export const updateSubtask = (taskId: string, id: string, changes: { title?: string; done?: boolean }) => subtaskRequest(subtaskPath(taskId, id), 'PATCH', changes);
+export const deleteSubtask = (taskId: string, id: string) => subtaskRequest(subtaskPath(taskId, id), 'DELETE');
 
 export async function getTasks(): Promise<Task[]> {
   const response = await apiRequest<ApiTask[]>('/tasks');

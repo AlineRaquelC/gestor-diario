@@ -3,10 +3,10 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TaskProvider, useTasks } from '../src/context/TaskContext';
 import { ProjectProvider } from '../src/context/ProjectContext';
-import { createTask, resolveProject, getTasks, getTaskById, updateTask, getTaskHistory } from '../src/services/taskService';
+import { createTask, resolveProject, getTasks, getTaskById, updateTask, getTaskHistory, createSubtask, updateSubtask, deleteSubtask } from '../src/services/taskService';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn() }));
-jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn(), updateTask: jest.fn(), getTaskHistory: jest.fn() }));
+jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn(), updateTask: jest.fn(), getTaskHistory: jest.fn(), createSubtask: jest.fn(), updateSubtask: jest.fn(), deleteSubtask: jest.fn(), mergeSubtasks: jest.requireActual('../src/services/taskService').mergeSubtasks }));
 const storage = new Map<string, string>();
 let context: ReturnType<typeof useTasks>;
 let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -294,4 +294,79 @@ it('operações locais anteriores permanecem locais, sem PATCH implícito', asyn
   await act(async () => { context.updateTaskLocal(saved.id, { subtasks: [{ id: 's', title: 'Local', done: true }] }); });
   expect(updateTask).not.toHaveBeenCalled();
   expect(context.tasks[0].subtasks).toHaveLength(1);
+});
+
+const child = { id: 'remote-child', title: 'Filha', done: false, remote: true };
+async function seedChildren() {
+  await act(async () => renderer.unmount());
+  storage.set('@taskflow:tasks', JSON.stringify([{ ...saved, progress: 0, subtasks: [child] }]));
+  await mount();
+}
+it('adiciona subtarefa confirmada e atualiza pai/cache sem duplicação', async () => {
+  await seedChildren();
+  const added = { id: 'new-child', title: 'Nova', done: false, remote: true };
+  jest.mocked(createSubtask).mockResolvedValue({ ...saved, progress: 0, subtasks: [child, added] });
+  await act(async () => { expect((await context.addSubtask(saved.id, 'Nova')).cacheSaved).toBe(true); });
+  expect(createSubtask).toHaveBeenCalledWith(saved.id, 'Nova');
+  expect(context.tasks[0].subtasks).toEqual([child, added]);
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(context.tasks);
+});
+it('marcar/desmarcar filho atualiza progresso/status/done e reabertura mantém confirmação', async () => {
+  await seedChildren();
+  jest.mocked(updateSubtask).mockResolvedValueOnce({ ...saved, progress: 100, status: 'completed', done: true, subtasks: [{ ...child, done: true }] });
+  await act(async () => { await context.toggleSubtask(saved.id, child.id); });
+  expect(context.tasks[0]).toMatchObject({ progress: 100, status: 'completed', done: true });
+  jest.mocked(updateSubtask).mockResolvedValueOnce({ ...saved, progress: 0, status: 'todo', done: false, subtasks: [child] });
+  await act(async () => { await context.toggleSubtask(saved.id, child.id); });
+  expect(updateSubtask).toHaveBeenLastCalledWith(saved.id, child.id, { done: false });
+  await act(async () => renderer.unmount()); await mount();
+  expect(context.tasks[0]).toMatchObject({ progress: 0, status: 'todo', done: false, subtasks: [child] });
+});
+it('remover filho remoto não o ressuscita do cache e preserva filho antigo local', async () => {
+  await seedChildren();
+  const local = { id: 'legacy', title: 'Antiga local', done: true };
+  await act(async () => { context.updateTaskLocal(saved.id, { subtasks: [child, local] }); });
+  jest.mocked(deleteSubtask).mockResolvedValue({ ...saved, subtasks: [], progress: 0 });
+  await act(async () => { await context.removeSubtask(saved.id, child.id); });
+  expect(context.tasks[0].subtasks).toEqual([local]);
+  expect(deleteSubtask).toHaveBeenCalledWith(saved.id, child.id);
+});
+it.each(['add', 'toggle', 'remove'])('subtarefa %s offline preserva cache e estado confirmado', async operation => {
+  await seedChildren(); const before = storage.get('@taskflow:tasks'); const tasksBefore = context.tasks;
+  jest.mocked(createSubtask).mockRejectedValue(new Error('offline'));
+  jest.mocked(updateSubtask).mockRejectedValue(new Error('offline'));
+  jest.mocked(deleteSubtask).mockRejectedValue(new Error('offline'));
+  await act(async () => {
+    const promise = operation === 'add' ? context.addSubtask(saved.id, 'Nova') : operation === 'toggle' ? context.toggleSubtask(saved.id, child.id) : context.removeSubtask(saved.id, child.id);
+    await expect(promise).rejects.toThrow('offline');
+  });
+  expect(context.tasks).toEqual(tasksBefore); expect(storage.get('@taskflow:tasks')).toBe(before);
+});
+it('bloqueia chamadas concorrentes de filho/pai sem repetir operação', async () => {
+  await seedChildren(); let finish!: (task: typeof saved) => void;
+  jest.mocked(createSubtask).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  jest.mocked(createSubtask).mockClear();
+  await act(async () => {
+    const first = context.addSubtask(saved.id, 'Nova');
+    await expect(context.addSubtask(saved.id, 'Nova')).rejects.toThrow(/andamento/);
+    await expect(context.toggleTask(saved.id)).rejects.toThrow(/andamento/);
+    finish({ ...saved }); await first;
+  });
+  expect(createSubtask).toHaveBeenCalledTimes(1); expect(context.tasks).toHaveLength(1);
+});
+it('filho apenas local não é enviado automaticamente nem apagado por GET vazio', async () => {
+  await seedChildren(); const local = { id: 'legacy', title: 'Local', done: false };
+  await act(async () => { context.updateTaskLocal(saved.id, { subtasks: [local] }); });
+  jest.mocked(getTaskById).mockResolvedValue({ ...saved, subtasks: [] });
+  await act(async () => { await context.loadTaskById(saved.id); });
+  expect(context.tasks[0].subtasks).toEqual([local]);
+  jest.mocked(updateSubtask).mockClear();
+  await act(async () => { await expect(context.toggleSubtask(saved.id, local.id)).rejects.toThrow(/apenas no dispositivo/); });
+  expect(updateSubtask).not.toHaveBeenCalled();
+});
+it('falha de cache após subtarefa confirmada avisa sem repetir POST', async () => {
+  await seedChildren(); jest.mocked(createSubtask).mockResolvedValue({ ...saved, subtasks: [child] });
+  jest.mocked(createSubtask).mockClear(); jest.mocked(AsyncStorage.setItem).mockRejectedValue(new Error('disk'));
+  await act(async () => { expect((await context.addSubtask(saved.id, 'Nova')).cacheSaved).toBe(false); });
+  expect(createSubtask).toHaveBeenCalledTimes(1); expect(context.tasks[0].subtasks).toEqual([child]);
 });
