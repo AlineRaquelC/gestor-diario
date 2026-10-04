@@ -11,6 +11,10 @@ import { TasksController } from './controllers/tasks.js';
 import { TasksService } from './services/tasks.js';
 import { TasksRepository } from './repositories/tasks.js';
 import { errorHandler } from './middlewares/error-handler.js';
+import { SubtasksRepository } from './repositories/subtasks.js';
+import { SubtasksService } from './services/subtasks.js';
+import { SubtasksController } from './controllers/subtasks.js';
+import { createSubtasksRouter } from './routes/subtasks.js';
 
 // The entry point owns the database; tests inject an isolated connection.
 export function createApp(db: ReturnType<typeof openDatabase>['db']) {
@@ -21,8 +25,9 @@ export function createApp(db: ReturnType<typeof openDatabase>['db']) {
   app.use(healthRouter);
   app.use('/projects', createProjectsRouter(controller));
   app.use('/tasks', createTasksRouter(new TasksController(
-    new TasksService(new TasksRepository(db), new ProjectsRepository(db)),
+    new TasksService(new TasksRepository(db), new ProjectsRepository(db), new SubtasksRepository(db)),
   )));
+  app.use('/tasks', createSubtasksRouter(new SubtasksController(new SubtasksService(new TasksRepository(db), new SubtasksRepository(db)))));
   app.use(errorHandler);
   return app;
 }

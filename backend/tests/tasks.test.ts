@@ -1,3 +1,4 @@
+import { SubtasksRepository } from '../src/repositories/subtasks.js';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import request from 'supertest';
@@ -83,7 +84,7 @@ describe('API de tarefas — criação e consulta', () => {
   });
 
   it('valida datas também ao chamar o Service diretamente', () => {
-    const service = new TasksService(new TasksRepository(connection.db), new ProjectsRepository(connection.db));
+    const service = new TasksService(new TasksRepository(connection.db), new ProjectsRepository(connection.db), new SubtasksRepository(connection.db));
     expect(() => service.create({ ...valid, priority: 'HIGH', status: 'PENDING', startDate: 'invalid' })).toThrow(/datas válidas/);
     expect(() => service.create({ ...valid, priority: 'HIGH', status: 'PENDING', dueDate: '2026-10-01' })).toThrow(/prazo/);
   });

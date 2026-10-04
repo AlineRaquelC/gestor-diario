@@ -1,8 +1,8 @@
 # Mini API — Gestor Diário
 
-Mini API da Sprint 1, com base técnica (Issue #1), schema SQLite (Issue #2)
-CRUD de projetos (Issue #3), criação (Issue #4), consulta (Issue #5), edição (#6)
-e status/histórico de tarefas (#7), conforme as ADRs 001 e 002.
+Mini API da Sprint 1, com base técnica (Issue #1), schema SQLite (Issue #2),
+CRUD de projetos (Issue #3), criação (Issue #4), consulta (Issue #5), edição (#6),
+status/histórico (#7) e subtarefas/progresso (#8), conforme as ADRs 001 e 002.
 
 ## Desenvolvimento local
 
@@ -317,8 +317,8 @@ O adapter apresenta “Projeto indisponível” se essa informação não estive
 O CRUD atual de projetos impede exclusão de projetos com tarefas vinculadas.
 
 Subtarefas consultadas possuem id, taskId, title, done, createdAt e updatedAt.
-Não há CRUD remoto de subtarefas (#8). `progress`, `done` e `status` são lidos como
-persistidos, sem recálculo ou alteração durante GET; a regra definitiva fica em #8.
+O CRUD remoto é descrito abaixo. `progress`, `done` e `status` são lidos como
+persistidos, sem recálculo ou alteração durante GET.
 
 Tarefa inexistente ou logicamente excluída retorna HTTP 404:
 
@@ -381,17 +381,18 @@ for alterado, deve ser hoje ou futuro em `TASK_TIMEZONE` (America/Sao_Paulo por 
 
 A edição e seus eventos são gravados na mesma transação IMMEDIATE. UPDATED usa
 metadata.fields para os campos comuns efetivamente alterados; status possui evento
-semântico próprio, conforme abaixo. Subtarefas não são editadas neste PATCH (#8).
+semântico próprio, conforme abaixo. Não aceita array de subtarefas no payload:
+os endpoints próprios gerenciam filhos; status do pai pode concluir/reabrir todos.
 
 Veja a [integração de edição/cache](../docs/arquitetura/integracao-edicao-tarefas.md).
 
 ## Status e histórico — Issue #7
 
 PENDING/PARTIAL implicam done=false; COMPLETED implica done=true e progress=100.
-O Service reaplica essa coerência em todo PATCH. Regra temporária até #8:
-ao reabrir, progresso 100 é reduzido a 0; valores intermediários permanecem.
-Não calcula proporções nem altera subtarefas. Status igual ao atual não gera
-transição; payload sem mudanças relevantes não fabrica UPDATED.
+O Service reaplica essa coerência em todo PATCH. Desde #8, com subtarefas,
+o progresso é calculado pela proporção de filhos concluídos. Sem filhos,
+COMPLETED resulta em 100; PENDING/PARTIAL resultam em 0. Status igual ao atual
+não gera transição; payload sem mudanças relevantes não fabrica UPDATED.
 
 | Operação | Evento | Metadata |
 |---|---|---|
@@ -433,3 +434,38 @@ Exemplo de resposta:
 
 Metadata é JSON com dados do evento, sem textos de interface ou dados fictícios.
 Veja [integração de status/histórico](../docs/arquitetura/integracao-status-historico.md).
+
+## Subtarefas e progresso — Issue #8
+
+Schema SQLite existente, sem migration nova. Operações retornam `{ "task": {...} }`,
+com tarefa completa, projeto derivado, subtasks e progress/status/done/updatedAt
+confirmados. POST cria UUID, done=false e timestamps; PATCH aceita done e/ou title;
+DELETE remove fisicamente apenas o filho. Nenhuma UI de renomear foi adicionada.
+
+```bash
+curl -X POST http://localhost:3000/tasks/ID_DA_TAREFA/subtasks \
+  -H 'Content-Type: application/json' -d '{"title":"Revisar texto"}'
+curl -X PATCH http://localhost:3000/tasks/ID_DA_TAREFA/subtasks/ID_SUBTAREFA \
+  -H 'Content-Type: application/json' -d '{"done":true}'
+curl -X DELETE http://localhost:3000/tasks/ID_DA_TAREFA/subtasks/ID_SUBTAREFA
+```
+
+- POST: 201; PATCH/DELETE: 200 com tarefa pai atualizada.
+- 400 VALIDATION_ERROR: título ausente/vazio, done não boolean, PATCH vazio,
+  campos desconhecidos. Títulos são trim; IDs string não vazios.
+- 404 TASK_NOT_FOUND: pai inexistente/soft-deleted.
+- 404 SUBTASK_NOT_FOUND: filho inexistente ou pertencente a outra tarefa.
+- Com filhos: `round(concluídos / total * 100)`; 0 → PENDING/false;
+  1–99 → PARTIAL/false; 100 → COMPLETED/true.
+- Sem filhos: COMPLETED → 100/true; demais estados → 0/false.
+- Adição, alteração e remoção recalculam pai. Remover último usa status atual
+  na regra sem filhos. PATCH COMPLETED do pai conclui todos; PENDING reabre todos.
+  PARTIAL preserva filhos parciais; reabrir COMPLETED por PARTIAL torna todos
+  pendentes e o estado calculado PENDING, sem inventar subset de filhos.
+- Mutação, pai e histórico compartilham transação IMMEDIATE; falha gera rollback.
+  UPDATED(fields=subtasks,progress), mais uma transição semântica quando houver;
+  PATCH idêntico de filho não fabrica eventos. Sem backfill ou novos tipos.
+- GET /tasks e /tasks/:id continuam retornando filhos e valores persistidos.
+
+Veja [integração de subtarefas/progresso](../docs/arquitetura/integracao-subtarefas-progresso.md),
+incluindo preservação dos filhos antigos apenas locais e limite de sync #12.
