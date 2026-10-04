@@ -477,3 +477,53 @@ curl -X DELETE http://localhost:3000/tasks/ID_DA_TAREFA/subtasks/ID_SUBTAREFA
 
 Veja [integração de subtarefas/progresso](../docs/arquitetura/integracao-subtarefas-progresso.md),
 incluindo preservação dos filhos antigos apenas locais e limite de sync #12.
+
+## Observações — Issue #9 / RF11
+
+`Note` é um registro independente de `Task.description`. Reutiliza a tabela
+`notes` existente (id, taskId, content, createdAt, updatedAt), sem migration nova.
+Notas são consultadas sob demanda; não são embutidas em GET /tasks ou /tasks/:id.
+
+| Endpoint | Payload | Sucesso |
+|---|---|---|
+| GET /tasks/:taskId/notes | — | 200, array de Notes ou [] |
+| POST /tasks/:taskId/notes | content obrigatório | 201, Note persistida |
+| PATCH /tasks/:taskId/notes/:noteId | content obrigatório | 200, Note atualizada |
+| DELETE /tasks/:taskId/notes/:noteId | — | 200, {id, taskId, updatedAt} |
+
+```bash
+curl http://localhost:3000/tasks/ID_DA_TAREFA/notes
+curl -X POST http://localhost:3000/tasks/ID_DA_TAREFA/notes \
+  -H 'Content-Type: application/json' -d '{"content":"Primeira observação"}'
+curl -X PATCH http://localhost:3000/tasks/ID_DA_TAREFA/notes/ID_NOTA \
+  -H 'Content-Type: application/json' -d '{"content":"Observação editada"}'
+curl -X DELETE http://localhost:3000/tasks/ID_DA_TAREFA/notes/ID_NOTA
+```
+
+Exemplo de Note retornada por POST/PATCH (GET retorna array destes registros):
+
+```json
+{
+  "id": "5e139eac-6d94-4faf-b89c-1db5c82f4436",
+  "taskId": "1d8a4dfd-755e-478f-abf9-b060806fb231",
+  "content": "Primeira observação",
+  "createdAt": "2026-10-04T19:00:00.000Z",
+  "updatedAt": "2026-10-04T19:00:00.000Z"
+}
+```
+
+Conteúdo string é trim e não pode ficar vazio. Payloads são estritos: PATCH vazio,
+campos desconhecidos e tentativa de alterar id/taskId/createdAt retornam
+400 VALIDATION_ERROR. Pai inexistente/soft-deleted: 404 TASK_NOT_FOUND. Nota
+inexistente ou de outro pai: 404 NOTE_NOT_FOUND, mensagem “Observação não encontrada.”.
+Erros seguem `{ "error": { "code": "NOTE_NOT_FOUND", "message": "Observação não encontrada." } }`.
+
+GET ordena por createdAt crescente, com ID como desempate. Backend gera UUID e
+timestamps ISO UTC; POST usa createdAt=updatedAt; PATCH preserva createdAt e
+atualiza updatedAt. Toda mutação atualiza Task.updatedAt, preservando description,
+createdAt, status, done e progress. Note + timestamp do pai + um UPDATED
+com metadata.fields=[notes] compartilham transação IMMEDIATE; qualquer falha
+desfaz tudo. DELETE é físico somente da Note; updatedAt da resposta é do pai.
+Não há eventos NOTE_*, backfill, upload de notas locais ou sincronização geral.
+
+Veja [integração de observações](../docs/arquitetura/integracao-observacoes.md).
