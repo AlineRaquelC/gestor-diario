@@ -31,7 +31,7 @@ describe('PATCH /tasks/:id', () => {
   });
   afterEach(() => { connection.sqlite.close(); vi.useRealTimers(); vi.restoreAllMocks(); });
   const patch = (body: object, id = original.id) => request(app).patch(`/tasks/${id}`).send(body);
-  const history = () => connection.db.select().from(taskHistory).all();
+  const history = () => connection.db.select().from(taskHistory).all().filter(event => event.action !== 'CREATED');
 
   it('POST → PATCH → GET preserva SQLite e atualiza todos os campos editáveis', async () => {
     const input = { title: 'Nova', description: 'Atualizada', projectId: 'p2', startDate: '2026-10-04', dueDate: '2026-10-06', time: '18:30', priority: 'LOW', status: 'COMPLETED' };
@@ -47,7 +47,7 @@ describe('PATCH /tasks/:id', () => {
     expect((await request(app).get(`/tasks/${original.id}`)).body).toEqual(response.body);
     expect((await request(app).get('/tasks')).body).toEqual([response.body]);
     expect((await request(app).get('/health')).status).toBe(200);
-    expect(history()).toEqual([expect.objectContaining({ taskId: original.id, action: 'UPDATED', createdAt: response.body.updatedAt, metadata: { fields: expect.arrayContaining(Object.keys(input)) } })]);
+    expect(history()).toEqual([expect.objectContaining({ taskId: original.id, action: 'UPDATED', createdAt: response.body.updatedAt, metadata: { fields: expect.arrayContaining(Object.keys(input).filter(key => key !== 'status')) } }), expect.objectContaining({ action: 'COMPLETED', metadata: { from: 'PARTIAL', to: 'COMPLETED' } })]);
   });
 
   it('PATCH parcial preserva campos omitidos e não aplica default de status', async () => {
@@ -123,7 +123,7 @@ describe('PATCH /tasks/:id', () => {
     const response = await patch({ status });
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ status, done: status === 'COMPLETED', progress: status === 'COMPLETED' ? 100 : 0 });
-    expect(history().map(event => event.action)).toEqual(['UPDATED']);
+    expect(history().map(event => event.action)).toEqual(status === 'PARTIAL' ? [] : [status === 'COMPLETED' ? 'COMPLETED' : 'STATUS_CHANGED']);
   });
 
   it('não recalcula progress nem altera subtarefas durante edição de outros campos', async () => {

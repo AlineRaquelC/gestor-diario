@@ -25,7 +25,7 @@ describe('API de tarefas — criação e consulta', () => {
   });
   afterEach(() => { connection.sqlite.close(); vi.useRealTimers(); });
 
-  it('cria com defaults, UUID, timestamps e persistência, sem histórico', async () => {
+  it('cria com defaults, UUID, timestamps e persistência e CREATED', async () => {
     const response = await request(app).post('/tasks').send(valid);
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({ ...valid, status: 'PENDING', done: false, progress: 0, favorite: false, deletedAt: null, undoUntil: null, description: null, time: null });
@@ -33,7 +33,7 @@ describe('API de tarefas — criação e consulta', () => {
     expect(response.body.createdAt).toBe('2026-10-03T01:00:00.000Z');
     expect(response.body.updatedAt).toBe(response.body.createdAt);
     expect(connection.db.select().from(tasks).get()).toEqual(response.body);
-    expect(connection.db.select().from(taskHistory).all()).toEqual([]);
+    expect(connection.db.select().from(taskHistory).all()).toEqual([expect.objectContaining({ taskId: response.body.id, action: 'CREATED', createdAt: response.body.createdAt, metadata: {} })]);
   });
 
   it.each(['title', 'projectId', 'startDate', 'dueDate', 'priority'])('rejeita ausência de %s', async field => {

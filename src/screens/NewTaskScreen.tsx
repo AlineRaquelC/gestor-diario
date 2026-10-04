@@ -61,12 +61,6 @@ const STATUSES = [
     color: '#5C4DFF',
     background: '#EEF0FF',
   },
-  {
-    value: 'review' as TaskStatus,
-    label: 'Em revisão',
-    color: '#D97706',
-    background: '#FEF3C7',
-  },
 ];
 
 const REMINDER_OPTIONS = [

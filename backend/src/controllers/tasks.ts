@@ -7,6 +7,9 @@ export class TasksController {
   findAll = (_req: Request, res: Response) => {
     res.status(200).json(this.service.findAll());
   };
+  findHistory = (req: Request<{ id: string }>, res: Response) => {
+    res.status(200).json(this.service.findHistory(req.params.id));
+  };
   findById = (req: Request<{ id: string }>, res: Response) => {
     res.status(200).json(this.service.findById(req.params.id));
   };

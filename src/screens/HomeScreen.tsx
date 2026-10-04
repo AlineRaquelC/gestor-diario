@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Pressable,
   StatusBar,
+  Alert,
 } from 'react-native';
 
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -51,6 +52,15 @@ export default function HomeScreen() {
           (doneTasks.length / tasks.length) * 100,
         )
       : 0;
+
+  async function handleToggle(id: string) {
+    try {
+      const result = await toggleTask(id);
+      if (!result.cacheSaved) {Alert.alert('Status salvo no servidor', 'Não foi possível atualizar o cache local.');}
+    } catch (error) {
+      Alert.alert('Não foi possível alterar o status', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+    }
+  }
 
   return (
     <SafeAreaView
@@ -251,7 +261,7 @@ export default function HomeScreen() {
           <TaskCard
             key={task.id}
             task={task}
-            onToggle={toggleTask}
+            onToggle={handleToggle}
             onPress={() =>
               navigation.navigate(
                 'DetalheTarefa',
@@ -277,7 +287,7 @@ export default function HomeScreen() {
               <TaskCard
                 key={task.id}
                 task={task}
-                onToggle={toggleTask}
+                onToggle={handleToggle}
                 onPress={() =>
                   navigation.navigate(
                     'DetalheTarefa',

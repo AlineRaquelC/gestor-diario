@@ -3,10 +3,10 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TaskProvider, useTasks } from '../src/context/TaskContext';
 import { ProjectProvider } from '../src/context/ProjectContext';
-import { createTask, resolveProject, getTasks, getTaskById, updateTask } from '../src/services/taskService';
+import { createTask, resolveProject, getTasks, getTaskById, updateTask, getTaskHistory } from '../src/services/taskService';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn() }));
-jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn(), updateTask: jest.fn() }));
+jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn(), updateTask: jest.fn(), getTaskHistory: jest.fn() }));
 const storage = new Map<string, string>();
 let context: ReturnType<typeof useTasks>;
 let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -24,9 +24,59 @@ beforeEach(async () => {
   jest.mocked(createTask).mockResolvedValue(saved);
   jest.mocked(resolveProject).mockResolvedValue('remote');
   jest.mocked(getTasks).mockResolvedValue([]);
+  jest.mocked(getTaskHistory).mockResolvedValue([]);
   await mount();
 });
 afterEach(async () => { await act(async () => renderer.unmount()); jest.clearAllMocks(); });
+it('normaliza review legado na hidratação sem perder tarefa ou subtarefas', async () => {
+  await act(async () => renderer.unmount());
+  storage.set('@taskflow:tasks', JSON.stringify([{ ...saved, status: 'review', done: true, subtasks: [{ id: 's', title: 'Local', done: false }] }]));
+  await mount();
+  expect(context.tasks).toEqual([expect.objectContaining({ id: saved.id, status: 'in_progress', done: false, subtasks: [{ id: 's', title: 'Local', done: false }] })]);
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)[0].status).toBe('in_progress');
+});
+it('conclui e reabre via PATCH confirmado, atualiza cache e preserva após reabertura', async () => {
+  await act(async () => { await context.addTask(draft); });
+  jest.mocked(updateTask).mockResolvedValueOnce({ ...saved, status: 'completed', done: true, progress: 100 });
+  await act(async () => { await context.toggleTask(saved.id); });
+  expect(updateTask).toHaveBeenLastCalledWith(saved.id, { status: 'completed' }, saved);
+  expect(context.tasks).toHaveLength(1);
+  expect(context.tasks[0]).toMatchObject({ status: 'completed', done: true, progress: 100 });
+  await act(async () => renderer.unmount());
+  await mount();
+  expect(context.tasks[0]).toMatchObject({ status: 'completed', done: true, progress: 100 });
+  jest.mocked(updateTask).mockResolvedValueOnce({ ...saved, status: 'todo', done: false, progress: 0 });
+  await act(async () => { await context.toggleTask(saved.id); });
+  expect(context.tasks[0]).toMatchObject({ status: 'todo', done: false, progress: 0 });
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)[0]).toMatchObject({ status: 'todo', done: false, progress: 0 });
+});
+it('falha ao concluir preserva estado/cache confirmado', async () => {
+  await act(async () => { await context.addTask(draft); });
+  const cache = storage.get('@taskflow:tasks');
+  jest.mocked(updateTask).mockRejectedValueOnce(new Error('offline'));
+  await act(async () => { await expect(context.toggleTask(saved.id)).rejects.toThrow('offline'); });
+  expect(context.tasks).toEqual([saved]);
+  expect(storage.get('@taskflow:tasks')).toBe(cache);
+});
+it('carrega histórico real, preserva em erro e aceita histórico vazio', async () => {
+  const event = { id: 'h', taskId: saved.id, action: 'CREATED' as const, metadata: {}, createdAt: '2026-10-04T12:00:00Z' };
+  jest.mocked(getTaskHistory).mockResolvedValueOnce([event]);
+  await act(async () => { await context.loadTaskHistory(saved.id); });
+  expect(context.taskHistory[saved.id]).toEqual([event]);
+  jest.mocked(getTaskHistory).mockRejectedValueOnce(new Error('history offline'));
+  await act(async () => { await expect(context.loadTaskHistory(saved.id)).rejects.toThrow('history offline'); });
+  expect(context.taskHistory[saved.id]).toEqual([event]);
+  await act(async () => { await context.loadTaskHistory(saved.id); });
+  expect(context.taskHistory[saved.id]).toEqual([]);
+});
+it('consulta de histórico antiga não sobrescreve uma resposta nova', async () => {
+  let finish!: (events: []) => void;
+  jest.mocked(getTaskHistory).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const event = { id: 'new', taskId: saved.id, action: 'UPDATED' as const, metadata: { fields: ['title'] }, createdAt: '2026-10-04T13:00:00Z' };
+  jest.mocked(getTaskHistory).mockResolvedValueOnce([event]);
+  await act(async () => { const first = context.loadTaskHistory(saved.id); await context.loadTaskHistory(saved.id); finish([]); await first; });
+  expect(context.taskHistory[saved.id]).toEqual([event]);
+});
 it('adiciona somente a resposta remota e restaura do AsyncStorage ao reabrir', async () => {
   await act(async () => { expect((await context.addTask(draft)).cacheSaved).toBe(true); });
   expect(context.tasks).toEqual([saved]);

@@ -11,18 +11,16 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProjects } from './ProjectContext';
 import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask } from '../services/taskService';
-import type { NewTask } from '../services/taskService';
+import { getTaskHistory } from '../services/taskService';
+import type { NewTask, TaskHistoryEvent } from '../services/taskService';
+import { normalizeTaskStatus } from '../models/taskStatus';
+import type { TaskStatus } from '../models/taskStatus';
+export type { TaskStatus } from '../models/taskStatus';
 
 export type Priority =
   | 'high'
   | 'medium'
   | 'low';
-
-export type TaskStatus =
-  | 'todo'
-  | 'in_progress'
-  | 'review'
-  | 'completed';
 
 export type Subtask = {
   id: string;
@@ -65,10 +63,12 @@ type TaskContextType = {
   loading: boolean;
   readError: string | null;
   loadTaskById: (id: string) => Promise<Task>;
+  taskHistory: Record<string, TaskHistoryEvent[]>;
+  loadTaskHistory: (id: string) => Promise<void>;
 
   toggleTask: (
     id: string,
-  ) => void;
+  ) => Promise<{ task: Task; cacheSaved: boolean }>;
 
   deleteTask: (
     id: string,
@@ -95,16 +95,21 @@ const STORAGE_KEY =
 
 // Read-only reconciliation: retain cache-only records until Issue #12.
 function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
-  const byId = new Map(current.map(task => [task.id, task]));
+  const normalize = (task: Task): Task => {
+    const status = normalizeTaskStatus(task.status);
+    return { ...task, status, done: status === 'completed',
+      progress: status === 'completed' ? 100 : task.progress === 100 ? 0 : task.progress };
+  };
+  const byId = new Map(current.map(task => [task.id, normalize(task)]));
   for (const task of remote) {
     const cached = byId.get(task.id);
     // An older in-flight GET must not undo a confirmed PATCH.
     if (cached?.updatedAt && task.updatedAt && Date.parse(task.updatedAt) < Date.parse(cached.updatedAt)) {continue;}
-    byId.set(task.id, {
+    byId.set(task.id, normalize({
       ...cached, ...task,
       subtasks: task.subtasks ?? cached?.subtasks,
       reminders: task.reminders ?? cached?.reminders,
-    });
+    }));
   }
   return [...byId.values()];
 }
@@ -131,6 +136,16 @@ export function TaskProvider({
   tasksRef.current = tasks;
   const creating = useRef(false);
   const updating = useRef(new Set<string>());
+  const [taskHistory, setTaskHistory] = useState<Record<string, TaskHistoryEvent[]>>({});
+  const historyRequests = useRef(new Map<string, number>());
+  const loadTaskHistory = useCallback(async (id: string) => {
+    const request = (historyRequests.current.get(id) ?? 0) + 1;
+    historyRequests.current.set(id, request);
+    const events = await getTaskHistory(id);
+    if (historyRequests.current.get(id) === request) {
+      setTaskHistory(current => ({ ...current, [id]: events }));
+    }
+  }, []);
   const cacheWritable = useRef(false);
   const [loading, setLoading] = useState(true);
   const [readError, setReadError] = useState<string | null>(null);
@@ -230,33 +245,10 @@ export function TaskProvider({
     persistTasks,
   ]);
 
-  function toggleTask(
-    id: string,
-  ) {
-    setTasks(current =>
-      current.map(task => {
-        if (
-          task.id !== id
-        ) {
-          return task;
-        }
-
-        const newDone =
-          !task.done;
-
-        return {
-          ...task,
-
-          done:
-            newDone,
-
-          status:
-            newDone
-              ? 'completed'
-              : 'in_progress',
-        };
-      }),
-    );
+  async function toggleTask(id: string) {
+    const task = tasksRef.current.find(item => item.id === id);
+    if (!task) {throw new Error('Tarefa não encontrada.');}
+    return updateTask(id, { status: task.status === 'completed' ? 'todo' : 'completed' });
   }
 
   function deleteTask(
@@ -366,6 +358,8 @@ export function TaskProvider({
         loading,
         readError,
         loadTaskById,
+        taskHistory,
+        loadTaskHistory,
         toggleTask,
         deleteTask,
         addTask,
