@@ -3,10 +3,10 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TaskProvider, useTasks } from '../src/context/TaskContext';
 import { ProjectProvider } from '../src/context/ProjectContext';
-import { createTask, resolveProject, getTasks, getTaskById } from '../src/services/taskService';
+import { createTask, resolveProject, getTasks, getTaskById, updateTask } from '../src/services/taskService';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn() }));
-jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn() }));
+jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn(), updateTask: jest.fn() }));
 const storage = new Map<string, string>();
 let context: ReturnType<typeof useTasks>;
 let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -142,4 +142,106 @@ it('resposta inicial atrasada não apaga tarefa criada enquanto GET estava em an
   await act(async () => { await context.addTask(draft); });
   await act(async () => finish([]));
   expect(context.tasks).toEqual([saved]);
+});
+
+async function seedUpdate() {
+  await act(async () => { await context.addTask(draft); });
+  jest.mocked(updateTask).mockResolvedValue({ ...saved, title: 'Editada', updatedAt: '2026-10-04T12:00:00.000Z' });
+}
+it('edição confirmada atualiza estado/cache sem duplicatas e reabre com os valores novos', async () => {
+  await seedUpdate();
+  await act(async () => { expect((await context.updateTask(saved.id, { title: 'Editada' })).cacheSaved).toBe(true); });
+  expect(context.tasks).toEqual([{ ...saved, title: 'Editada', updatedAt: '2026-10-04T12:00:00.000Z' }]);
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(context.tasks);
+  await act(async () => renderer.unmount());
+  await mount();
+  expect(context.tasks[0].title).toBe('Editada');
+  expect(context.tasks).toHaveLength(1);
+});
+it('PATCH indisponível não modifica estado nem cache e permite tentar novamente', async () => {
+  await seedUpdate();
+  const before = storage.get('@taskflow:tasks');
+  jest.mocked(updateTask).mockRejectedValueOnce(new Error('offline'));
+  await act(async () => { await expect(context.updateTask(saved.id, { title: 'Não salva' })).rejects.toThrow('offline'); });
+  expect(context.tasks).toEqual([saved]);
+  expect(storage.get('@taskflow:tasks')).toBe(before);
+  await act(async () => { await context.updateTask(saved.id, { title: 'Editada' }); });
+  expect(context.tasks[0].title).toBe('Editada');
+});
+it('troca de projeto resolve ID, envia vínculo remoto e usa nome confirmado pela API', async () => {
+  await seedUpdate();
+  jest.mocked(resolveProject).mockResolvedValue('new-remote');
+  jest.mocked(updateTask).mockResolvedValue({ ...saved, projectId: 'new-remote', project: 'Marketing confirmado' });
+  await act(async () => { await context.updateTask(saved.id, { projectId: 'p1' }); });
+  expect(updateTask).toHaveBeenLastCalledWith(saved.id, { projectId: 'new-remote' }, saved);
+  expect(context.tasks[0]).toMatchObject({ projectId: 'new-remote', project: 'Marketing confirmado' });
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)[0].projectId).toBe('new-remote');
+});
+it('mantém vínculo remoto atual ausente no ProjectContext, sem recriação ou associação por nome', async () => {
+  await act(async () => renderer.unmount());
+  const unlisted = { ...saved, projectId: 'unlisted' };
+  storage.set('@taskflow:tasks', JSON.stringify([unlisted]));
+  await mount();
+  jest.mocked(resolveProject).mockClear();
+  jest.mocked(updateTask).mockResolvedValue({ ...unlisted, title: 'Editada' });
+  await act(async () => { await context.updateTask(saved.id, { projectId: unlisted.projectId, title: 'Editada' }); });
+  expect(resolveProject).not.toHaveBeenCalled();
+  expect(updateTask).toHaveBeenLastCalledWith(saved.id, { projectId: unlisted.projectId, title: 'Editada' }, unlisted);
+});
+it('projeto desconhecido não muda tarefa nem chama PATCH', async () => {
+  await seedUpdate();
+  jest.mocked(updateTask).mockClear();
+  await act(async () => { await expect(context.updateTask(saved.id, { projectId: 'invalid' })).rejects.toThrow(/projeto válido/); });
+  expect(updateTask).not.toHaveBeenCalled();
+  expect(context.tasks).toEqual([saved]);
+});
+it('subtarefas editadas localmente só são aplicadas após PATCH confirmado', async () => {
+  await seedUpdate();
+  const children = [{ id: 'local', title: 'Local', done: true }];
+  await act(async () => { await context.updateTask(saved.id, { title: 'Editada', subtasks: children }); });
+  expect(context.tasks[0].subtasks).toEqual(children);
+  await act(async () => renderer.unmount());
+  await mount();
+  expect(context.tasks[0].subtasks).toEqual(children);
+});
+it('falha de cache após PATCH informa aviso sem repetir envio ou reverter confirmação remota', async () => {
+  await seedUpdate();
+  jest.mocked(AsyncStorage.setItem).mockRejectedValue(new Error('disk'));
+  jest.mocked(updateTask).mockClear();
+  await act(async () => { expect((await context.updateTask(saved.id, { title: 'Editada' })).cacheSaved).toBe(false); });
+  expect(context.tasks[0].title).toBe('Editada');
+  expect(updateTask).toHaveBeenCalledTimes(1);
+});
+it('bloqueia PATCHs concorrentes da mesma tarefa', async () => {
+  await seedUpdate();
+  let finish!: (value: typeof saved) => void;
+  jest.mocked(updateTask).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  await act(async () => {
+    const first = context.updateTask(saved.id, { title: 'Editada' });
+    await expect(context.updateTask(saved.id, { title: 'Outra' })).rejects.toThrow(/andamento/);
+    finish({ ...saved, title: 'Editada' });
+    await first;
+  });
+  expect(context.tasks).toHaveLength(1);
+  expect(context.tasks[0].title).toBe('Editada');
+});
+it('GET inicial atrasado não reverte a edição confirmada', async () => {
+  await act(async () => renderer.unmount());
+  const old = { ...saved, updatedAt: '2026-10-03T12:00:00.000Z' };
+  storage.set('@taskflow:tasks', JSON.stringify([old]));
+  let finish!: (value: typeof old[]) => void;
+  jest.mocked(getTasks).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  jest.mocked(updateTask).mockResolvedValue({ ...old, title: 'Editada', updatedAt: '2026-10-04T12:00:00.000Z' });
+  await mount();
+  await act(async () => { await context.updateTask(saved.id, { title: 'Editada' }); });
+  await act(async () => finish([old]));
+  expect(context.tasks[0].title).toBe('Editada');
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)[0].title).toBe('Editada');
+});
+it('operações locais anteriores permanecem locais, sem PATCH implícito', async () => {
+  await seedUpdate();
+  jest.mocked(updateTask).mockClear();
+  await act(async () => { context.updateTaskLocal(saved.id, { subtasks: [{ id: 's', title: 'Local', done: true }] }); });
+  expect(updateTask).not.toHaveBeenCalled();
+  expect(context.tasks[0].subtasks).toHaveLength(1);
 });

@@ -4,7 +4,7 @@ import { ProjectError } from '../errors/projects.js';
 import { TaskValidationError, TaskNotFoundError } from '../errors/tasks.js';
 import { ProjectsRepository } from '../repositories/projects.js';
 import { TasksRepository } from '../repositories/tasks.js';
-import type { CreateTask } from '../schemas/tasks.js';
+import type { CreateTask, UpdateTask } from '../schemas/tasks.js';
 
 export const taskTimeZone = process.env.TASK_TIMEZONE ?? 'America/Sao_Paulo';
 
@@ -36,6 +36,38 @@ export class TasksService {
     const task = this.repository.findById(id);
     if (!task) throw new TaskNotFoundError();
     return task;
+  }
+
+  update(id: string, input: UpdateTask) {
+    return this.repository.transaction(() => {
+      const task = this.findById(id);
+      const startDate = input.startDate ?? task.startDate;
+      const dueDate = input.dueDate ?? task.dueDate;
+      const now = new Date();
+      if (!isCalendarDate(startDate) || !isCalendarDate(dueDate)) {
+        throw new TaskValidationError('Informe datas válidas no formato YYYY-MM-DD.');
+      }
+      if (startDate !== task.startDate && startDate < localToday(now)) {
+        throw new TaskValidationError('Uma nova data de início não pode ser anterior à data atual.');
+      }
+      if (dueDate < startDate) {
+        throw new TaskValidationError('O prazo não pode ser anterior à data de início.');
+      }
+      if (!this.projects.findById(input.projectId ?? task.projectId)) {
+        throw new ProjectError('PROJECT_NOT_FOUND');
+      }
+      const changes: UpdateTask & { done?: boolean; progress?: number } = { ...input };
+      if (input.status !== undefined && input.status !== task.status) {
+        changes.done = input.status === 'COMPLETED';
+        // Reuse the existing no-subtasks rule; definitive child progress is #8.
+        if (task.subtasks.length === 0) changes.progress = changes.done ? 100 : 0;
+      }
+      const updatedAt = new Date(Math.max(now.getTime(), Date.parse(task.updatedAt) + 1)).toISOString();
+      if (!this.repository.updateById(id, changes, updatedAt)) throw new TaskNotFoundError();
+      const fields = (Object.keys(input) as (keyof UpdateTask)[]).filter(key => input[key] !== task[key]);
+      this.repository.recordUpdate(id, randomUUID(), updatedAt, fields);
+      return this.findById(id);
+    });
   }
 
   create(input: CreateTask) {

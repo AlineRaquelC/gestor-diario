@@ -1,6 +1,7 @@
 import type { openDatabase } from '../database/index.js';
 import { and, asc, eq, isNull, inArray } from 'drizzle-orm';
-import { tasks, projects, subtasks } from '../database/schema/index.js';
+import { tasks, projects, subtasks, taskHistory } from '../database/schema/index.js';
+import type { UpdateTask } from '../schemas/tasks.js';
 
 type Database = ReturnType<typeof openDatabase>['db'];
 export class TasksRepository {
@@ -36,6 +37,17 @@ export class TasksRepository {
     const children = this.db.select().from(subtasks).where(eq(subtasks.taskId, id))
       .orderBy(asc(subtasks.createdAt), asc(subtasks.id)).all();
     return { ...row.task, project: row.project, subtasks: children };
+  }
+
+  updateById(id: string, changes: UpdateTask & { done?: boolean; progress?: number }, updatedAt: string) {
+    return this.db.update(tasks).set({ ...changes, updatedAt })
+      .where(and(eq(tasks.id, id), isNull(tasks.deletedAt))).returning().get();
+  }
+
+  recordUpdate(taskId: string, id: string, createdAt: string, fields: string[]) {
+    this.db.insert(taskHistory).values({
+      id, taskId, action: 'UPDATED', createdAt, metadata: { fields },
+    }).run();
   }
 
   transaction<T>(work: () => T): T {

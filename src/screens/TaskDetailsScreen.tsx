@@ -27,7 +27,7 @@ export default function TaskDetailsScreen() {
     tasks,
     deleteTask,
     toggleTask,
-    updateTask,
+    updateTaskLocal: updateTask,
     loading,
     loadTaskById,
   } = useTasks();

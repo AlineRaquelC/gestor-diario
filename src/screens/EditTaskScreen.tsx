@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 
 import {
   View,
@@ -30,6 +30,8 @@ import {
 import {
   useProjects,
 } from '../context/ProjectContext';
+
+import {calendarDate} from '../services/taskService';
 
 const PRIORITIES = [
   {
@@ -108,6 +110,9 @@ export default function EditTaskScreen() {
         item.id === taskId,
     );
 
+  const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
+
   if (!task) {
     return (
       <SafeAreaView
@@ -150,6 +155,12 @@ export default function EditTaskScreen() {
     );
   }
 
+  const originalStartDate = task.startDate;
+  const linkedProject = projects.find(item => item.id === task.projectId || item.remoteId === task.projectId);
+  // Retain a real remote relationship even before general project sync (#12).
+  const projectOptions = task.projectId && !linkedProject
+    ? [...projects, { id: task.projectId, remoteId: task.projectId, name: task.project, color: '#5C4DFF', icon: '📁' }]
+    : projects;
   const [title, setTitle] =
     useState(task.title);
 
@@ -208,7 +219,7 @@ export default function EditTaskScreen() {
     project,
     setProject,
   ] = useState(
-    task.project,
+    linkedProject?.id ?? task.projectId ?? '',
   );
 
   const [
@@ -311,74 +322,50 @@ export default function EditTaskScreen() {
     markDirty();
   }
 
-  function saveChanges() {
-    if (
-      !title.trim()
-    ) {
-      Alert.alert(
-        'Título obrigatório',
-        'Informe um título para a tarefa.',
-      );
-
+  async function saveChanges() {
+    if (submitting.current) {return;}
+    if (!title.trim()) {
+      Alert.alert('Título obrigatório', 'Informe um título para a tarefa.');
       return;
     }
-
-    if (
-      !project.trim()
-    ) {
-      Alert.alert(
-        'Projeto obrigatório',
-        'Selecione um projeto ou categoria.',
-      );
-
+    const selectedProject = projectOptions.find(item => item.id === project);
+    if (!selectedProject) {
+      Alert.alert('Projeto obrigatório', 'Selecione um projeto ou categoria.');
       return;
     }
-
-    updateTask(
-      taskId,
-      {
-        title:
-          title.trim(),
-
-        description:
-          description.trim(),
-
-        project,
-
-        time,
-
-        priority,
-
-        status,
-
-        done:
-          status ===
-          'completed',
-
-        startDate:
-          startDate.toISOString(),
-
-        dueDate:
-          dueDate.toISOString(),
-
-        subtasks,
-      },
-    );
-
-    setDirty(false);
-
-    Alert.alert(
-      'Alterações salvas',
-      'A tarefa foi atualizada com sucesso.',
-      [
-        {
-          text: 'OK',
-
-          onPress: () =>
-            navigation.goBack(),
-        },
-      ],
-    );
+    const startDay = calendarDate(startDate.toISOString());
+    const dueDay = calendarDate(dueDate.toISOString());
+    if (startDay !== (originalStartDate ? calendarDate(originalStartDate) : undefined) && startDay < calendarDate(new Date().toISOString())) {
+      Alert.alert('Data de início inválida', 'Uma nova data de início não pode ser anterior à data atual.');
+      return;
+    }
+    if (dueDay < startDay) {
+      Alert.alert('Prazo inválido', 'O prazo não pode ser anterior à data de início.');
+      return;
+    }
+    if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      Alert.alert('Horário inválido', 'Informe o horário no formato HH:mm.');
+      return;
+    }
+    submitting.current = true;
+    setSaving(true);
+    try {
+      const result = await updateTask(taskId, {
+        title: title.trim(), description: description.trim(),
+        projectId: selectedProject.id, time, priority, status,
+        startDate: startDate.toISOString(), dueDate: dueDate.toISOString(), subtasks,
+      });
+      setDirty(false);
+      Alert.alert('Alterações salvas', result.cacheSaved
+        ? 'A tarefa foi atualizada com sucesso.'
+        : 'As alterações foram salvas no servidor, mas o cache local falhou. Não envie novamente.',
+      [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (error) {
+      Alert.alert('Não foi possível salvar', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
   }
 
   function confirmDelete() {
@@ -772,7 +759,7 @@ export default function EditTaskScreen() {
         <Field
           label="Projeto / Categoria">
 
-          {projects.length === 0 ? (
+          {projectOptions.length === 0 ? (
 
             <View
               style={
@@ -808,12 +795,12 @@ export default function EditTaskScreen() {
 
             <View style={styles.wrap}>
 
-              {projects.map(
+              {projectOptions.map(
                 item => {
 
                   const active =
                     project ===
-                    item.name;
+                    item.id;
 
                   return (
                     <Pressable
@@ -834,7 +821,7 @@ export default function EditTaskScreen() {
                       ]}
                       onPress={() => {
                         setProject(
-                          item.name,
+                          item.id,
                         );
 
                         markDirty();
@@ -1230,6 +1217,7 @@ export default function EditTaskScreen() {
           style={
             styles.saveButton
           }
+          disabled={saving}
           onPress={
             saveChanges
           }>
@@ -1238,7 +1226,7 @@ export default function EditTaskScreen() {
             style={
               styles.saveText
             }>
-            ✓ Salvar alterações
+            {saving ? 'Salvando…' : '✓ Salvar alterações'}
           </Text>
 
         </Pressable>
