@@ -1,7 +1,8 @@
 # Mini API — Gestor Diário
 
 Mini API da Sprint 1, com base técnica (Issue #1), schema SQLite (Issue #2)
-CRUD de projetos (Issue #3), criação (Issue #4), consulta (Issue #5) e edição de tarefas (Issue #6), conforme as ADRs 001 e 002.
+CRUD de projetos (Issue #3), criação (Issue #4), consulta (Issue #5), edição (#6)
+e status/histórico de tarefas (#7), conforme as ADRs 001 e 002.
 
 ## Desenvolvimento local
 
@@ -250,7 +251,8 @@ Exemplo de resposta (201):
 
 IDs usam crypto.randomUUID(). Status PENDING/PARTIAL inicia com done=false e
 progress=0. Se COMPLETED for solicitado, done=true e progress=100 mantêm a
-coerência do modelo para tarefas sem subtarefas. Não há histórico automático.
+coerência do modelo para tarefas sem subtarefas. POST grava CREATED atomicamente,
+sem fabricar eventos para tarefas antigas.
 Erros seguem o formato existente: 400 VALIDATION_ERROR (payload/data/regra inválida),
 404 PROJECT_NOT_FOUND (projeto inválido) e 500 INTERNAL_ERROR (falha inesperada).
 
@@ -377,11 +379,57 @@ for alterado, deve ser hoje ou futuro em `TASK_TIMEZONE` (America/Sao_Paulo por 
 - HTTP 404, projeto ausente/excluído: `{"error":{"code":"PROJECT_NOT_FOUND","message":"Projeto não encontrado."}}`.
 - HTTP 500: padrão `INTERNAL_ERROR` existente, sem detalhes internos.
 
-A edição e um evento técnico `UPDATED`, com `metadata.fields` contendo nomes
-dos campos efetivamente alterados, são gravados na mesma transação IMMEDIATE.
-Não há novos endpoints/tela de histórico nem outros eventos; o histórico completo
-fica na Issue #7. Subtarefas não são editadas neste PATCH (#8). Mudança explícita
-de status mantém `done` coerente e reutiliza a regra existente de progresso para
-tarefas sem subtarefas; não recalcula progresso de subtarefas.
+A edição e seus eventos são gravados na mesma transação IMMEDIATE. UPDATED usa
+metadata.fields para os campos comuns efetivamente alterados; status possui evento
+semântico próprio, conforme abaixo. Subtarefas não são editadas neste PATCH (#8).
 
 Veja a [integração de edição/cache](../docs/arquitetura/integracao-edicao-tarefas.md).
+
+## Status e histórico — Issue #7
+
+PENDING/PARTIAL implicam done=false; COMPLETED implica done=true e progress=100.
+O Service reaplica essa coerência em todo PATCH. Regra temporária até #8:
+ao reabrir, progresso 100 é reduzido a 0; valores intermediários permanecem.
+Não calcula proporções nem altera subtarefas. Status igual ao atual não gera
+transição; payload sem mudanças relevantes não fabrica UPDATED.
+
+| Operação | Evento | Metadata |
+|---|---|---|
+| POST confirmado | CREATED | `{}` |
+| Campos comuns alterados | UPDATED | `{"fields":["title"]}` |
+| PENDING ↔ PARTIAL | STATUS_CHANGED | `{"from":"PENDING","to":"PARTIAL"}` |
+| PENDING/PARTIAL → COMPLETED | COMPLETED | from/to |
+| COMPLETED → PENDING/PARTIAL | REOPENED | from/to |
+
+PATCH misto pode produzir um UPDATED (sem status em fields) e um evento semântico
+de transição. Não duplica STATUS_CHANGED com COMPLETED/REOPENED. Falha na gravação
+obrigatória de histórico desfaz a tarefa e os demais eventos da transação.
+Não há backfill de CREATED/UPDATED. PROJECT_CHANGED não é emitido: troca de projeto
+continua registrada em UPDATED; DELETED/RESTORED ficam em #10.
+
+```bash
+curl -X PATCH http://localhost:3000/tasks/ID_DA_TAREFA \
+  -H 'Content-Type: application/json' -d '{"status":"COMPLETED"}'
+curl http://localhost:3000/tasks/ID_DA_TAREFA/history
+```
+
+GET /tasks/:id/history retorna HTTP 200 e eventos em ordem crescente de createdAt,
+desempatados por ID. Eventos do mesmo PATCH podem compartilhar timestamp; o
+desempate não significa precedência semântica entre eles. Sem eventos: `[]`.
+Tarefa ausente ou soft-deleted: HTTP 404 TASK_NOT_FOUND, no padrão existente.
+Exemplo de resposta:
+
+```json
+[
+  {
+    "id": "history-001",
+    "taskId": "task-001",
+    "action": "COMPLETED",
+    "metadata": {"from":"PARTIAL","to":"COMPLETED"},
+    "createdAt": "2026-10-04T12:30:00.000Z"
+  }
+]
+```
+
+Metadata é JSON com dados do evento, sem textos de interface ou dados fictícios.
+Veja [integração de status/histórico](../docs/arquitetura/integracao-status-historico.md).

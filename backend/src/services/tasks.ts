@@ -38,6 +38,11 @@ export class TasksService {
     return task;
   }
 
+  findHistory(id: string) {
+    this.findById(id);
+    return this.repository.findHistoryByTaskId(id);
+  }
+
   update(id: string, input: UpdateTask) {
     return this.repository.transaction(() => {
       const task = this.findById(id);
@@ -57,15 +62,21 @@ export class TasksService {
         throw new ProjectError('PROJECT_NOT_FOUND');
       }
       const changes: UpdateTask & { done?: boolean; progress?: number } = { ...input };
-      if (input.status !== undefined && input.status !== task.status) {
-        changes.done = input.status === 'COMPLETED';
-        // Reuse the existing no-subtasks rule; definitive child progress is #8.
-        if (task.subtasks.length === 0) changes.progress = changes.done ? 100 : 0;
-      }
+      const status = input.status ?? task.status;
+      changes.done = status === 'COMPLETED';
+      // Temporary rule until #8: completing overrides progress; reopening clears 100.
+      changes.progress = changes.done ? 100 : task.progress === 100 ? 0 : task.progress;
       const updatedAt = new Date(Math.max(now.getTime(), Date.parse(task.updatedAt) + 1)).toISOString();
       if (!this.repository.updateById(id, changes, updatedAt)) throw new TaskNotFoundError();
-      const fields = (Object.keys(input) as (keyof UpdateTask)[]).filter(key => input[key] !== task[key]);
-      this.repository.recordUpdate(id, randomUUID(), updatedAt, fields);
+      const fields = (Object.keys(input) as (keyof UpdateTask)[])
+        .filter(key => key !== 'status' && input[key] !== task[key]);
+      if (fields.length) this.repository.recordUpdate(id, randomUUID(), updatedAt, fields);
+      if (status !== task.status) {
+        const action = status === 'COMPLETED' ? 'COMPLETED'
+          : task.status === 'COMPLETED' ? 'REOPENED' : 'STATUS_CHANGED';
+        this.repository.createHistoryEvent({ id: randomUUID(), taskId: id, action,
+          createdAt: updatedAt, metadata: { from: task.status, to: status } });
+      }
       return this.findById(id);
     });
   }
@@ -85,11 +96,14 @@ export class TasksService {
       if (!this.projects.findById(input.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
       const timestamp = now.toISOString();
       const completed = input.status === 'COMPLETED';
-      return this.repository.create({
+      const task = this.repository.create({
         ...input, id: randomUUID(), done: completed, progress: completed ? 100 : 0,
         favorite: false, createdAt: timestamp, updatedAt: timestamp,
         deletedAt: null, undoUntil: null,
       });
+      this.repository.createHistoryEvent({ id: randomUUID(), taskId: task.id,
+        action: 'CREATED', createdAt: timestamp, metadata: {} });
+      return task;
     });
   }
 }

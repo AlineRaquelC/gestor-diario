@@ -45,9 +45,16 @@ export class TasksRepository {
   }
 
   recordUpdate(taskId: string, id: string, createdAt: string, fields: string[]) {
-    this.db.insert(taskHistory).values({
-      id, taskId, action: 'UPDATED', createdAt, metadata: { fields },
-    }).run();
+    this.createHistoryEvent({ id, taskId, action: 'UPDATED', createdAt, metadata: { fields } });
+  }
+
+  createHistoryEvent(event: typeof taskHistory.$inferInsert) {
+    this.db.insert(taskHistory).values(event).run();
+  }
+
+  findHistoryByTaskId(taskId: string) {
+    return this.db.select().from(taskHistory).where(eq(taskHistory.taskId, taskId))
+      .orderBy(asc(taskHistory.createdAt), asc(taskHistory.id)).all();
   }
 
   transaction<T>(work: () => T): T {
