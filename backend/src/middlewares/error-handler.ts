@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { TaskValidationError } from '../errors/tasks.js';
+import { TaskValidationError, TaskNotFoundError } from '../errors/tasks.js';
 import { ProjectError } from '../errors/projects.js';
 
 export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, next) => {
@@ -13,6 +13,11 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
 
   if (error instanceof TaskValidationError) {
     res.status(400).json({ error: { code: error.code, message: error.message } });
+    return;
+  }
+
+  if (error instanceof TaskNotFoundError) {
+    res.status(404).json({ error: { code: error.code, message: error.message } });
     return;
   }
 

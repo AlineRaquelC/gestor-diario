@@ -19,12 +19,14 @@ export async function apiRequest<T>(path: string, method = 'GET', body?: unknown
     });
     const data = await response.json() as { error?: { message?: string; code?: string } };
     if (!response.ok) {
-      throw new ApiError(data.error?.message ?? 'Não foi possível salvar na API.', response.status, data.error?.code);
+      throw new ApiError(data.error?.message ?? (method === 'GET' ? 'Não foi possível consultar a API.' : 'Não foi possível salvar na API.'), response.status, data.error?.code);
     }
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) {throw error;}
-    throw new ApiError('Não foi possível confirmar o salvamento. Verifique a conexão e o backend antes de tentar novamente.');
+    throw new ApiError(method === 'GET'
+      ? 'Não foi possível consultar tarefas. Verifique a conexão e o backend.'
+      : 'Não foi possível confirmar o salvamento. Verifique a conexão e o backend antes de tentar novamente.');
   } finally {
     clearTimeout(timeout);
   }

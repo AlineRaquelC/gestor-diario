@@ -1,10 +1,11 @@
+import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import request from 'supertest';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { openDatabase } from '../src/database/index.js';
 import { migrationsFolder } from '../src/database/config.js';
-import { projects, tasks, taskHistory } from '../src/database/schema/index.js';
+import { projects, tasks, taskHistory, subtasks } from '../src/database/schema/index.js';
 import { localToday, TasksService } from '../src/services/tasks.js';
 import { TasksRepository } from '../src/repositories/tasks.js';
 import { ProjectsRepository } from '../src/repositories/projects.js';
@@ -13,7 +14,7 @@ let connection: ReturnType<typeof openDatabase>;
 let app: ReturnType<typeof createApp>;
 const valid = { title: 'Tarefa', projectId: 'p', startDate: '2026-10-02', dueDate: '2026-10-03', priority: 'HIGH' };
 
-describe('POST /tasks', () => {
+describe('API de tarefas — criação e consulta', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-03T01:00:00.000Z')); // Still Oct 2 in Sao Paulo.
@@ -100,7 +101,65 @@ describe('POST /tasks', () => {
     expect(response.status).toBe(200); expect(response.body).toEqual({ status: 'ok' });
   });
 
-  it.each(['get', 'patch', 'delete'] as const)('não implementa %s /tasks', async method => {
+  it('consulta banco vazio com 200 []', async () => {
+    const response = await request(app).get('/tasks');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it('POST/GET preservam todos os campos SQLite, projeto e progresso persistido', async () => {
+    const created = await request(app).post('/tasks').send({ ...valid, description: 'Persistida', time: '09:30' });
+    expect(created.status).toBe(201);
+    const id = created.body.id;
+    connection.db.update(tasks).set({ progress: 37, status: 'PARTIAL' }).where(eq(tasks.id, id)).run();
+    connection.db.insert(subtasks).values({ id: 's', taskId: id, title: 'Persistida', done: true }).run();
+    const expected = connection.db.select().from(tasks).where(eq(tasks.id, id)).get();
+    const children = connection.db.select().from(subtasks).all();
+    const project = connection.db.select().from(projects).get();
+    const list = await request(app).get('/tasks');
+    const detail = await request(app).get(`/tasks/${id}`);
+    expect(list.status).toBe(200);
+    expect(detail.status).toBe(200);
+    expect(detail.body).toEqual({ ...expected, project, subtasks: children });
+    expect(list.body).toEqual([detail.body]);
+    expect(detail.body.projectId).toBe('p');
+    expect(detail.body.progress).toBe(37);
+    expect((await request(app).get('/health')).status).toBe(200);
+  });
+
+  it('lista só tarefas ativas e não mistura subtarefas entre pais', async () => {
+    const first = (await request(app).post('/tasks').send(valid)).body;
+    const second = (await request(app).post('/tasks').send({ ...valid, title: 'Outra' })).body;
+    const deleted = (await request(app).post('/tasks').send(valid)).body;
+    connection.db.update(tasks).set({ deletedAt: new Date().toISOString() }).where(eq(tasks.id, deleted.id)).run();
+    connection.db.insert(subtasks).values({ id: 's', taskId: first.id, title: 'Filha' }).run();
+    const response = await request(app).get('/tasks');
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(2);
+    expect(response.body.find((task: { id: string }) => task.id === first.id).subtasks).toHaveLength(1);
+    expect(response.body.find((task: { id: string }) => task.id === second.id).subtasks).toEqual([]);
+    expect(response.body.some((task: { id: string }) => task.id === deleted.id)).toBe(false);
+  });
+
+  it.each(['missing', 'deleted'])('retorna 404 TASK_NOT_FOUND para %s', async id => {
+    if (id === 'deleted') {
+      connection.db.insert(tasks).values({ ...valid, priority: 'HIGH', id, deletedAt: new Date().toISOString() }).run();
+    }
+    const response = await request(app).get(`/tasks/${id}`);
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: { code: 'TASK_NOT_FOUND', message: 'Tarefa não encontrada.' } });
+  });
+
+  it('falha de consulta usa o padrão 500 sem expor detalhes internos', async () => {
+    const spy = vi.spyOn(connection.db, 'select').mockImplementation(() => { throw new Error('private database path'); });
+    try {
+      const response = await request(app).get('/tasks');
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno do servidor.' } });
+    } finally { spy.mockRestore(); }
+  });
+
+  it.each(['patch', 'delete'] as const)('não implementa %s /tasks', async method => {
     expect((await request(app)[method]('/tasks')).status).toBe(404);
   });
 });

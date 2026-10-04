@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { ProjectError } from '../errors/projects.js';
-import { TaskValidationError } from '../errors/tasks.js';
+import { TaskValidationError, TaskNotFoundError } from '../errors/tasks.js';
 import { ProjectsRepository } from '../repositories/projects.js';
 import { TasksRepository } from '../repositories/tasks.js';
 import type { CreateTask } from '../schemas/tasks.js';
@@ -27,6 +27,16 @@ export class TasksService {
     private readonly repository: TasksRepository,
     private readonly projects: ProjectsRepository,
   ) {}
+
+  findAll() {
+    return this.repository.findAll();
+  }
+
+  findById(id: string) {
+    const task = this.repository.findById(id);
+    if (!task) throw new TaskNotFoundError();
+    return task;
+  }
 
   create(input: CreateTask) {
     const now = new Date();

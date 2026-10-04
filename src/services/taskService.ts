@@ -1,4 +1,4 @@
-import type { Task, Priority, TaskStatus } from '../context/TaskContext';
+import type { Task, Priority, TaskStatus, Subtask } from '../context/TaskContext';
 import type { Project } from '../context/ProjectContext';
 import { apiRequest, ApiError } from './api';
 
@@ -9,6 +9,8 @@ export type ApiTask = {
   priority: 'LOW' | 'MEDIUM' | 'HIGH'; status: 'PENDING' | 'PARTIAL' | 'COMPLETED';
   done: boolean; progress: number; favorite: boolean;
   createdAt: string; updatedAt: string; deletedAt: string | null; undoUntil: string | null;
+  project?: { id: string; name: string; color: string; icon: string } | null;
+  subtasks?: Subtask[];
 };
 const priorities = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH' } as const;
 const statuses = { todo: 'PENDING', in_progress: 'PARTIAL', review: 'PARTIAL', completed: 'COMPLETED' } as const;
@@ -36,16 +38,28 @@ export function toApiTask(input: NewTask, projectId: string) {
   };
 }
 
-export function fromApiTask(task: ApiTask, draft: NewTask): Task {
+export function fromApiTask(task: ApiTask, draft?: Pick<Task, 'project' | 'subtasks' | 'reminders'>): Task {
   return {
     id: task.id, title: task.title, description: task.description ?? undefined,
-    project: draft.project, projectId: task.projectId, time: task.time ?? undefined,
+    project: task.project?.name ?? draft?.project ?? 'Projeto indisponível',
+    projectId: task.projectId, time: task.time ?? undefined,
     priority: mobilePriority[task.priority], status: mobileStatus[task.status], done: task.done,
     startDate: mobileDate(task.startDate), dueDate: mobileDate(task.dueDate),
     createdAt: task.createdAt, updatedAt: task.updatedAt,
-    // These fields are local-only until their dedicated Issues.
-    subtasks: draft.subtasks, reminders: draft.reminders,
+    progress: task.progress,
+    // Empty remote children do not erase local subtasks before Issue #8.
+    subtasks: task.subtasks?.length ? task.subtasks.map(({ id, title, done }) => ({ id, title, done })) : draft?.subtasks,
+    reminders: draft?.reminders,
   };
+}
+
+export async function getTasks(): Promise<Task[]> {
+  const response = await apiRequest<ApiTask[]>('/tasks');
+  return response.map(task => fromApiTask(task));
+}
+
+export async function getTaskById(id: string): Promise<Task> {
+  return fromApiTask(await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}`));
 }
 
 export async function resolveProject(project: Project): Promise<string> {

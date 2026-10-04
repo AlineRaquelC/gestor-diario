@@ -1,7 +1,7 @@
 # Mini API — Gestor Diário
 
 Mini API da Sprint 1, com base técnica (Issue #1), schema SQLite (Issue #2)
-CRUD de projetos (Issue #3) e criação de tarefas (Issue #4), conforme as ADRs 001 e 002.
+CRUD de projetos (Issue #3), criação (Issue #4) e consulta de tarefas (Issue #5), conforme as ADRs 001 e 002.
 
 ## Desenvolvimento local
 
@@ -200,8 +200,8 @@ antes de cada caso. A exclusão e os conflitos são conferidos também no banco.
 
 ## Criar tarefas — POST /tasks
 
-`POST /tasks` cria e retorna a tarefa persistida (HTTP 201). Não existem rotas
-GET, PATCH ou DELETE de tarefas nesta Issue. Exemplo de request:
+`POST /tasks` cria e retorna a tarefa persistida (HTTP 201). PATCH e DELETE
+de tarefas permanecem para suas Issues específicas. Exemplo de request:
 
 ```json
 {
@@ -255,3 +255,80 @@ Erros seguem o formato existente: 400 VALIDATION_ERROR (payload/data/regra invá
 404 PROJECT_NOT_FOUND (projeto inválido) e 500 INTERNAL_ERROR (falha inesperada).
 
 Integração Android: ver [configuração mobile](../docs/arquitetura/integracao-criacao-tarefas.md).
+
+
+## Consultar tarefas — GET /tasks e GET /tasks/:id
+
+Consulta segue Route → Controller → Service → Repository → Drizzle → SQLite.
+Não há filtros gerais nem paginação nesta etapa.
+
+```bash
+curl http://localhost:3000/tasks
+curl http://localhost:3000/tasks/ID_DA_TAREFA
+```
+
+`GET /tasks` retorna HTTP 200 e array de tarefas com `deletedAt = null`.
+Banco vazio retorna `[]`. A ordem estável por criação/ID é interna à consulta;
+não implementa controles de ordenação do MVP (Issue #21).
+`GET /tasks/:id` retorna HTTP 200 e um objeto com os mesmos campos persistidos
+retornados pelo POST, acrescidos de `project` (projeto relacionado) e `subtasks`
+(subtarefas já existentes no SQLite). IDs string existentes são aceitos.
+
+Exemplo de resposta de detalhe (200; a lista contém objetos deste formato):
+
+```json
+{
+  "id": "task-001",
+  "title": "Finalizar documentação",
+  "description": null,
+  "projectId": "project-001",
+  "startDate": "2026-10-03",
+  "dueDate": "2026-10-04",
+  "time": "18:00",
+  "priority": "HIGH",
+  "status": "PENDING",
+  "done": false,
+  "progress": 0,
+  "favorite": false,
+  "createdAt": "2026-10-03T12:00:00.000Z",
+  "updatedAt": "2026-10-03T12:00:00.000Z",
+  "deletedAt": null,
+  "undoUntil": null,
+  "project": {
+    "id": "project-001",
+    "name": "Faculdade",
+    "description": null,
+    "color": "#8B5CF6",
+    "icon": "🎓",
+    "createdAt": "2026-10-03T12:00:00.000Z",
+    "updatedAt": "2026-10-03T12:00:00.000Z",
+    "deletedAt": null
+  },
+  "subtasks": []
+}
+```
+
+`projectId` continua sendo o vínculo principal; `project` é informação derivada
+do relacionamento, sem cópia do nome na tabela de tarefas. O projeto pode ser
+exibido mesmo se tiver exclusão lógica em dados antigos; o join não oculta a tarefa.
+O adapter apresenta “Projeto indisponível” se essa informação não estiver disponível.
+O CRUD atual de projetos impede exclusão de projetos com tarefas vinculadas.
+
+Subtarefas consultadas possuem id, taskId, title, done, createdAt e updatedAt.
+Não há CRUD remoto de subtarefas (#8). `progress`, `done` e `status` são lidos como
+persistidos, sem recálculo ou alteração durante GET; a regra definitiva fica em #8.
+
+Tarefa inexistente ou logicamente excluída retorna HTTP 404:
+
+```json
+{"error":{"code":"TASK_NOT_FOUND","message":"Tarefa não encontrada."}}
+```
+
+Falha inesperada retorna HTTP 500 no padrão existente:
+
+```json
+{"error":{"code":"INTERNAL_ERROR","message":"Erro interno do servidor."}}
+```
+
+A migração continua explícita: `npm run db:migrate` antes de `npm run dev`.
+Veja o [contrato de consulta/cache no mobile](../docs/arquitetura/integracao-consulta-tarefas.md).
