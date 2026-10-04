@@ -15,6 +15,10 @@ import { SubtasksRepository } from './repositories/subtasks.js';
 import { SubtasksService } from './services/subtasks.js';
 import { SubtasksController } from './controllers/subtasks.js';
 import { createSubtasksRouter } from './routes/subtasks.js';
+import { NotesRepository } from './repositories/notes.js';
+import { NotesService } from './services/notes.js';
+import { NotesController } from './controllers/notes.js';
+import { createNotesRouter } from './routes/notes.js';
 
 // The entry point owns the database; tests inject an isolated connection.
 export function createApp(db: ReturnType<typeof openDatabase>['db']) {
@@ -28,6 +32,7 @@ export function createApp(db: ReturnType<typeof openDatabase>['db']) {
     new TasksService(new TasksRepository(db), new ProjectsRepository(db), new SubtasksRepository(db)),
   )));
   app.use('/tasks', createSubtasksRouter(new SubtasksController(new SubtasksService(new TasksRepository(db), new SubtasksRepository(db)))));
+  app.use('/tasks', createNotesRouter(new NotesController(new NotesService(new TasksRepository(db), new NotesRepository(db)))));
   app.use(errorHandler);
   return app;
 }
