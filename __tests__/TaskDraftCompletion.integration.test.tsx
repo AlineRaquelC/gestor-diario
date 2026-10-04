@@ -63,7 +63,7 @@ beforeEach(async () => {
   fetchMock.mockReset().mockImplementation(async (url, options) => {
     const path = new URL(url).pathname;
     const payload = options.body ? JSON.parse(options.body) : undefined;
-    if (options.method === 'GET') {return json(path.endsWith('/history') ? [] : path === '/tasks' ? remote ? [remote] : [] : remote);}
+    if (options.method === 'GET') {return json(path.endsWith('/history') || path.endsWith('/notes') ? [] : path === '/tasks' ? remote ? [remote] : [] : remote);}
     if (options.method === 'POST' && path === '/tasks') {
       remote = { ...payload, id: 'task', projectId: 'remote-p', favorite: false, description: '', time: '10:00',
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: null, undoUntil: null,

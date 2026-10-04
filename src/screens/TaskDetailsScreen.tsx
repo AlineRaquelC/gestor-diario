@@ -17,6 +17,7 @@ import {
 
 import {useTasks} from '../context/TaskContext';
 import {presentTaskHistory} from '../models/taskHistory';
+import TaskNotesSection from '../components/TaskNotesSection';
 
 export default function TaskDetailsScreen() {
   const navigation = useNavigation<any>();
@@ -504,6 +505,8 @@ export default function TaskDetailsScreen() {
           )}
 
         </View>
+
+        <TaskNotesSection key={taskId} taskId={taskId} />
 
         {/* Atividade */}
         <View style={styles.card}>

@@ -13,7 +13,7 @@ const toggle = jest.fn();
 let renderer: ReactTestRenderer.ReactTestRenderer;
 const text = () => JSON.stringify(renderer.toJSON());
 async function mount(events: unknown[] = []) {
-  jest.mocked(useTasks).mockReturnValue({ tasks: [task], loading: false, taskHistory: { task: events }, loadTaskHistory: load, toggleTask: toggle, updateTaskLocal: jest.fn(), deleteTask: jest.fn(), loadTaskById: jest.fn() } as unknown as ReturnType<typeof useTasks>);
+  jest.mocked(useTasks).mockReturnValue({ tasks: [task], loading: false, taskHistory: { task: events }, loadTaskHistory: load, taskNotes: {}, loadTaskNotes: jest.fn().mockResolvedValue(undefined), toggleTask: toggle, updateTaskLocal: jest.fn(), deleteTask: jest.fn(), loadTaskById: jest.fn() } as unknown as ReturnType<typeof useTasks>);
   await act(async () => { renderer = ReactTestRenderer.create(<TaskDetailsScreen />); });
 }
 beforeEach(() => { load.mockReset().mockResolvedValue(undefined); toggle.mockReset(); });

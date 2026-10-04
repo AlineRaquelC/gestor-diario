@@ -15,6 +15,9 @@ import { getTaskHistory, createSubtask, updateSubtask, deleteSubtask, mergeSubta
 import type { NewTask, TaskHistoryEvent } from '../services/taskService';
 import { normalizeTaskStatus } from '../models/taskStatus';
 import type { TaskStatus } from '../models/taskStatus';
+import { getTaskNotes, createTaskNote, updateTaskNote, deleteTaskNote } from '../services/noteService';
+import { sortNotes } from '../models/note';
+import type { Note } from '../models/note';
 export type { TaskStatus } from '../models/taskStatus';
 
 export type Priority =
@@ -66,6 +69,11 @@ type TaskContextType = {
   loadTaskById: (id: string) => Promise<Task>;
   taskHistory: Record<string, TaskHistoryEvent[]>;
   loadTaskHistory: (id: string) => Promise<void>;
+  taskNotes: Record<string, Note[]>;
+  loadTaskNotes: (id: string) => Promise<void>;
+  addTaskNote: (id: string, content: string) => Promise<{ cacheSaved: boolean }>;
+  editTaskNote: (id: string, noteId: string, content: string) => Promise<{ cacheSaved: boolean }>;
+  removeTaskNote: (id: string, noteId: string) => Promise<{ cacheSaved: boolean }>;
 
   toggleTask: (
     id: string,
@@ -140,6 +148,17 @@ export function TaskProvider({
   tasksRef.current = tasks;
   const creating = useRef(false);
   const updating = useRef(new Set<string>());
+  // Confirmed notes are kept separately from Task and its persisted cache.
+  const [taskNotes, setTaskNotes] = useState<Record<string, Note[]>>({});
+  const notesRequests = useRef(new Map<string, number>());
+  const loadTaskNotes = useCallback(async (id: string) => {
+    const request = (notesRequests.current.get(id) ?? 0) + 1;
+    notesRequests.current.set(id, request);
+    const notes = await getTaskNotes(id);
+    if (notesRequests.current.get(id) === request) {
+      setTaskNotes(current => ({ ...current, [id]: sortNotes(notes) }));
+    }
+  }, []);
   const [taskHistory, setTaskHistory] = useState<Record<string, TaskHistoryEvent[]>>({});
   const historyRequests = useRef(new Map<string, number>());
   const loadTaskHistory = useCallback(async (id: string) => {
@@ -375,6 +394,30 @@ export function TaskProvider({
   const toggleSubtask = (id: string, childId: string) => mutateSubtask(id, task => updateSubtask(id, childId, { done: !remoteChild(task, childId).done }));
   const removeSubtask = (id: string, childId: string) => mutateSubtask(id, task => { remoteChild(task, childId); return deleteSubtask(id, childId); });
 
+  async function mutateNote(id: string, operation: () => Promise<Note | { id: string; taskId: string; updatedAt: string }>, remove = false) {
+    if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    if (!tasksRef.current.some(task => task.id === id)) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
+    updating.current.add(id);
+    try {
+      const confirmed = await operation();
+      // Invalidate an older GET so it cannot undo the confirmed mutation.
+      notesRequests.current.set(id, (notesRequests.current.get(id) ?? 0) + 1);
+      setTaskNotes(current => ({ ...current, [id]: sortNotes([
+        ...(current[id] ?? []).filter(note => note.id !== confirmed.id),
+        ...(!remove && 'content' in confirmed ? [confirmed] : []),
+      ]) }));
+      const next = tasksRef.current.map(task => task.id === id ? { ...task, updatedAt: confirmed.updatedAt } : task);
+      tasksRef.current = next;
+      setTasks(next);
+      try { await persistTasks(next); return { cacheSaved: true }; }
+      catch { return { cacheSaved: false }; }
+    } finally { updating.current.delete(id); }
+  }
+  const addTaskNote = (id: string, content: string) => mutateNote(id, () => createTaskNote(id, content));
+  const editTaskNote = (id: string, noteId: string, content: string) => mutateNote(id, () => updateTaskNote(id, noteId, content));
+  const removeTaskNote = (id: string, noteId: string) => mutateNote(id, () => deleteTaskNote(id, noteId), true);
+
   function getTaskById(
     id: string,
   ) {
@@ -393,6 +436,11 @@ export function TaskProvider({
         loadTaskById,
         taskHistory,
         loadTaskHistory,
+        taskNotes,
+        loadTaskNotes,
+        addTaskNote,
+        editTaskNote,
+        removeTaskNote,
         toggleTask,
         deleteTask,
         addTask,
