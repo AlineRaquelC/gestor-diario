@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   ScrollView,
   View,
@@ -7,6 +7,7 @@ import {
   Pressable,
   StatusBar,
   Alert,
+  AppState,
 } from 'react-native';
 
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -17,6 +18,10 @@ import {
   useTasks,
   Task,
 } from '../context/TaskContext';
+
+import {useProjects} from '../context/ProjectContext';
+import {dashboardDate, dashboardMetrics, greeting, isCompleted, percentage as completionPercentage, projectMetrics} from '../utils/dashboard';
+import type {DashboardPeriod} from '../utils/dashboard';
 
 const priorityColors = {
   high: '#F43F5E',
@@ -34,24 +39,24 @@ export default function HomeScreen() {
     readError,
   } = useTasks();
 
-  const doneTasks = tasks.filter(
-    task => task.done,
-  );
-
-  const pendingTasks = tasks.filter(
-    task => !task.done,
-  );
-
-  const urgentTasks = pendingTasks.filter(
-    task => task.priority === 'high',
-  );
-
-  const progress =
-    tasks.length > 0
-      ? Math.round(
-          (doneTasks.length / tasks.length) * 100,
-        )
-      : 0;
+  const {projects, hydrated} = useProjects();
+  const [period, setPeriod] = useState<DashboardPeriod>('today');
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const refresh = () => setNow(new Date());
+    const timer = setInterval(refresh, 60000);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {refresh();}
+    });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, []);
+  const doneTasks = tasks.filter(isCompleted);
+  const pendingTasks = tasks.filter(task => !isCompleted(task));
+  const metrics = dashboardMetrics(tasks, period, now);
+  const progress = metrics.progress;
+  // Context appends newly created projects; show the last three with linked tasks.
+  const activeProjects = projectMetrics(projects, tasks).filter(project => project.total > 0).reverse().slice(0, 3);
+  const progressTitle = {today: 'Progresso de hoje', week: 'Progresso da semana', month: 'Progresso do mês'}[period];
 
   async function handleToggle(id: string) {
     try {
@@ -83,11 +88,11 @@ export default function HomeScreen() {
           <View style={styles.headerTextContainer}>
 
             <Text style={styles.date}>
-              Domingo, 20 de setembro
+              {dashboardDate(now)}
             </Text>
 
             <Text style={styles.greeting}>
-              Bom dia, Aline! 👋
+              {greeting(now)} 👋
             </Text>
 
           </View>
@@ -108,18 +113,28 @@ export default function HomeScreen() {
 
         </View>
 
+        <View style={styles.periodSelector}>
+          {([['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês']] as const).map(([value, label]) => (
+            <Pressable key={value} accessibilityRole="button" accessibilityState={{selected: period === value}}
+              onPress={() => setPeriod(value)} style={[styles.periodChip, period === value && styles.periodChipSelected]}>
+              <Text style={[styles.periodText, period === value && styles.periodTextSelected]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.metricsHint}>Por prazo · Atrasadas e projetos: total geral</Text>
+
         {/* Progresso */}
         <View style={styles.progressCard}>
 
           <Text style={styles.progressLabel}>
-            Progresso de hoje
+            {progressTitle}
           </Text>
 
           <Text style={styles.progressValue}>
-            {doneTasks.length}
+            {metrics.completed}
 
             <Text style={styles.progressTotal}>
-              /{tasks.length}
+              /{metrics.total}
             </Text>
           </Text>
 
@@ -150,15 +165,15 @@ export default function HomeScreen() {
         <View style={styles.statsContainer}>
 
           <StatCard
-            value={urgentTasks.length}
-            label="Urgentes"
+            value={metrics.overdue}
+            label="Atrasadas"
             emoji="🔴"
             background="#FFF1F3"
             color="#F43F5E"
           />
 
           <StatCard
-            value={pendingTasks.length}
+            value={metrics.pending}
             label="Pendentes"
             emoji="📋"
             background="#F3F2FF"
@@ -166,7 +181,7 @@ export default function HomeScreen() {
           />
 
           <StatCard
-            value={doneTasks.length}
+            value={metrics.completed}
             label="Concluídas"
             emoji="✅"
             background="#F0FDF4"
@@ -197,29 +212,12 @@ export default function HomeScreen() {
 
         </View>
 
-        <ProjectCard
-          emoji="💻"
-          name="Desenvolvimento"
-          completed={7}
-          total={15}
-          color="#5C4DFF"
-        />
-
-        <ProjectCard
-          emoji="📣"
-          name="Marketing"
-          completed={3}
-          total={8}
-          color="#F43F5E"
-        />
-
-        <ProjectCard
-          emoji="📦"
-          name="Produto"
-          completed={2}
-          total={6}
-          color="#FBBF24"
-        />
+        {!hydrated ? <Text style={styles.emptyStateText}>Carregando projetos…</Text> : activeProjects.length === 0 ? (
+          <Text style={styles.emptyStateText}>Nenhum projeto com tarefas vinculadas.</Text>
+        ) : activeProjects.map(project => (
+          <ProjectCard key={project.id} emoji={project.icon} name={project.name}
+            completed={project.completed} total={project.total} color={project.color} />
+        ))}
 
         {/* Tarefas pendentes */}
         <Text style={styles.sectionTitle}>
@@ -375,9 +373,7 @@ function ProjectCard({
   color: string;
 }) {
   const percentage =
-    Math.round(
-      (completed / total) * 100,
-    );
+    completionPercentage(completed, total);
 
   return (
     <View style={styles.projectCard}>
@@ -515,6 +511,12 @@ function TaskCard({
 }
 
 const styles = StyleSheet.create({
+  periodSelector: {flexDirection: 'row', gap: 8, marginBottom: 8},
+  periodChip: {paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F3F2FF'},
+  periodChipSelected: {backgroundColor: '#5C4DFF'},
+  periodText: {color: '#5C4DFF', fontWeight: '600'},
+  periodTextSelected: {color: '#FFFFFF'},
+  metricsHint: {color: '#6B7280', fontSize: 12, marginBottom: 12},
 
   container: {
     flex: 1,
