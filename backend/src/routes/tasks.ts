@@ -5,6 +5,7 @@ export function createTasksRouter(controller: TasksController) {
   const router = Router();
   router.get('/', controller.findAll);
   router.get('/:id', controller.findById);
+  router.patch('/:id', controller.update);
   router.post('/', controller.create);
   return router;
 }

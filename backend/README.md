@@ -1,7 +1,7 @@
 # Mini API — Gestor Diário
 
 Mini API da Sprint 1, com base técnica (Issue #1), schema SQLite (Issue #2)
-CRUD de projetos (Issue #3), criação (Issue #4) e consulta de tarefas (Issue #5), conforme as ADRs 001 e 002.
+CRUD de projetos (Issue #3), criação (Issue #4), consulta (Issue #5) e edição de tarefas (Issue #6), conforme as ADRs 001 e 002.
 
 ## Desenvolvimento local
 
@@ -200,8 +200,8 @@ antes de cada caso. A exclusão e os conflitos são conferidos também no banco.
 
 ## Criar tarefas — POST /tasks
 
-`POST /tasks` cria e retorna a tarefa persistida (HTTP 201). PATCH e DELETE
-de tarefas permanecem para suas Issues específicas. Exemplo de request:
+`POST /tasks` cria e retorna a tarefa persistida (HTTP 201). DELETE
+de tarefas permanece para sua Issue específica. Exemplo de request:
 
 ```json
 {
@@ -332,3 +332,56 @@ Falha inesperada retorna HTTP 500 no padrão existente:
 
 A migração continua explícita: `npm run db:migrate` antes de `npm run dev`.
 Veja o [contrato de consulta/cache no mobile](../docs/arquitetura/integracao-consulta-tarefas.md).
+
+## Editar tarefas — PATCH /tasks/:id
+
+Atualização segue Route → Controller → Service → Repository → Drizzle → SQLite.
+O payload é parcial: aceita `title`, `description`, `projectId`, `startDate`,
+`dueDate`, `time`, `priority` e `status`. Campos omitidos permanecem inalterados.
+`description: null` e `time: null` limpam os valores opcionais. Título e projectId
+não podem ser vazios; prioridade/status e HH:mm seguem os enums/formatos de POST.
+Campos desconhecidos, payload vazio e tentativas de alterar IDs/timestamps são rejeitados.
+
+```bash
+curl -i -X PATCH http://localhost:3000/tasks/ID_DA_TAREFA \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Documentação revisada","priority":"HIGH","projectId":"ID_DO_PROJETO_ATIVO"}'
+```
+
+Resposta HTTP 200: objeto completo no formato de GET /tasks/:id, com os campos
+atualizados, projeto relacionado e subtarefas persistidas. Exemplo abreviado:
+
+```json
+{
+  "id": "task-001",
+  "title": "Documentação revisada",
+  "projectId": "project-002",
+  "priority": "HIGH",
+  "createdAt": "2026-10-03T12:00:00.000Z",
+  "updatedAt": "2026-10-03T13:00:00.000Z"
+}
+```
+
+`projectId` é a identidade do vínculo e deve apontar para projeto existente e ativo.
+O nome retornado em `project` é derivado do relacionamento. Cada edição confirmada
+atualiza `updatedAt` em ISO UTC (inclusive edições rápidas); `createdAt` não muda.
+
+Datas devem ser dias reais YYYY-MM-DD. O Service combina os campos enviados com
+os atuais e sempre exige `dueDate >= startDate`. Início antigo no passado pode
+ser preservado, inclusive quando reenviado sem mudar o dia. Se o dia de início
+for alterado, deve ser hoje ou futuro em `TASK_TIMEZONE` (America/Sao_Paulo por padrão).
+
+- HTTP 400: `{"error":{"code":"VALIDATION_ERROR","message":"O prazo não pode ser anterior à data de início."}}`
+  (a mensagem varia conforme a validação).
+- HTTP 404, tarefa ausente/excluída: `{"error":{"code":"TASK_NOT_FOUND","message":"Tarefa não encontrada."}}`.
+- HTTP 404, projeto ausente/excluído: `{"error":{"code":"PROJECT_NOT_FOUND","message":"Projeto não encontrado."}}`.
+- HTTP 500: padrão `INTERNAL_ERROR` existente, sem detalhes internos.
+
+A edição e um evento técnico `UPDATED`, com `metadata.fields` contendo nomes
+dos campos efetivamente alterados, são gravados na mesma transação IMMEDIATE.
+Não há novos endpoints/tela de histórico nem outros eventos; o histórico completo
+fica na Issue #7. Subtarefas não são editadas neste PATCH (#8). Mudança explícita
+de status mantém `done` coerente e reutiliza a regra existente de progresso para
+tarefas sem subtarefas; não recalcula progresso de subtarefas.
+
+Veja a [integração de edição/cache](../docs/arquitetura/integracao-edicao-tarefas.md).
