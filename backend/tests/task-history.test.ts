@@ -68,7 +68,7 @@ it('edição comum preserva UPDATED; reenvio sem alterações não duplica event
   await request(app).patch(`/tasks/${task.id}`).send({ description: 'Nova' });
   expect((await events(task.id)).map(event => event.action)).toEqual(['CREATED', 'UPDATED']);
 });
-it('concluir com filhos força 100, reabrir zera 100 e preserva subtarefas', async () => {
+it('concluir com filhos força 100, reabrir zera 100 e preserva subtarefas e aplica conclusão coletiva', async () => {
   const task = await create('PARTIAL');
   connection.db.insert(subtasks).values({ id: 'child', taskId: task.id, title: 'Local remota' }).run();
   connection.db.update(tasks).set({ progress: 37 }).where(eq(tasks.id, task.id)).run();
@@ -78,10 +78,10 @@ it('concluir com filhos força 100, reabrir zera 100 e preserva subtarefas', asy
   expect(reopened.body).toMatchObject({ done: false, progress: 0 });
   expect(connection.db.select().from(subtasks).get()?.done).toBe(false);
 });
-it('PENDING ↔ PARTIAL preserva progresso intermediário sem recalcular filhos', async () => {
+it('PENDING ↔ PARTIAL sem filhos aplica progresso zero do modelo', async () => {
   const task = await create();
   connection.db.update(tasks).set({ progress: 37 }).where(eq(tasks.id, task.id)).run();
-  expect((await request(app).patch(`/tasks/${task.id}`).send({ status: 'PARTIAL' })).body.progress).toBe(37);
+  expect((await request(app).patch(`/tasks/${task.id}`).send({ status: 'PARTIAL' })).body.progress).toBe(0);
 });
 it.each(['PENDING', 'PARTIAL', 'COMPLETED'])('backend corrige done legado incoerente para %s sem transição falsa', async status => {
   const task = await create(status);

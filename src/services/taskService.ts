@@ -42,6 +42,7 @@ export function toApiTask(input: NewTask, projectId: string) {
     title: input.title, description: input.description, projectId,
     startDate: calendarDate(input.startDate), dueDate: calendarDate(input.dueDate),
     time: input.time || undefined, priority: priorities[input.priority], status: statuses[input.status],
+    ...(input.subtasks?.length ? { subtasks: input.subtasks.map(child => ({ title: child.title })) } : {}),
   };
 }
 
@@ -54,11 +55,27 @@ export function fromApiTask(task: ApiTask, draft?: Pick<Task, 'project' | 'subta
     startDate: mobileDate(task.startDate), dueDate: mobileDate(task.dueDate),
     createdAt: task.createdAt, updatedAt: task.updatedAt,
     progress: task.progress,
-    // Empty remote children do not erase local subtasks before Issue #8.
-    subtasks: task.subtasks?.length ? task.subtasks.map(({ id, title, done }) => ({ id, title, done })) : draft?.subtasks,
+    subtasks: mergeSubtasks(task.subtasks?.map(({ id, title, done }) => ({ id, title, done, remote: true })), draft?.subtasks),
     reminders: draft?.reminders,
   };
 }
+
+export function mergeSubtasks(remote: Subtask[] | undefined, cached: Subtask[] | undefined) {
+  if (remote === undefined) {return cached;}
+  const confirmed = new Map(remote.map(child => [child.id, child]));
+  for (const child of cached ?? []) {
+    if (!child.remote && !confirmed.has(child.id)) {confirmed.set(child.id, child);}
+  }
+  return [...confirmed.values()];
+}
+const subtaskPath = (taskId: string, subtaskId?: string) => `/tasks/${encodeURIComponent(taskId)}/subtasks${subtaskId === undefined ? '' : '/' + encodeURIComponent(subtaskId)}`;
+async function subtaskRequest(path: string, method: string, payload?: unknown): Promise<Task> {
+  const result = await apiRequest<{ task: ApiTask }>(path, method, payload);
+  return fromApiTask(result.task);
+}
+export const createSubtask = (taskId: string, title: string) => subtaskRequest(subtaskPath(taskId), 'POST', { title });
+export const updateSubtask = (taskId: string, id: string, changes: { title?: string; done?: boolean }) => subtaskRequest(subtaskPath(taskId, id), 'PATCH', changes);
+export const deleteSubtask = (taskId: string, id: string) => subtaskRequest(subtaskPath(taskId, id), 'DELETE');
 
 export async function getTasks(): Promise<Task[]> {
   const response = await apiRequest<ApiTask[]>('/tasks');
@@ -108,5 +125,7 @@ export async function resolveProject(project: Project): Promise<string> {
 
 export async function createTask(input: NewTask, projectId: string): Promise<Task> {
   const response = await apiRequest<ApiTask>('/tasks', 'POST', toApiTask(input, projectId));
-  return fromApiTask(response, input);
+  // Draft IDs are temporary. Their confirmed replacements come from SQLite;
+  // merging them as local children would duplicate the submitted subtasks.
+  return fromApiTask(response, { ...input, subtasks: undefined });
 }

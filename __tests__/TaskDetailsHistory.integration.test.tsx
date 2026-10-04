@@ -61,3 +61,22 @@ it('falha de conclusão informa erro e não exibe conclusão falsa', async () =>
   expect(text()).not.toContain('Tarefa concluída!');
   expect(mockNavigation.navigate).not.toHaveBeenCalled();
 });
+
+it('toque no filho usa operação remota, aguarda confirmação e informa falha', async () => {
+  const change = jest.fn();
+  let finish!: () => void;
+  change.mockImplementation(() => new Promise<{ cacheSaved: boolean }>(resolve => { finish = () => resolve({ cacheSaved: true }); }));
+  await mount(); await act(async () => renderer.unmount());
+  jest.mocked(useTasks).mockReturnValue({ ...useTasks(), tasks: [{ ...task, subtasks: [{ id: 's', title: 'Filha real', done: false, remote: true }] }], toggleSubtask: change } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => { renderer = ReactTestRenderer.create(<TaskDetailsScreen />); });
+  const row = () => renderer.root.findAll(node => typeof node.props.onPress === 'function').find(node => node.findAll(child => String(child.type) === 'Text').some(child => child.props.children === 'Filha real'))!;
+  let pending!: Promise<void>;
+  await act(async () => { pending = row().props.onPress(); });
+  expect(change).toHaveBeenCalledWith('task', 's'); expect(row().props.disabled).toBe(true);
+  await act(async () => { finish(); await pending; });
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  change.mockRejectedValue(new Error('offline'));
+  await act(async () => { await row().props.onPress(); });
+  expect(alert).toHaveBeenCalledWith('Não foi possível alterar a subtarefa', 'offline');
+  expect(text()).toContain('Filha real'); expect(row().props.disabled).toBe(false);
+});

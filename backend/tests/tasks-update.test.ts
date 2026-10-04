@@ -126,11 +126,11 @@ describe('PATCH /tasks/:id', () => {
     expect(history().map(event => event.action)).toEqual(status === 'PARTIAL' ? [] : [status === 'COMPLETED' ? 'COMPLETED' : 'STATUS_CHANGED']);
   });
 
-  it('não recalcula progress nem altera subtarefas durante edição de outros campos', async () => {
+  it('recalcula progress por filhos sem modificar seus campos durante edição', async () => {
     connection.db.update(tasks).set({ progress: 37 }).where(eq(tasks.id, original.id)).run();
     connection.db.insert(subtasks).values({ id: 's', taskId: original.id, title: 'Filha' }).run();
     const response = await patch({ title: 'Nova', status: 'PARTIAL' });
-    expect(response.body.progress).toBe(37);
+    expect(response.body.progress).toBe(0);
     expect(response.body.subtasks).toHaveLength(1);
     expect(connection.db.select().from(subtasks).get()?.title).toBe('Filha');
   });

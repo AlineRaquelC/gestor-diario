@@ -2,6 +2,7 @@ import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { TaskValidationError, TaskNotFoundError } from '../errors/tasks.js';
 import { ProjectError } from '../errors/projects.js';
+import { SubtaskNotFoundError } from '../errors/subtasks.js';
 
 export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, next) => {
   if (res.headersSent) return next(error);
@@ -16,7 +17,7 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
     return;
   }
 
-  if (error instanceof TaskNotFoundError) {
+  if (error instanceof TaskNotFoundError || error instanceof SubtaskNotFoundError) {
     res.status(404).json({ error: { code: error.code, message: error.message } });
     return;
   }

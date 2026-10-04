@@ -11,7 +11,7 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProjects } from './ProjectContext';
 import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask } from '../services/taskService';
-import { getTaskHistory } from '../services/taskService';
+import { getTaskHistory, createSubtask, updateSubtask, deleteSubtask, mergeSubtasks } from '../services/taskService';
 import type { NewTask, TaskHistoryEvent } from '../services/taskService';
 import { normalizeTaskStatus } from '../models/taskStatus';
 import type { TaskStatus } from '../models/taskStatus';
@@ -26,6 +26,7 @@ export type Subtask = {
   id: string;
   title: string;
   done: boolean;
+  remote?: boolean;
 };
 
 export type Task = {
@@ -84,6 +85,9 @@ type TaskContextType = {
   ) => Promise<{ task: Task; cacheSaved: boolean }>;
 
   updateTaskLocal: (id: string, changes: Partial<Task>) => void;
+  addSubtask: (taskId: string, title: string) => Promise<{ task: Task; cacheSaved: boolean }>;
+  toggleSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean }>;
+  removeSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean }>;
 
   getTaskById: (
     id: string,
@@ -107,7 +111,7 @@ function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
     if (cached?.updatedAt && task.updatedAt && Date.parse(task.updatedAt) < Date.parse(cached.updatedAt)) {continue;}
     byId.set(task.id, normalize({
       ...cached, ...task,
-      subtasks: task.subtasks ?? cached?.subtasks,
+      subtasks: mergeSubtasks(task.subtasks, cached?.subtasks),
       reminders: task.reminders ?? cached?.reminders,
     }));
   }
@@ -306,9 +310,13 @@ export function TaskProvider({
         }
       }
       const remote = await patchTask(id, payload, current);
+      const confirmedSubtasks = mergeSubtasks(remote.subtasks, changes.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks);
+      // Old cache-only children are not uploaded. A confirmed collective action
+      // applies to their actual cached done values as well as remote children.
+      const collective = changes.status === 'completed' || changes.status === 'todo';
       const task: Task = {
         ...remote,
-        subtasks: changes.subtasks ?? remote.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks,
+        subtasks: collective ? confirmedSubtasks?.map(child => child.remote ? child : { ...child, done: remote.done }) : confirmedSubtasks,
         reminders: changes.reminders ?? current.reminders,
       };
       const next = tasksRef.current.map(item => item.id === id ? task : item);
@@ -342,6 +350,31 @@ export function TaskProvider({
     );
   }
 
+  async function mutateSubtask(id: string, request: (current: Task) => Promise<Task>) {
+    if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    const current = tasksRef.current.find(task => task.id === id);
+    if (!current) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
+    updating.current.add(id);
+    try {
+      const remote = await request(current);
+      const task = { ...remote, subtasks: mergeSubtasks(remote.subtasks, current.subtasks), reminders: current.reminders };
+      const next = tasksRef.current.map(item => item.id === id ? task : item);
+      tasksRef.current = next;
+      setTasks(next);
+      try { await persistTasks(next); return { task, cacheSaved: true }; }
+      catch { return { task, cacheSaved: false }; }
+    } finally { updating.current.delete(id); }
+  }
+  function remoteChild(task: Task, id: string) {
+    const child = task.subtasks?.find(item => item.id === id);
+    if (!child?.remote) {throw new Error('Esta subtarefa está apenas no dispositivo e ainda não pode ser alterada no servidor.');}
+    return child;
+  }
+  const addSubtask = (id: string, title: string) => mutateSubtask(id, () => createSubtask(id, title));
+  const toggleSubtask = (id: string, childId: string) => mutateSubtask(id, task => updateSubtask(id, childId, { done: !remoteChild(task, childId).done }));
+  const removeSubtask = (id: string, childId: string) => mutateSubtask(id, task => { remoteChild(task, childId); return deleteSubtask(id, childId); });
+
   function getTaskById(
     id: string,
   ) {
@@ -365,6 +398,9 @@ export function TaskProvider({
         addTask,
         updateTask,
         updateTaskLocal,
+        addSubtask,
+        toggleSubtask,
+        removeSubtask,
         getTaskById,
       }}>
 

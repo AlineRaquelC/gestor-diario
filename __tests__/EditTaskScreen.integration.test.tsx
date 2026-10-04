@@ -61,3 +61,31 @@ it('horário inválido é rejeitado sem enviar PATCH', async () => {
   expect(patch).not.toHaveBeenCalled();
   expect(alert).toHaveBeenCalledWith('Horário inválido', expect.any(String));
 });
+
+it('mantém campo/lista e adiciona subtarefa pela API sem sucesso antecipado', async () => {
+  const create = jest.fn(); let finish!: (value: unknown) => void;
+  create.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  await act(async () => renderer.unmount());
+  jest.mocked(useTasks).mockReturnValue({ tasks: [task], updateTask: patch, deleteTask: jest.fn(), addSubtask: create, toggleSubtask: jest.fn(), removeSubtask: jest.fn() } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => { renderer = ReactTestRenderer.create(<EditTaskScreen />); });
+  const add = renderer.root.findAll(node => typeof node.props.onPress === 'function').find(node => node.findAll(child => String(child.type) === 'Text').some(child => String(child.props.children).includes('Adicionar subtarefa')))!;
+  await act(async () => add.props.onPress());
+  const input = renderer.root.findAllByType(TextInput).find(node => node.props.placeholder === 'Nome da subtarefa...')!;
+  await act(async () => input.props.onChangeText('Nova filha'));
+  let pending!: Promise<void>; await act(async () => { pending = input.props.onSubmitEditing(); });
+  expect(create).toHaveBeenCalledWith('task', 'Nova filha'); expect(JSON.stringify(renderer.toJSON())).not.toContain('Feita');
+  await act(async () => { finish({ task: { ...task, subtasks: [{ id: 'server-id', title: 'Nova filha', done: false, remote: true }] }, cacheSaved: true }); await pending; });
+  expect(JSON.stringify(renderer.toJSON())).toContain('Nova filha'); expect(patch).not.toHaveBeenCalled();
+});
+it('remover e marcar filho usam Context remoto; erro mantém lista', async () => {
+  const remove = jest.fn().mockRejectedValue(new Error('offline'));
+  const toggle = jest.fn().mockRejectedValue(new Error('offline'));
+  await act(async () => renderer.unmount());
+  jest.mocked(useTasks).mockReturnValue({ tasks: [{ ...task, subtasks: [{ id: 's', title: 'Filha', done: false, remote: true }] }], updateTask: patch, deleteTask: jest.fn(), removeSubtask: remove, toggleSubtask: toggle } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => { renderer = ReactTestRenderer.create(<EditTaskScreen />); });
+  await act(async () => { await button('✕').props.onPress(); });
+  expect(remove).toHaveBeenCalledWith('task', 's'); expect(alert).toHaveBeenCalledWith('Não foi possível alterar a subtarefa', 'offline');
+  expect(JSON.stringify(renderer.toJSON())).toContain('Filha');
+  const checkbox = renderer.root.findAll(node => typeof node.props.onPress === 'function').find(node => !node.findAll(child => String(child.type) === 'Text').length)!;
+  await act(async () => { await checkbox.props.onPress(); }); expect(toggle).toHaveBeenCalledWith('task', 's');
+});

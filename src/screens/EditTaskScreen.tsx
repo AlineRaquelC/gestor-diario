@@ -25,6 +25,7 @@ import {
   Priority,
   TaskStatus,
   Subtask,
+  Task,
 } from '../context/TaskContext';
 
 import {
@@ -92,6 +93,9 @@ export default function EditTaskScreen() {
     tasks,
     updateTask,
     deleteTask,
+    addSubtask: createChild,
+    toggleSubtask: toggleChild,
+    removeSubtask: removeChild,
   } = useTasks();
 
   const {
@@ -106,6 +110,8 @@ export default function EditTaskScreen() {
 
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
+  const [subtaskSaving, setSubtaskSaving] = useState<string | null>(null);
+  const subtaskRequest = useRef(false);
 
   if (!task) {
     return (
@@ -257,67 +263,36 @@ export default function EditTaskScreen() {
     setDirty(true);
   }
 
-  function toggleSubtask(
-    id: string,
-  ) {
-    setSubtasks(current =>
-      current.map(
-        subtask =>
-          subtask.id === id
-            ? {
-                ...subtask,
-                done:
-                  !subtask.done,
-              }
-            : subtask,
-      ),
-    );
-
-    markDirty();
-  }
-
-  function handleAddSubtask() {
-    if (
-      !newSubtask.trim()
-    ) {
-      return;
+  async function mutateSubtask(key: string, request: () => Promise<{ task: Task; cacheSaved: boolean }>) {
+    if (subtaskRequest.current || submitting.current) {return;}
+    subtaskRequest.current = true;
+    setSubtaskSaving(key);
+    try {
+      const result = await request();
+      setSubtasks(result.task.subtasks ?? []);
+      setStatus(result.task.status);
+      if (!result.cacheSaved) {Alert.alert('Subtarefa salva no servidor', 'Não foi possível atualizar o cache local.');}
+      return true;
+    } catch (error) {
+      Alert.alert('Não foi possível alterar a subtarefa', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+      return false;
+    } finally {
+      subtaskRequest.current = false;
+      setSubtaskSaving(null);
     }
-
-    setSubtasks(current => [
-      ...current,
-      {
-        id:
-          Date.now().toString(),
-
-        title:
-          newSubtask.trim(),
-
-        done:
-          false,
-      },
-    ]);
-
-    setNewSubtask('');
-    setAddingSubtask(false);
-
-    markDirty();
   }
-
-  function removeSubtask(
-    id: string,
-  ) {
-    setSubtasks(current =>
-      current.filter(
-        subtask =>
-          subtask.id !== id,
-      ),
-    );
-
-    markDirty();
+  const toggleSubtask = (id: string) => mutateSubtask(id, () => toggleChild(taskId, id));
+  const removeSubtask = (id: string) => mutateSubtask(id, () => removeChild(taskId, id));
+  async function handleAddSubtask() {
+    if (!newSubtask.trim()) {return;}
+    if (await mutateSubtask('new', () => createChild(taskId, newSubtask.trim()))) {
+      setNewSubtask('');
+      setAddingSubtask(false);
+    }
   }
 
   async function saveChanges() {
-    if (submitting.current) {return;}
+    if (submitting.current || subtaskRequest.current) {return;}
     if (!title.trim()) {
       Alert.alert('Título obrigatório', 'Informe um título para a tarefa.');
       return;
@@ -347,7 +322,7 @@ export default function EditTaskScreen() {
       const result = await updateTask(taskId, {
         title: title.trim(), description: description.trim(),
         projectId: selectedProject.id, time, priority, status,
-        startDate: startDate.toISOString(), dueDate: dueDate.toISOString(), subtasks,
+        startDate: startDate.toISOString(), dueDate: dueDate.toISOString(),
       });
       setDirty(false);
       Alert.alert('Alterações salvas', result.cacheSaved
@@ -941,6 +916,7 @@ export default function EditTaskScreen() {
                   ]}>
 
                   <Pressable
+                    disabled={subtaskSaving === subtask.id || saving}
                     style={[
                       styles.checkbox,
 
@@ -1001,6 +977,7 @@ export default function EditTaskScreen() {
                   </View>
 
                   <Pressable
+                    disabled={subtaskSaving === subtask.id || saving}
                     onPress={() =>
                       removeSubtask(
                         subtask.id,
@@ -1052,6 +1029,7 @@ export default function EditTaskScreen() {
                 />
 
                 <Pressable
+                  disabled={subtaskSaving !== null || saving}
                   style={
                     styles.confirmSmall
                   }
@@ -1211,7 +1189,7 @@ export default function EditTaskScreen() {
           style={
             styles.saveButton
           }
-          disabled={saving}
+          disabled={saving || subtaskSaving !== null}
           onPress={
             saveChanges
           }>
