@@ -310,9 +310,13 @@ export function TaskProvider({
         }
       }
       const remote = await patchTask(id, payload, current);
+      const confirmedSubtasks = mergeSubtasks(remote.subtasks, changes.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks);
+      // Old cache-only children are not uploaded. A confirmed collective action
+      // applies to their actual cached done values as well as remote children.
+      const collective = changes.status === 'completed' || changes.status === 'todo';
       const task: Task = {
         ...remote,
-        subtasks: mergeSubtasks(remote.subtasks, changes.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks),
+        subtasks: collective ? confirmedSubtasks?.map(child => child.remote ? child : { ...child, done: remote.done }) : confirmedSubtasks,
         reminders: changes.reminders ?? current.reminders,
       };
       const next = tasksRef.current.map(item => item.id === id ? task : item);

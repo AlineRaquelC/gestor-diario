@@ -104,14 +104,23 @@ export class TasksService {
       if (!this.projects.findById(input.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
       const timestamp = now.toISOString();
       const completed = input.status === 'COMPLETED';
+      const { subtasks: draftChildren = [], ...fields } = input;
+      const children = draftChildren.map((child, index) => ({
+        id: randomUUID(), title: child.title, done: completed,
+        // Preserve the draft order with the repository's existing ordering.
+        createdAt: new Date(now.getTime() + index).toISOString(),
+        updatedAt: new Date(now.getTime() + index).toISOString(),
+      }));
+      const updatedAt = children.at(-1)?.updatedAt ?? timestamp;
       const task = this.repository.create({
-        ...input, id: randomUUID(), done: completed, progress: completed ? 100 : 0,
-        favorite: false, createdAt: timestamp, updatedAt: timestamp,
+        ...fields, ...taskState(children, input.status), id: randomUUID(),
+        favorite: false, createdAt: timestamp, updatedAt,
         deletedAt: null, undoUntil: null,
       });
+      for (const child of children) this.subtasks.create({ ...child, taskId: task.id });
       this.repository.createHistoryEvent({ id: randomUUID(), taskId: task.id,
         action: 'CREATED', createdAt: timestamp, metadata: {} });
-      return task;
+      return children.length ? this.findById(task.id) : task;
     });
   }
 }

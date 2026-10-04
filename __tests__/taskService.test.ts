@@ -11,7 +11,7 @@ beforeEach(() => { global.fetch = fetchMock; fetchMock.mockReset(); });
 it('centraliza URL Android e mapeia calendário local, prioridade e status', () => {
   expect(API_BASE_URL).toBe('http://10.0.2.2:3000');
   expect(toApiTask(draft, 'remote-p')).toMatchObject({ projectId: 'remote-p', startDate: '2026-10-02', dueDate: '2026-10-03', priority: 'HIGH', status: 'PARTIAL' });
-  expect(toApiTask(draft, 'remote-p')).not.toHaveProperty('subtasks');
+  expect(toApiTask(draft, 'remote-p').subtasks).toEqual([{ title: 'Local' }]);
   expect(calendarDate('2026-10-02')).toBe('2026-10-02');
 });
 it.each([['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']] as const)('mapeia prioridade %s', (priority, expected) => {
@@ -32,6 +32,20 @@ it('faz um único POST e retorna ID do servidor', async () => {
   const [url, options] = fetchMock.mock.calls[0];
   expect(url).toBe(`${API_BASE_URL}/tasks`);
   expect(JSON.parse(options.body)).toMatchObject({ projectId: 'remote-p', priority: 'HIGH' });
+});
+it('criação usa apenas UUIDs confirmados dos quatro filhos do rascunho, sem duplicar IDs locais', async () => {
+  const subtasks = [1, 2, 3, 4].map(index => ({ id: 'local-' + index, title: 'Filho ' + index, done: false }));
+  const confirmed = subtasks.map((child, index) => ({ ...child, id: 'sqlite-' + index }));
+  fetchMock.mockResolvedValue(response({ ...remote, status: 'PENDING', subtasks: confirmed }, 201));
+  const task = await createTask({ ...draft, subtasks }, 'remote-p');
+  expect(task.subtasks).toEqual(confirmed.map(child => ({ ...child, remote: true })));
+  expect(task.subtasks).toHaveLength(4);
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).subtasks).toEqual(subtasks.map(({ title }) => ({ title })));
+  expect(task.reminders).toEqual(draft.reminders);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+it('sem filhos omite o campo e mantém contrato anterior de criação', () => {
+  expect(toApiTask({ ...draft, subtasks: [] }, 'p')).not.toHaveProperty('subtasks');
 });
 it('propaga erro HTTP sem repetir POST nem produzir tarefa local', async () => {
   fetchMock.mockResolvedValue(response({ error: { code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' } }, 404));

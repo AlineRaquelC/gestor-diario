@@ -80,25 +80,48 @@ Merge por ID usa valores remotos e remove filhos remotos que a API já removeu;
 preserva filhos exclusivamente locais, inclusive após GET com array vazio.
 Dados antigos sem marca cujo ID aparece na API passam a ser reconhecidos como
 remotos. IDs antigos não confirmados permanecem locais, sem upload silencioso.
-Tentar alterar/remover filho somente local informa essa limitação, sem apagá-lo.
-Eles permanecem visíveis, mas não participam do progresso calculado do servidor.
-Subtarefas do rascunho de Nova Tarefa continuam preservadas localmente pelo fluxo
-anterior; persistência remota ocorre pelas ações da tarefa existente na edição.
-Migração/sincronização definitiva desses dados pertence à #12, sem fila offline.
+Tentar alterar/remover individualmente filho somente local informa essa limitação,
+sem apagá-lo. A hidratação não faz upload de filhos antigos.
+
+O rascunho de Nova Tarefa envia os títulos em `subtasks` no POST /tasks. Pai,
+filhos e CREATED são criados atomicamente pelo TasksService, usando os repositories
+existentes. A resposta inclui os filhos persistidos, com UUIDs novos; o adapter
+substitui os IDs temporários, sem misturar o rascunho com a resposta e duplicar filhos.
+A ordem do rascunho é mantida por timestamps consecutivos de criação. O schema
+SQLite não mudou e PATCH do pai continua rejeitando arrays de subtarefas.
+
+Para tarefas que já ficaram com filhos somente locais, concluir/reabrir pelo pai
+continua passando pela API. Somente após confirmar o PATCH coletivo, o Context
+aplica `done` confirmado também aos filhos exclusivamente locais da própria tarefa
+no estado e no cache. Filhos remotos mantêm exatamente os valores retornados pela
+API. Isso altera dados reais de `subtasks[].done`, e não apenas a barra visual.
+Não envia filhos antigos ao servidor, não modifica outras tarefas e não cria
+histórico remoto fictício para dados locais. Falha no PATCH preserva toda a versão
+anterior; falha no cache após sucesso gera warning sem repetir a requisição.
+Esses filhos antigos continuam identificados como locais: persistência remota,
+edição individual e reconciliação definitiva permanecem limitadas pela #12.
+Tarefas novas não têm essa limitação no fluxo do rascunho: os filhos são remotos
+já na resposta da criação. Sync geral, fila offline e migração em massa continuam
+fora do escopo.
 
 ## Validação
 
-Backend: migrations existentes, typecheck e build aprovados. 215 testes em
-7 arquivos aprovados: 178 casos anteriores preservados e 37 novos. Dois casos
+Backend: migrations existentes, typecheck e build aprovados. 225 testes em
+8 arquivos aprovados: os 215 casos anteriores foram preservados, com 10 regressões
+de criação do rascunho, conclusão/reabertura e rollback. Dois casos
 anteriores tiveram expectativas atualizadas porque exigiam a regra temporária
 de progress da #7, substituída por RF10. Cobertura inclui título/UUID/timestamps,
 ownership/soft-delete, arredondamento, remoção do último filho, conclusão coletiva,
 histórico e rollback de filhos/pai/eventos.
 
-Mobile: 116 testes focados em 7 arquivos aprovados (90 anteriores + 26 novos).
+Mobile: 124 testes focados em 8 arquivos aprovados (116 anteriores + 8 regressões).
 Serviços, Context e telas cobrem mapping, erro HTTP/offline, concorrência,
 cache/reabertura, exclusão sem ressuscitar filho remoto, preservação de legado
 local e uso da operação remota pelas interfaces existentes.
+As novas regressões usam Nova Tarefa, Context e service reais com transporte/storage
+isolados: quatro filhos do rascunho → 2/4 → checkbox Home ou botão Detalhes →
+4/4, 100%, COMPLETED; reabrir → 0/4, 0%, PENDING. Cobrem cache/reabertura, offline,
+UUIDs sem duplicação e filhos locais atualizados somente após confirmação, sem upload.
 
 TypeScript global: mesmos 14 erros antes/depois, comparados por arquivo/código/
 mensagem ignorando deslocamento de linhas. Lint dos serviços, Context e testes
@@ -144,6 +167,35 @@ projeto Desenvolvimento, CREATED real 2026-10-04T14:35:23.112Z.
     exatamente iguais aos snapshots anteriores às três tentativas offline.
 
 Arquivos SQLite, dumps ADB, snapshots e auxiliares ficaram fora do versionamento.
+
+## Correção do bug manual — rascunho de Nova Tarefa
+
+Antes da correção, foi criada pela UI a tarefa Issue8-Repro-Atual
+(`dcad444c-f6c8-4d2b-9ad6-238a9efc5ded`) com quatro filhos no rascunho.
+GET retornava `subtasks: []`, enquanto Detalhes mostrava os quatro filhos locais.
+Home e Detalhes chamavam o mesmo toggleTask: a API concluía somente o pai conhecido,
+e o merge preservava os filhos pendentes do cache. Nos dois caminhos foi observado
+COMPLETED/100% com contador 0/4. A causa estava na omissão dos filhos no POST e
+na preservação do rascunho local após criar o pai, não no cálculo remoto por RF10.
+
+Após a correção, a tarefa Issue8-Fix-Rascunho
+(`0a93f8ca-8deb-416c-8717-e2c73fd276d9`, CREATED 2026-10-04T18:07:02.618Z)
+foi criada pela Nova Tarefa com Draft 1–4 antes do salvamento. A resposta da API
+já continha os quatro UUIDs persistidos, na ordem do rascunho, sem IDs locais duplicados.
+
+- Marcar Draft 1 e 2 em Detalhes: 2/4, 50%, PARTIAL/done=false na UI e no GET.
+- Concluir pelo checkbox da Home: 4/4, 100%, COMPLETED/done=true; os quatro filhos
+  estavam feitos na API e os quatro checkboxes foram conferidos em Detalhes.
+- Reabrir pelo mesmo checkbox: 0/4, 0%, PENDING/done=false e todos pendentes.
+- Marcar novamente dois filhos e concluir pelo botão de Detalhes: 4/4, 100%,
+  COMPLETED/done=true, todos feitos. Reabrir: 0/4, 0%, PENDING/done=false.
+- Force-stop e reabertura do aplicativo: os quatro filhos, 0/4 e estado PENDING
+  permaneceram visíveis e confirmados por GET.
+
+Layout, navegação, checkbox da Home e botões Concluir/Reabrir foram preservados.
+Não houve upload geral de filhos antigos. As regressões automatizadas também
+cobrem filhos locais/mistos acompanhando a ação coletiva somente após confirmação,
+e falha da API preservando seus valores anteriores e o cache.
 
 Nenhuma observação #9, exclusão/desfazer #10, dashboard #11, sync #12,
 CI #13, calendário #20 ou filtro/ordenação #21 foi implementado.

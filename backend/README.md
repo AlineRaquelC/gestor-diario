@@ -253,6 +253,14 @@ IDs usam crypto.randomUUID(). Status PENDING/PARTIAL inicia com done=false e
 progress=0. Se COMPLETED for solicitado, done=true e progress=100 mantêm a
 coerência do modelo para tarefas sem subtarefas. POST grava CREATED atomicamente,
 sem fabricar eventos para tarefas antigas.
+Desde a Issue #8, POST também aceita `subtasks: [{ "title": "..." }]` para
+os filhos cadastrados no rascunho de Nova Tarefa. Pai, filhos (UUID/timestamps
+do servidor) e CREATED são gravados na mesma transação; falha desfaz tudo.
+Com filhos, a resposta 201 inclui `subtasks` e o projeto relacionado.
+Títulos devem ser não vazios após trim; campos extras do filho são rejeitados.
+Os filhos iniciam pendentes (PENDING/0% no pai); se a criação pedir COMPLETED,
+todos iniciam concluídos (100%). Sem o array, o contrato anterior é preservado.
+O PATCH do pai continua sem aceitar arrays: edição usa os endpoints específicos.
 Erros seguem o formato existente: 400 VALIDATION_ERROR (payload/data/regra inválida),
 404 PROJECT_NOT_FOUND (projeto inválido) e 500 INTERNAL_ERROR (falha inesperada).
 

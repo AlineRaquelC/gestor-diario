@@ -42,6 +42,7 @@ export function toApiTask(input: NewTask, projectId: string) {
     title: input.title, description: input.description, projectId,
     startDate: calendarDate(input.startDate), dueDate: calendarDate(input.dueDate),
     time: input.time || undefined, priority: priorities[input.priority], status: statuses[input.status],
+    ...(input.subtasks?.length ? { subtasks: input.subtasks.map(child => ({ title: child.title })) } : {}),
   };
 }
 
@@ -124,5 +125,7 @@ export async function resolveProject(project: Project): Promise<string> {
 
 export async function createTask(input: NewTask, projectId: string): Promise<Task> {
   const response = await apiRequest<ApiTask>('/tasks', 'POST', toApiTask(input, projectId));
-  return fromApiTask(response, input);
+  // Draft IDs are temporary. Their confirmed replacements come from SQLite;
+  // merging them as local children would duplicate the submitted subtasks.
+  return fromApiTask(response, { ...input, subtasks: undefined });
 }

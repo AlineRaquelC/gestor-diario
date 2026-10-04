@@ -28,6 +28,49 @@ beforeEach(async () => {
   await mount();
 });
 afterEach(async () => { await act(async () => renderer.unmount()); jest.clearAllMocks(); });
+it('concluir/reabrir atualiza filhos remotos e locais da tarefa selecionada após PATCH, sem upload do legado', async () => {
+  const locals = [1, 2, 3].map(index => ({ id: 'local-' + index, title: 'Local ' + index, done: index <= 2 }));
+  const child = { id: 'remote-child', title: 'SQLite', done: false, remote: true };
+  const selected = { ...saved, subtasks: [child, ...locals], status: 'in_progress' as const, progress: 50 };
+  const other = { ...saved, id: 'other', subtasks: [{ id: 'other-local', title: 'Não enviar', done: false }] };
+  await act(async () => renderer.unmount());
+  storage.set('@taskflow:tasks', JSON.stringify([selected, other])); await mount();
+  expect(createSubtask).not.toHaveBeenCalled();
+  for (const done of [true, false]) {
+    jest.mocked(updateTask).mockResolvedValueOnce({ ...selected, status: done ? 'completed' : 'todo',
+      done, progress: done ? 100 : 0, subtasks: [{ ...child, done }] });
+    await act(async () => { await context.toggleTask(saved.id); });
+    expect(context.tasks[0]).toMatchObject({ status: done ? 'completed' : 'todo', done, progress: done ? 100 : 0 });
+    expect(context.tasks[0].subtasks).toHaveLength(4);
+    expect(context.tasks[0].subtasks!.every(item => item.done === done)).toBe(true);
+    expect(context.tasks[0].subtasks!.filter(item => !item.remote).map(item => item.id)).toEqual(locals.map(item => item.id));
+    expect(context.tasks[1]).toEqual(other);
+    expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(context.tasks);
+  }
+  expect(createSubtask).not.toHaveBeenCalled(); expect(updateSubtask).not.toHaveBeenCalled();
+});
+it('falha do PATCH coletivo conserva todos os valores locais e o cache, sem upload ou conclusão falsa', async () => {
+  const selected = { ...saved, status: 'in_progress' as const, done: false, progress: 50,
+    subtasks: [1, 2, 3, 4].map(index => ({ id: 'local-' + index, title: 'Local ' + index, done: index <= 2 })) };
+  await act(async () => renderer.unmount()); storage.set('@taskflow:tasks', JSON.stringify([selected])); await mount();
+  const cache = storage.get('@taskflow:tasks');
+  jest.mocked(updateTask).mockRejectedValueOnce(new Error('offline'));
+  await act(async () => { await expect(context.toggleTask(saved.id)).rejects.toThrow('offline'); });
+  expect(context.tasks).toEqual([selected]); expect(storage.get('@taskflow:tasks')).toBe(cache);
+  expect(createSubtask).not.toHaveBeenCalled();
+});
+it('filhos do cache antigo só mudam após resposta confirmada do PATCH coletivo', async () => {
+  const selected = { ...saved, subtasks: [{ id: 'local', title: 'Local', done: false }] };
+  await act(async () => renderer.unmount()); storage.set('@taskflow:tasks', JSON.stringify([selected])); await mount();
+  let finish!: () => void;
+  jest.mocked(updateTask).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ ...saved, status: 'completed', done: true, progress: 100, subtasks: [] }); }));
+  const cache = storage.get('@taskflow:tasks'); let pending!: Promise<unknown>;
+  await act(async () => { pending = context.toggleTask(saved.id); });
+  expect(context.tasks).toEqual([selected]); expect(storage.get('@taskflow:tasks')).toBe(cache);
+  await act(async () => { finish(); await pending; });
+  expect(context.tasks[0].subtasks).toEqual([{ ...selected.subtasks[0], done: true }]);
+  expect(createSubtask).not.toHaveBeenCalled();
+});
 it('normaliza review legado na hidratação sem perder tarefa ou subtarefas', async () => {
   await act(async () => renderer.unmount());
   storage.set('@taskflow:tasks', JSON.stringify([{ ...saved, status: 'review', done: true, subtasks: [{ id: 's', title: 'Local', done: false }] }]));
