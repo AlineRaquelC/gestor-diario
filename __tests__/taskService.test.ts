@@ -1,5 +1,5 @@
 import { apiRequest, ApiError, API_BASE_URL } from '../src/services/api';
-import { toApiTask, fromApiTask, createTask, resolveProject, calendarDate } from '../src/services/taskService';
+import { toApiTask, fromApiTask, createTask, resolveProject, calendarDate, getTasks, getTaskById } from '../src/services/taskService';
 import type { NewTask, ApiTask } from '../src/services/taskService';
 
 const draft: NewTask = { title: 'Tarefa', project: 'Geral', projectId: 'p7', startDate: new Date(2026, 9, 2, 23).toISOString(), dueDate: new Date(2026, 9, 3).toISOString(), priority: 'high', status: 'review', done: false, subtasks: [{ id: 's', title: 'Local', done: false }], reminders: ['No horário'] };
@@ -67,4 +67,31 @@ it('encerra requisição com timeout sem reenvio', async () => {
   expect(await result).toBeInstanceOf(ApiError);
   expect(fetchMock).toHaveBeenCalledTimes(1);
   jest.useRealTimers();
+});
+
+it('getTasks mapeia dados reais com projeto por ID e progress persistido', async () => {
+  fetchMock.mockResolvedValue(response([{ ...remote, progress: 42, project: { id: 'remote-p', name: 'Servidor', color: '#fff', icon: 'P' } }]));
+  expect(await getTasks()).toEqual([expect.objectContaining({ id: 'uuid', projectId: 'remote-p', project: 'Servidor', progress: 42, status: 'in_progress' })]);
+  expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/tasks`);
+  expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+});
+it('getTasks retorna lista vazia', async () => {
+  fetchMock.mockResolvedValue(response([]));
+  expect(await getTasks()).toEqual([]);
+});
+it('getTaskById consulta ID codificado e mapeia subtarefas existentes', async () => {
+  fetchMock.mockResolvedValue(response({ ...remote, subtasks: [{ id: 's', title: 'SQLite', done: true }] }));
+  expect(await getTaskById('uuid/child')).toMatchObject({ id: 'uuid', subtasks: [{ id: 's', title: 'SQLite', done: true }] });
+  expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/tasks/uuid%2Fchild`);
+});
+it.each([404, 500])('propaga erro HTTP %s durante leitura', async status => {
+  fetchMock.mockResolvedValue(response({ error: { code: 'TASK_NOT_FOUND', message: 'Tarefa não encontrada.' } }, status));
+  await expect(getTaskById('missing')).rejects.toMatchObject({ status, code: 'TASK_NOT_FOUND' });
+});
+it('falha de rede na leitura usa mensagem de consulta', async () => {
+  fetchMock.mockRejectedValue(new Error('offline'));
+  await expect(getTasks()).rejects.toThrow(/consultar tarefas/);
+});
+it.each([['LOW', 'PENDING', 'low', 'todo'], ['MEDIUM', 'PARTIAL', 'medium', 'in_progress'], ['HIGH', 'COMPLETED', 'high', 'completed']] as const)('mapeia leitura %s/%s', (priority, status, mappedPriority, mappedStatus) => {
+  expect(fromApiTask({ ...remote, priority, status })).toMatchObject({ priority: mappedPriority, status: mappedStatus });
 });

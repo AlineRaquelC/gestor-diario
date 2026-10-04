@@ -29,6 +29,8 @@ export default function HomeScreen() {
   const {
     tasks,
     toggleTask,
+    loading,
+    readError,
   } = useTasks();
 
   const doneTasks = tasks.filter(
@@ -214,7 +216,19 @@ export default function HomeScreen() {
           Para fazer
         </Text>
 
-        {pendingTasks.length === 0 && (
+        {loading && (
+          <Text style={styles.emptyStateText} accessibilityRole="progressbar">
+            Carregando tarefas…
+          </Text>
+        )}
+
+        {readError && (
+          <Text style={styles.emptyStateText} accessibilityRole="alert">
+            {readError} {tasks.length > 0 ? 'As tarefas disponíveis foram mantidas.' : ''}
+          </Text>
+        )}
+
+        {!loading && !readError && pendingTasks.length === 0 && (
           <View style={styles.emptyState}>
 
             <Text style={styles.emptyStateIcon}>

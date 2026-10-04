@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -21,25 +21,47 @@ export default function TaskDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const {taskId} = route.params;
+  const taskId = route.params?.taskId;
 
   const {
     tasks,
     deleteTask,
     toggleTask,
     updateTask,
+    loading,
+    loadTaskById,
   } = useTasks();
 
   const task = tasks.find(
     item => item.id === taskId,
   );
 
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const hasTask = Boolean(task);
+  useEffect(() => {
+    if (loading) {return;}
+    setDetailError(null);
+    if (hasTask || typeof taskId !== 'string' || !taskId.trim()) {
+      setDetailLoading(false);
+      return;
+    }
+    let active = true;
+    setDetailLoading(true);
+    loadTaskById(taskId)
+      .catch(error => {
+        if (active) {setDetailError(error instanceof Error ? error.message : 'Erro ao consultar tarefa.');}
+      })
+      .finally(() => { if (active) {setDetailLoading(false);} });
+    return () => { active = false; };
+  }, [taskId, hasTask, loading, loadTaskById]);
+
   if (!task) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notFoundContainer}>
           <Text style={styles.notFoundTitle}>
-            Tarefa não encontrada
+            {loading || detailLoading ? 'Carregando tarefa…' : detailError ?? 'Tarefa não encontrada'}
           </Text>
 
           <Pressable
@@ -65,11 +87,11 @@ export default function TaskDetailsScreen() {
     ).length;
 
   const progress =
-    subtasks.length > 0
+    task.progress ?? (subtasks.length > 0
       ? Math.round(
           (doneCount / subtasks.length) * 100,
         )
-      : 0;
+      : 0);
 
   function formatDateBR(
     date?: string,

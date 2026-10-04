@@ -2,8 +2,10 @@
 
 Fluxo: NewTaskScreen → TaskContext → taskService → POST /tasks → Controller →
 Service → Repository → Drizzle/SQLite. A tela mantém seu layout e validações.
-Apenas a criação usa API; operações locais anteriores continuam locais nesta etapa.
-Não há GET /tasks, sincronização geral ou mudanças de dashboard.
+Este registro descreve o estado da Issue #4; operações locais anteriores continuam
+locais naquela etapa. A evolução de leitura na Issue #5 está documentada em
+[integracao-consulta-tarefas.md](integracao-consulta-tarefas.md). Não há sincronização
+geral ou mudanças do dashboard completo.
 
 ## Execução Android
 

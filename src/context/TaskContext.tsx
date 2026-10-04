@@ -10,7 +10,7 @@ import React, {
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProjects } from './ProjectContext';
-import { createTask, resolveProject } from '../services/taskService';
+import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById } from '../services/taskService';
 import type { NewTask } from '../services/taskService';
 
 export type Priority =
@@ -33,6 +33,7 @@ export type Subtask = {
 export type Task = {
   id: string;
   projectId?: string;
+  progress?: number;
   createdAt?: string;
   updatedAt?: string;
 
@@ -61,6 +62,9 @@ export type Task = {
 
 type TaskContextType = {
   tasks: Task[];
+  loading: boolean;
+  readError: string | null;
+  loadTaskById: (id: string) => Promise<Task>;
 
   toggleTask: (
     id: string,
@@ -87,215 +91,19 @@ type TaskContextType = {
 const STORAGE_KEY =
   '@taskflow:tasks';
 
-const initialTasks: Task[] = [
-  {
-    id: '1',
-
-    title:
-      'Criar telas no Figma',
-
-    description:
-      'Finalizar protótipo das telas para apresentação da disciplina.',
-
-    project:
-      'Faculdade',
-
-    time:
-      '18:00',
-
-    priority:
-      'high',
-
-    status:
-      'in_progress',
-
-    done:
-      false,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        21,
-      ).toISOString(),
-
-    subtasks: [
-      {
-        id: 's1',
-        title:
-          'Criar backlog',
-        done:
-          true,
-      },
-      {
-        id: 's2',
-        title:
-          'Configurar ambiente',
-        done:
-          true,
-      },
-      {
-        id: 's3',
-        title:
-          'Criar telas no Figma',
-        done:
-          false,
-      },
-      {
-        id: 's4',
-        title:
-          'Preparar apresentação',
-        done:
-          false,
-      },
-    ],
-
-    reminders:
-      [],
-  },
-
-  {
-    id: '2',
-
-    title:
-      'Revisar proposta do cliente',
-
-    description:
-      'Revisar os pontos principais da proposta.',
-
-    project:
-      'Marketing',
-
-    time:
-      '09:00',
-
-    priority:
-      'high',
-
-    status:
-      'todo',
-
-    done:
-      false,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        22,
-      ).toISOString(),
-
-    subtasks:
-      [],
-
-    reminders:
-      [],
-  },
-
-  {
-    id: '3',
-
-    title:
-      'Reunião de alinhamento',
-
-    description:
-      'Reunião para alinhamento das atividades.',
-
-    project:
-      'Geral',
-
-    time:
-      '10:30',
-
-    priority:
-      'medium',
-
-    status:
-      'in_progress',
-
-    done:
-      false,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        23,
-      ).toISOString(),
-
-    subtasks:
-      [],
-
-    reminders:
-      [],
-  },
-
-  {
-    id: '4',
-
-    title:
-      'Atualizar documentação da API',
-
-    description:
-      'Atualizar documentação técnica.',
-
-    project:
-      'Desenvolvimento',
-
-    time:
-      '14:00',
-
-    priority:
-      'low',
-
-    status:
-      'completed',
-
-    done:
-      true,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        19,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    subtasks:
-      [],
-
-    reminders:
-      [],
-  },
-];
+// Read-only reconciliation: retain cache-only records until Issue #12.
+function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
+  const byId = new Map(current.map(task => [task.id, task]));
+  for (const task of remote) {
+    const cached = byId.get(task.id);
+    byId.set(task.id, {
+      ...cached, ...task,
+      subtasks: task.subtasks ?? cached?.subtasks,
+      reminders: task.reminders ?? cached?.reminders,
+    });
+  }
+  return [...byId.values()];
+}
 
 const TaskContext =
   createContext<
@@ -311,16 +119,20 @@ export function TaskProvider({
     tasks,
     setTasks,
   ] = useState<Task[]>(
-    initialTasks,
+    [],
   );
 
   const { projects, updateProject, hydrated: projectsHydrated } = useProjects();
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
   const creating = useRef(false);
+  const cacheWritable = useRef(false);
+  const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState<string | null>(null);
   const storageQueue = useRef<Promise<unknown>>(Promise.resolve());
 
   const persistTasks = useCallback((list: Task[]) => {
+    if (!cacheWritable.current) {return Promise.reject(new Error('Cache não foi carregado com segurança.'));}
     const write = storageQueue.current.catch(() => undefined).then(() =>
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list)),
     );
@@ -343,34 +155,46 @@ export function TaskProvider({
    * quando o aplicativo inicia.
    */
   useEffect(() => {
+    let active = true;
     async function loadTasks() {
+      let cacheError: string | null = null;
       try {
-        const storedTasks =
-          await AsyncStorage.getItem(
-            STORAGE_KEY,
-          );
-
-        if (storedTasks) {
-          const parsedTasks =
-            JSON.parse(
-              storedTasks,
-            ) as Task[];
-
-          setTasks(
-            parsedTasks,
-          );
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const cached: Task[] = stored ? JSON.parse(stored) : [];
+        if (!Array.isArray(cached) || cached.some(task => !task || typeof task.id !== 'string')) {
+          throw new Error('Cache inválido.');
         }
+        if (!active) {return;}
+        cacheWritable.current = true;
+        tasksRef.current = mergeReadTasks([], cached);
+        setTasks(tasksRef.current);
+      } catch {
+        cacheError = 'Não foi possível carregar o cache de tarefas. O cache original foi preservado.';
+      }
+      if (!active) {return;}
+      setHydrated(true);
+      setReadError(cacheError);
+      try {
+        const remote = await getTasks();
+        if (!active) {return;}
+        tasksRef.current = mergeReadTasks(tasksRef.current, remote);
+        setTasks(tasksRef.current);
       } catch (error) {
-        console.log(
-          'Erro ao carregar tarefas:',
-          error,
-        );
+        if (active) {setReadError([cacheError, error instanceof Error ? error.message : 'Erro ao consultar tarefas.'].filter(Boolean).join(' '));}
       } finally {
-        setHydrated(true);
+        if (active) {setLoading(false);}
       }
     }
-
     loadTasks();
+    return () => { active = false; };
+  }, []);
+
+  const loadTaskById = useCallback(async (id: string) => {
+    const remote = await fetchTaskById(id);
+    const next = mergeReadTasks(tasksRef.current, [remote]);
+    tasksRef.current = next;
+    setTasks(next);
+    return next.find(task => task.id === remote.id)!;
   }, []);
 
   /*
@@ -378,7 +202,7 @@ export function TaskProvider({
    * salva automaticamente.
    */
   useEffect(() => {
-    if (!hydrated) {
+    if (!hydrated || !cacheWritable.current) {
       return;
     }
 
@@ -390,6 +214,7 @@ export function TaskProvider({
           'Erro ao salvar tarefas:',
           error,
         );
+        setReadError('Tarefas disponíveis, mas não foi possível atualizar o cache.');
       }
     }
 
@@ -495,6 +320,9 @@ export function TaskProvider({
     <TaskContext.Provider
       value={{
         tasks,
+        loading,
+        readError,
+        loadTaskById,
         toggleTask,
         deleteTask,
         addTask,
