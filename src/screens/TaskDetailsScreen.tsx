@@ -16,6 +16,7 @@ import {
 } from '@react-navigation/native';
 
 import {useTasks} from '../context/TaskContext';
+import {presentTaskHistory} from '../models/taskHistory';
 
 export default function TaskDetailsScreen() {
   const navigation = useNavigation<any>();
@@ -30,6 +31,8 @@ export default function TaskDetailsScreen() {
     updateTaskLocal: updateTask,
     loading,
     loadTaskById,
+    taskHistory,
+    loadTaskHistory,
   } = useTasks();
 
   const task = tasks.find(
@@ -39,6 +42,20 @@ export default function TaskDetailsScreen() {
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState<string | null>(null);
   const hasTask = Boolean(task);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const updatedAt = task?.updatedAt;
+  useEffect(() => {
+    if (!hasTask || loading) {return;}
+    let active = true;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    loadTaskHistory(taskId)
+      .catch(() => { if (active) {setHistoryError('Não foi possível carregar a atividade.');} })
+      .finally(() => { if (active) {setHistoryLoading(false);} });
+    return () => { active = false; };
+  }, [taskId, hasTask, loading, updatedAt, loadTaskHistory]);
   useEffect(() => {
     if (loading) {return;}
     setDetailError(null);
@@ -126,9 +143,6 @@ export default function TaskDetailsScreen() {
       case 'completed':
         return 'Concluída';
 
-      case 'review':
-        return 'Em revisão';
-
       case 'todo':
         return 'A fazer';
 
@@ -161,8 +175,17 @@ export default function TaskDetailsScreen() {
     );
   }
 
-  function handleToggleCompleted() {
-    toggleTask(taskId);
+  async function handleToggleCompleted() {
+    if (statusSaving) {return;}
+    setStatusSaving(true);
+    try {
+      const result = await toggleTask(taskId);
+      if (!result.cacheSaved) {Alert.alert('Status salvo no servidor', 'Não foi possível atualizar o cache local.');}
+    } catch (error) {
+      Alert.alert('Não foi possível alterar o status', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+    } finally {
+      setStatusSaving(false);
+    }
   }
 
   function handleDeleteTask() {
@@ -332,18 +355,12 @@ export default function TaskDetailsScreen() {
               task.status ===
               'completed'
                 ? '#15803D'
-                : task.status ===
-                  'review'
-                ? '#D97706'
                 : '#5C4DFF'
             }
             background={
               task.status ===
               'completed'
                 ? '#EEF8F2'
-                : task.status ===
-                  'review'
-                ? '#FEF3C7'
                 : '#EEF0FF'
             }
           />
@@ -506,26 +523,14 @@ export default function TaskDetailsScreen() {
             Atividade
           </Text>
 
-          <ActivityRow
-            emoji="✅"
-            title="Configurar ambiente"
-            description="foi concluída"
-            time="Hoje, 14:22"
-          />
-
-          <ActivityRow
-            emoji="✅"
-            title="Criar backlog"
-            description="foi concluída"
-            time="Hoje, 11:08"
-          />
-
-          <ActivityRow
-            emoji="🆕"
-            title="Tarefa criada"
-            description="por Aline"
-            time="20/09, 09:00"
-          />
+          {historyLoading && <Text style={styles.activityText}>Carregando atividade…</Text>}
+          {historyError && <Text style={styles.activityText}>{historyError}</Text>}
+          {!historyLoading && !historyError && !(taskHistory[taskId]?.length) && (
+            <Text style={styles.activityText}>Nenhuma atividade registrada.</Text>
+          )}
+          {(taskHistory[taskId] ?? []).map(event => (
+            <ActivityRow key={event.id} {...presentTaskHistory(event)} />
+          ))}
 
         </View>
 
@@ -563,11 +568,12 @@ export default function TaskDetailsScreen() {
           ]}
           onPress={
             handleToggleCompleted
-          }>
+          }
+          disabled={statusSaving}>
 
           <Text style={styles.completeButtonText}>
-            {task.done
-              ? '✓ Concluída!'
+            {statusSaving ? 'Salvando…' : task.done
+              ? '↩ Reabrir tarefa'
               : '✓ Concluir tarefa'}
           </Text>
 

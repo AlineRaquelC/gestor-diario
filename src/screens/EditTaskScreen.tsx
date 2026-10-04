@@ -71,12 +71,6 @@ const STATUSES = [
     background: '#EEF0FF',
   },
   {
-    value: 'review' as TaskStatus,
-    label: 'Em revisão',
-    color: '#D97706',
-    background: '#FEF3C7',
-  },
-  {
     value: 'completed' as TaskStatus,
     label: 'Concluída',
     color: '#22C55E',

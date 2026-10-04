@@ -1,8 +1,15 @@
 import type { Task, Priority, TaskStatus, Subtask } from '../context/TaskContext';
 import type { Project } from '../context/ProjectContext';
 import { apiRequest, ApiError } from './api';
+import type { LegacyTaskStatus } from '../models/taskStatus';
 
-export type NewTask = Omit<Task, 'id'> & { projectId: string; startDate: string; dueDate: string };
+export type NewTask = Omit<Task, 'id' | 'status'> & { status: LegacyTaskStatus; projectId: string; startDate: string; dueDate: string };
+export type TaskUpdate = Omit<Partial<Task>, 'status'> & { status?: LegacyTaskStatus };
+export type TaskHistoryEvent = {
+  id: string; taskId: string;
+  action: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'COMPLETED' | 'REOPENED';
+  metadata: Record<string, unknown> | null; createdAt: string;
+};
 export type ApiTask = {
   id: string; title: string; description: string | null; projectId: string;
   startDate: string; dueDate: string; time: string | null;
@@ -62,7 +69,7 @@ export async function getTaskById(id: string): Promise<Task> {
   return fromApiTask(await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}`));
 }
 
-export function toApiTaskUpdate(input: Partial<Task>) {
+export function toApiTaskUpdate(input: TaskUpdate) {
   return {
     ...(input.title !== undefined ? { title: input.title } : {}),
     ...(input.description !== undefined ? { description: input.description } : {}),
@@ -75,9 +82,13 @@ export function toApiTaskUpdate(input: Partial<Task>) {
   };
 }
 
-export async function updateTask(id: string, input: Partial<Task>, local?: Pick<Task, 'project' | 'subtasks' | 'reminders'>): Promise<Task> {
+export async function updateTask(id: string, input: TaskUpdate, local?: Pick<Task, 'project' | 'subtasks' | 'reminders'>): Promise<Task> {
   const response = await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}`, 'PATCH', toApiTaskUpdate(input));
   return fromApiTask(response, local);
+}
+
+export async function getTaskHistory(id: string): Promise<TaskHistoryEvent[]> {
+  return apiRequest<TaskHistoryEvent[]>(`/tasks/${encodeURIComponent(id)}/history`);
 }
 
 export async function resolveProject(project: Project): Promise<string> {
