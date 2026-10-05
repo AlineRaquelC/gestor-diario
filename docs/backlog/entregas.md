@@ -7,7 +7,7 @@
 - **Base de planejamento:** `docs/backlog/backlog-produto.md`
 - **Plataforma:** Android
 - **Mobile:** React Native + TypeScript
-- **Backend previsto:** Node.js
+- **Backend atual:** Node.js + TypeScript / Express
 - **Método de trabalho:** Scrum, Git/GitHub, Pull Requests, CI/CD e documentação versionada
 
 > **Importante:** a divisão em três entregas é uma **decisão de planejamento do projeto** para organizar a execução dos requisitos oficiais. Ela não substitui o documento de requisitos e não deve ser apresentada como uma divisão definida pelo professor.
@@ -37,7 +37,38 @@ Cada entrega deve resultar em um incremento executável, demonstrável e version
 
 # 3. Entrega 1 — MVP funcional e integrado
 
-## Status atual da Entrega 1 — 2026-10-03
+## Status atual — 2026-10-04
+
+**Sprint 1 EM ANDAMENTO: 15 Issues planejadas, 11 concluídas, 4 pendentes; 11/15 = 73,3%.**
+
+Fonte: consulta direta às 15 Issues do milestone Sprint 1 e aos PRs mergeados em `dev` no [GitHub](https://github.com/AlineRaquelC/gestor-diario/issues?q=milestone%3A%22Sprint+1%22), em 2026-10-04. Os estados coincidem com os esperados; não houve divergência. Referência integrada: PR #29, commit `5ccf2b99625def77701a36a8f58e9e0997b4dfd7`.
+
+| Issue | Entrega realizada | PR integrado em dev |
+|---|---|---|
+| [#1](https://github.com/AlineRaquelC/gestor-diario/issues/1) | Base técnica da mini API Node.js — Concluída | [#14](https://github.com/AlineRaquelC/gestor-diario/pull/14) |
+| [#2](https://github.com/AlineRaquelC/gestor-diario/issues/2) | Schema SQLite e migrations — Concluída | [#15](https://github.com/AlineRaquelC/gestor-diario/pull/15) |
+| [#3](https://github.com/AlineRaquelC/gestor-diario/issues/3) | Gerenciar projetos — Concluída | [#16](https://github.com/AlineRaquelC/gestor-diario/pull/16) |
+| [#4](https://github.com/AlineRaquelC/gestor-diario/issues/4) | Criar e persistir tarefas — Concluída | [#17](https://github.com/AlineRaquelC/gestor-diario/pull/17) |
+| [#5](https://github.com/AlineRaquelC/gestor-diario/issues/5) | Consultar e visualizar tarefas — Concluída | [#23](https://github.com/AlineRaquelC/gestor-diario/pull/23) |
+| [#6](https://github.com/AlineRaquelC/gestor-diario/issues/6) | Editar tarefas — Concluída | [#24](https://github.com/AlineRaquelC/gestor-diario/pull/24) |
+| [#7](https://github.com/AlineRaquelC/gestor-diario/issues/7) | Status, conclusão e histórico — Concluída | [#25](https://github.com/AlineRaquelC/gestor-diario/pull/25) |
+| [#8](https://github.com/AlineRaquelC/gestor-diario/issues/8) | Subtarefas e progresso — Concluída | [#26](https://github.com/AlineRaquelC/gestor-diario/pull/26) |
+| [#9](https://github.com/AlineRaquelC/gestor-diario/issues/9) | Múltiplas observações — Concluída | [#27](https://github.com/AlineRaquelC/gestor-diario/pull/27) |
+| [#11](https://github.com/AlineRaquelC/gestor-diario/issues/11) | Dashboard com dados reais — Concluída | [#28](https://github.com/AlineRaquelC/gestor-diario/pull/28) |
+| [#20](https://github.com/AlineRaquelC/gestor-diario/issues/20) | Calendário do MVP — Concluída | [#29](https://github.com/AlineRaquelC/gestor-diario/pull/29) |
+
+Pendentes (Issues abertas):
+
+- [#10](https://github.com/AlineRaquelC/gestor-diario/issues/10): exclusão lógica com confirmação e desfazer.
+- [#12](https://github.com/AlineRaquelC/gestor-diario/issues/12): sincronização manual geral e migração/reconciliação dos dados locais legados.
+- [#13](https://github.com/AlineRaquelC/gestor-diario/issues/13): pipeline CI inicial.
+- [#21](https://github.com/AlineRaquelC/gestor-diario/issues/21): filtros e ordenação completos do MVP.
+
+#11 e #20 foram priorizadas antes de #10 para preparar um incremento visual demonstrável para a apresentação de 2026-10-05 pela manhã. Isso altera a ordem de execução, não o escopo nem o estado das Issues. #10 continua pendente; Sprint 1 e Entrega 1 permanecem em andamento.
+
+Funcionalidades demonstráveis: projetos na API, criação/consulta/listagem/detalhes/edição de tarefas, status, conclusão/reabertura, histórico, subtarefas e progresso, múltiplas observações, dashboard e calendário reais. Dados novos persistem em SQLite; AsyncStorage apoia cache e offline parcial. Validação Android registrada nos documentos de integração. A Entrega 1 não está concluída: permanecem #10, #12, #13 e #21.
+
+## Status histórico em 2026-10-03 — Entrega 1
 
 **Em andamento.** Sprint 1 refinada: 4/15 Issues concluídas (26,7%); próxima: #5 — Consultar e visualizar tarefas, ainda não iniciada.
 
@@ -167,6 +198,19 @@ A Entrega 2 será composta pelos seguintes PBIs:
 | **PBI-22** | Operações em lote, arquivamento e campos personalizados | RF66, RF67, RF68, RF69, RF70, REQ109, REQ110 |
 | **PBI-23** | Prazos úteis, feriados, atrasos e revisão semanal | REQ086–REQ092, REQ113 |
 | **PBI-24** | Anexos, links, áudio, compartilhamento e impressão | RF52–RF57, REQ102–REQ106, REQ127–REQ132 |
+
+## Gap observado / item para refinamento — Sprint 2 / PBI-13
+
+Observação do teste manual, vinculada ao planejamento da Entrega 2, PBI-13 (RF15/RF16): ao criar uma tarefa para o dia atual, o aplicativo ainda pode permitir horário já passado. Com lembrete de 15 minutos antes, horário da tarefa menos antecedência também pode resultar em disparo no passado.
+
+Pontos a refinar na Sprint 2:
+
+- tarefa do dia atual deve utilizar horário futuro quando aplicável;
+- antecedência do lembrete não deve produzir disparo no passado;
+- UI deve apresentar mensagem compreensível;
+- validação deverá existir na camada adequada quando o recurso for persistido.
+
+Este é um gap observado / item para refinamento, não um novo requisito oficial, compromisso da Sprint 1 ou funcionalidade implementada. Requisitos, prioridades e divisão das entregas permanecem preservados.
 
 ## 4.3 Resultado esperado
 
@@ -315,7 +359,7 @@ Uma entrega somente deve ser marcada como concluída quando:
 
 ---
 
-# 10. Próximos passos
+# 10. Próximos passos do planejamento inicial — histórico
 
 Após versionar este arquivo:
 
