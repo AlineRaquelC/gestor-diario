@@ -59,7 +59,7 @@ Resultados registrados nas integrações e revisão do PR #29; não reexecutados
 
 ## Como executar
 
-Consulte a [execução do backend](backend/README.md) e o [checklist técnico da demonstração de 05/10](docs/apresentacao/demo-2026-10-05.md). Dependências existentes são utilizadas; não é necessário reinstalá-las para o ensaio.
+Consulte a [execução do backend](backend/README.md) e a [integração Android](docs/arquitetura/integracao-criacao-tarefas.md) para executar localmente.
 
 ## Metodologia e branches
 
@@ -72,7 +72,7 @@ src/                 telas, navegação, componentes, Contexts e Services HTTP
 backend/             API, services, repositories, schema e migrations
 __tests__/           testes mobile
 android/ e ios/      projetos nativos
-docs/                requisitos, backlog, arquitetura, sprints e apresentação
+docs/                requisitos, backlog, arquitetura, sprints e decisões
 ```
 
 ## Status histórico em 2026-10-03
@@ -86,7 +86,6 @@ O planejamento inicial registrava 4/13 = 30,8%. Após a auditoria/refinamento qu
 - [Plano de entregas](docs/backlog/entregas.md)
 - [Sprint 1 e estado atual](docs/sprints/sprint-1.md)
 - [Issues e PRs da Sprint 1](docs/sprints/sprint-1-issues.md)
-- [Roteiro da demonstração — 05/10/2026](docs/apresentacao/demo-2026-10-05.md)
 - [Arquitetura inicial (histórico)](docs/arquitetura/arquitetura-inicial.md)
 - [Decisões](docs/decisoes/README.md)
 - [Processo de desenvolvimento](docs/processo/processo-desenvolvimento.md)

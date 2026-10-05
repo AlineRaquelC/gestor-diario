@@ -68,8 +68,6 @@ Pendentes (Issues abertas):
 
 Funcionalidades demonstráveis: projetos na API, criação/consulta/listagem/detalhes/edição de tarefas, status, conclusão/reabertura, histórico, subtarefas e progresso, múltiplas observações, dashboard e calendário reais. Dados novos persistem em SQLite; AsyncStorage apoia cache e offline parcial. Validação Android registrada nos documentos de integração. A Entrega 1 não está concluída: permanecem #10, #12, #13 e #21.
 
-[Preparação e roteiro da demonstração](../apresentacao/demo-2026-10-05.md).
-
 ## Status histórico em 2026-10-03 — Entrega 1
 
 **Em andamento.** Sprint 1 refinada: 4/15 Issues concluídas (26,7%); próxima: #5 — Consultar e visualizar tarefas, ainda não iniciada.
