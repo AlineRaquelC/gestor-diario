@@ -47,17 +47,19 @@ Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à p
 
 # 4. Visão consolidada do Product Backlog
 
+Status operacionais conferidos em 2026-10-04 com as Issues e PRs do GitHub. #7 e #3 concluídas não significam, isoladamente, todos os critérios de seus PBIs concluídos: exclusão/restauração de tarefas depende de #10; gerenciamento geral de projetos no mobile/reconciliação permanece em #12. Requisitos, User Stories, prioridades e entregas foram preservados.
+
 | PBI | User Story / Capacidade | Requisitos de origem | Área principal | Prioridade | Entrega | Status atual |
 |---|---|---|---|---|---|---|
 | **PBI-01** | Criar tarefa com dados obrigatórios e validação | RF01 | Front / Backend / Banco | Alta | 1 | Concluído |
-| **PBI-02** | Editar tarefa e registrar última modificação | RF03 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
+| **PBI-02** | Editar tarefa e registrar última modificação | RF03 | Front / Backend / Banco | Alta | 1 | Concluído — PR #24 |
 | **PBI-03** | Excluir tarefa com confirmação e desfazer | RF04 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
-| **PBI-04** | Controlar status e histórico da tarefa | RF05, RF17 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
-| **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | Planejado — Issue #20 / Sprint 1 |
-| **PBI-06** | Criar subtarefas e calcular progresso | RF09, RF10 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
-| **PBI-07** | Registrar múltiplas observações por tarefa | RF11 | Front / Backend / Banco | Alta | 1 | Planejado |
+| **PBI-04** | Controlar status e histórico da tarefa | RF05, RF17 | Front / Backend / Banco | Alta | 1 | Parcial — Integrado; #7 concluída (PR #25), exclusão/restauração pendente (#10) |
+| **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | Concluído — PR #29 |
+| **PBI-06** | Criar subtarefas e calcular progresso | RF09, RF10 | Front / Backend / Banco | Alta | 1 | Concluído — PR #26 |
+| **PBI-07** | Registrar múltiplas observações por tarefa | RF11 | Front / Backend / Banco | Alta | 1 | Concluído — PR #27 |
 | **PBI-08** | Organizar tarefas em projetos/etiquetas | RF12 | Front / Backend / Banco | Alta | 1 | Parcial — Integrado |
-| **PBI-09** | Exibir dashboard de produtividade | RF23 | Front / Backend | Alta | 1 | Parcial — Mobile |
+| **PBI-09** | Exibir dashboard de produtividade | RF23 | Front / Backend | Alta | 1 | Concluído — PR #28 |
 | **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | Planejado — Issue #21 / Sprint 1 |
 | **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Em andamento |
 | **PBI-12** | Priorização inteligente e prioridades personalizadas | RF02, RF24, RF63, RF64, RF65, REQ120–REQ122 | Front / Backend / Banco | Média | 2 | Planejado |
@@ -331,7 +333,7 @@ Como pessoa usuária, quero sincronizar minhas tarefas com um servidor local par
 - tratar sucesso e falha de sincronização;
 - não perder os dados locais em caso de indisponibilidade do servidor.
 
-**Status atual:** em andamento. API, SQLite e comunicação HTTP para criação de tarefas disponíveis; sincronização manual/geral ainda não implementada.
+**Status atual — 2026-10-04:** em andamento. API, SQLite e Services HTTP disponíveis para os fluxos integrados de criação, consulta, edição, status, subtarefas e observações; sincronização manual geral e reconciliação de dados locais legados continuam pendentes na #12.
 
 ---
 

@@ -1,5 +1,36 @@
 # Planejamento de Issues — Sprint 1 — Gestor Diário
 
+## Status atual — 2026-10-04
+
+**Sprint 1 EM ANDAMENTO: 15 Issues planejadas, 11 concluídas, 4 pendentes; 11/15 = 73,3%.**
+
+Fonte: consulta direta às 15 Issues do milestone Sprint 1 e aos PRs mergeados em `dev` no [GitHub](https://github.com/AlineRaquelC/gestor-diario/issues?q=milestone%3A%22Sprint+1%22), em 2026-10-04. Os estados coincidem com os esperados; não houve divergência. Referência integrada: PR #29, commit `5ccf2b99625def77701a36a8f58e9e0997b4dfd7`.
+
+| Issue | Entrega realizada | PR integrado em dev |
+|---|---|---|
+| [#1](https://github.com/AlineRaquelC/gestor-diario/issues/1) | Base técnica da mini API Node.js — Concluída | [#14](https://github.com/AlineRaquelC/gestor-diario/pull/14) |
+| [#2](https://github.com/AlineRaquelC/gestor-diario/issues/2) | Schema SQLite e migrations — Concluída | [#15](https://github.com/AlineRaquelC/gestor-diario/pull/15) |
+| [#3](https://github.com/AlineRaquelC/gestor-diario/issues/3) | Gerenciar projetos — Concluída | [#16](https://github.com/AlineRaquelC/gestor-diario/pull/16) |
+| [#4](https://github.com/AlineRaquelC/gestor-diario/issues/4) | Criar e persistir tarefas — Concluída | [#17](https://github.com/AlineRaquelC/gestor-diario/pull/17) |
+| [#5](https://github.com/AlineRaquelC/gestor-diario/issues/5) | Consultar e visualizar tarefas — Concluída | [#23](https://github.com/AlineRaquelC/gestor-diario/pull/23) |
+| [#6](https://github.com/AlineRaquelC/gestor-diario/issues/6) | Editar tarefas — Concluída | [#24](https://github.com/AlineRaquelC/gestor-diario/pull/24) |
+| [#7](https://github.com/AlineRaquelC/gestor-diario/issues/7) | Status, conclusão e histórico — Concluída | [#25](https://github.com/AlineRaquelC/gestor-diario/pull/25) |
+| [#8](https://github.com/AlineRaquelC/gestor-diario/issues/8) | Subtarefas e progresso — Concluída | [#26](https://github.com/AlineRaquelC/gestor-diario/pull/26) |
+| [#9](https://github.com/AlineRaquelC/gestor-diario/issues/9) | Múltiplas observações — Concluída | [#27](https://github.com/AlineRaquelC/gestor-diario/pull/27) |
+| [#11](https://github.com/AlineRaquelC/gestor-diario/issues/11) | Dashboard com dados reais — Concluída | [#28](https://github.com/AlineRaquelC/gestor-diario/pull/28) |
+| [#20](https://github.com/AlineRaquelC/gestor-diario/issues/20) | Calendário do MVP — Concluída | [#29](https://github.com/AlineRaquelC/gestor-diario/pull/29) |
+
+Pendentes (Issues abertas):
+
+- [#10](https://github.com/AlineRaquelC/gestor-diario/issues/10): exclusão lógica com confirmação e desfazer.
+- [#12](https://github.com/AlineRaquelC/gestor-diario/issues/12): sincronização manual geral e migração/reconciliação dos dados locais legados.
+- [#13](https://github.com/AlineRaquelC/gestor-diario/issues/13): pipeline CI inicial.
+- [#21](https://github.com/AlineRaquelC/gestor-diario/issues/21): filtros e ordenação completos do MVP.
+
+#11 e #20 foram priorizadas antes de #10 para preparar um incremento visual demonstrável para a apresentação de 2026-10-05 pela manhã. Isso altera a ordem de execução, não o escopo nem o estado das Issues. #10 continua pendente; Sprint 1 e Entrega 1 permanecem em andamento.
+
+> Os critérios de aceite e User Stories abaixo são preservados como planejamento original, inclusive suas marcações históricas. O estado operacional de cada Issue vem do GitHub; critérios dependentes de #10/#12 não são declarados entregues por esse fechamento.
+
 ## 1. Objetivo
 
 Este documento transforma o escopo da **Sprint 1** em trabalho executável no GitHub.
@@ -81,7 +112,7 @@ sprint-1
 
 ## ISSUE #1 — Base técnica da mini API Node.js
 
-**Status:** Concluída — PR #14.
+**Status:** Concluída — [PR #14](https://github.com/AlineRaquelC/gestor-diario/pull/14).
 
 ### Tipo
 
@@ -139,7 +170,7 @@ feature/backend-foundation
 
 ## ISSUE #2 — Implementar schema SQLite e migrations iniciais
 
-**Status:** Concluída — PR #15.
+**Status:** Concluída — [PR #15](https://github.com/AlineRaquelC/gestor-diario/pull/15).
 
 ### Tipo
 
@@ -190,7 +221,7 @@ feature/database-schema
 
 ## ISSUE #3 — Gerenciar projetos
 
-**Status:** Concluída — PR #16.
+**Status:** Concluída — [PR #16](https://github.com/AlineRaquelC/gestor-diario/pull/16).
 
 ### Requisito de origem
 
@@ -215,7 +246,7 @@ priority-high
 
 > Como usuário, quero organizar minhas tarefas em projetos para manter minhas atividades separadas por contexto.
 
-### Estado atual
+### Estado no planejamento inicial — histórico
 
 O mobile já possui criação, edição, detalhes e exclusão de projetos com persistência local.
 
@@ -255,7 +286,7 @@ feature/projects-crud
 
 ## ISSUE #4 — Criar e persistir tarefas
 
-**Status:** Concluída — PR #17.
+**Status:** Concluída — [PR #17](https://github.com/AlineRaquelC/gestor-diario/pull/17).
 
 ### Requisito de origem
 
@@ -314,7 +345,7 @@ feature/tasks-create
 
 ## ISSUE #5 — Consultar e visualizar tarefas
 
-**Status:** Pendente — próxima Issue; ainda não iniciada.
+**Status:** Concluída — [PR #23](https://github.com/AlineRaquelC/gestor-diario/pull/23).
 
 ### Tipo
 
@@ -363,7 +394,7 @@ feature/tasks-read
 
 ## ISSUE #6 — Editar tarefas
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #24](https://github.com/AlineRaquelC/gestor-diario/pull/24).
 
 ### Requisito de origem
 
@@ -429,7 +460,7 @@ Decisão: o trabalho de integridade local de projetos sugerido pela auditoria se
 
 ## ISSUE #7 — Status, conclusão e histórico da tarefa
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #25](https://github.com/AlineRaquelC/gestor-diario/pull/25).
 
 ### Requisitos de origem
 
@@ -488,7 +519,7 @@ feature/task-status-history
 
 ## ISSUE #8 — Gerenciar subtarefas e calcular progresso
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #26](https://github.com/AlineRaquelC/gestor-diario/pull/26).
 
 ### Requisitos de origem
 
@@ -538,7 +569,7 @@ feature/subtasks-progress
 
 ## ISSUE #9 — Implementar múltiplas observações por tarefa
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #27](https://github.com/AlineRaquelC/gestor-diario/pull/27).
 
 ### Requisito de origem
 
@@ -630,7 +661,7 @@ feature/task-delete-undo
 
 ## ISSUE #11 — Dashboard com dados reais
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #28](https://github.com/AlineRaquelC/gestor-diario/pull/28).
 
 ### Requisito de origem
 
@@ -794,7 +825,7 @@ ci/sprint-1-validation
 
 ## ISSUE #20 — Complementar visualizações do calendário do MVP
 
-**GitHub:** [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20). **Status:** Pendente — não iniciada.
+**GitHub:** [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20). **Status:** Concluída — [PR #29](https://github.com/AlineRaquelC/gestor-diario/pull/29).
 
 ### Requisitos de origem
 
@@ -808,7 +839,7 @@ PBI-05 — Visualizar tarefas por dia, semana e mês.
 
 `user-story` — Front-end, prioridade alta, milestone Sprint 1.
 Labels: `frontend`, `test`, `sprint-1`, `user-story`, `priority-high`.
-Status: pendente, não iniciada. Item já pertencente à Entrega 1 — MVP, formalizado após a auditoria do Front; nenhum requisito novo foi criado.
+Status: Concluída — PR #29. Item já pertencente à Entrega 1 — MVP, formalizado após a auditoria do Front; nenhum requisito novo foi criado.
 
 ### User Story
 
@@ -850,7 +881,7 @@ Preservar identidade visual atual, navegação atual, componentes já existentes
 - #5 — Consultar e visualizar tarefas.
 - #11 — Dashboard com dados reais, quando houver regra compartilhada de atrasadas/períodos.
 
-A ordem geral prevê calendário após #11 e antes de sincronização manual/CI. Pode ser ajustada após #5 conforme as dependências. Limites dos períodos e janela de prazo próximo devem ser explicitados no refinamento técnico futuro, sem inventar regra oficial ou implementar nesta etapa.
+A ordem geral prevê calendário após #11 e antes de sincronização manual/CI. Pode ser ajustada após #5 conforme as dependências. Limites de períodos e convenção técnica de prazo próximo estão documentados em [Calendário do MVP](../arquitetura/calendario-mvp.md), sem criar requisito oficial.
 
 ### Fora de escopo
 
@@ -861,7 +892,7 @@ A ordem geral prevê calendário após #11 e antes de sincronização manual/CI.
 - troca desnecessária de biblioteca;
 - funcionalidades da Entrega 2/3.
 
-### Branch sugerida futura
+### Branch utilizada (integrada)
 
 `feature/calendar-mvp`
 
@@ -937,7 +968,7 @@ A ordem geral prevê filtros após calendário e antes de sincronização manual
 
 ---
 
-# 5. Ordem sugerida de execução
+# 5. Ordem sugerida no planejamento — status histórico em 2026-10-03
 
 ```text
 #1 Base técnica da API — concluída (PR #14)
@@ -1044,9 +1075,10 @@ Dados continuam consistentes
 
 ---
 
-## Status
+## Status atual — 2026-10-04
 
-**Sprint 1 em andamento — 4/15 Issues concluídas (26,7%), após refinamento.**
+**Sprint 1 em andamento — 11/15 Issues concluídas (73,3%).**
 
-Issues #1 → PR #14, #2 → PR #15, #3 → PR #16 e #4 → PR #17 concluídas.
-Issues #5 a #13, #20 e #21 permanecem pendentes. Próxima: #5 — Consultar e visualizar tarefas, ainda não iniciada. Planejamento inicial: 13 Issues; histórico de 30,8% preservado acima.
+Concluídas: #1 (PR #14), #2 (PR #15), #3 (PR #16), #4 (PR #17), #5 (PR #23), #6 (PR #24), #7 (PR #25), #8 (PR #26), #9 (PR #27), #11 (PR #28) e #20 (PR #29).
+Pendentes: #10, #12, #13 e #21. Não foi iniciada outra Issue nesta atualização documental.
+Histórico em 2026-10-03: 4/13 = 30,8% no planejamento inicial; 4/15 = 26,7% após refinamento. #5 era a próxima naquele momento; hoje está concluída.

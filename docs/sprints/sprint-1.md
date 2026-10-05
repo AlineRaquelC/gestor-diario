@@ -1,5 +1,79 @@
 # Sprint 1 — Gestor Diário
 
+## Status atual — 2026-10-04
+
+**Sprint 1 EM ANDAMENTO: 15 Issues planejadas, 11 concluídas, 4 pendentes; 11/15 = 73,3%.**
+
+Fonte: consulta direta às 15 Issues do milestone Sprint 1 e aos PRs mergeados em `dev` no [GitHub](https://github.com/AlineRaquelC/gestor-diario/issues?q=milestone%3A%22Sprint+1%22), em 2026-10-04. Os estados coincidem com os esperados; não houve divergência. Referência integrada: PR #29, commit `5ccf2b99625def77701a36a8f58e9e0997b4dfd7`.
+
+| Issue | Entrega realizada | PR integrado em dev |
+|---|---|---|
+| [#1](https://github.com/AlineRaquelC/gestor-diario/issues/1) | Base técnica da mini API Node.js — Concluída | [#14](https://github.com/AlineRaquelC/gestor-diario/pull/14) |
+| [#2](https://github.com/AlineRaquelC/gestor-diario/issues/2) | Schema SQLite e migrations — Concluída | [#15](https://github.com/AlineRaquelC/gestor-diario/pull/15) |
+| [#3](https://github.com/AlineRaquelC/gestor-diario/issues/3) | Gerenciar projetos — Concluída | [#16](https://github.com/AlineRaquelC/gestor-diario/pull/16) |
+| [#4](https://github.com/AlineRaquelC/gestor-diario/issues/4) | Criar e persistir tarefas — Concluída | [#17](https://github.com/AlineRaquelC/gestor-diario/pull/17) |
+| [#5](https://github.com/AlineRaquelC/gestor-diario/issues/5) | Consultar e visualizar tarefas — Concluída | [#23](https://github.com/AlineRaquelC/gestor-diario/pull/23) |
+| [#6](https://github.com/AlineRaquelC/gestor-diario/issues/6) | Editar tarefas — Concluída | [#24](https://github.com/AlineRaquelC/gestor-diario/pull/24) |
+| [#7](https://github.com/AlineRaquelC/gestor-diario/issues/7) | Status, conclusão e histórico — Concluída | [#25](https://github.com/AlineRaquelC/gestor-diario/pull/25) |
+| [#8](https://github.com/AlineRaquelC/gestor-diario/issues/8) | Subtarefas e progresso — Concluída | [#26](https://github.com/AlineRaquelC/gestor-diario/pull/26) |
+| [#9](https://github.com/AlineRaquelC/gestor-diario/issues/9) | Múltiplas observações — Concluída | [#27](https://github.com/AlineRaquelC/gestor-diario/pull/27) |
+| [#11](https://github.com/AlineRaquelC/gestor-diario/issues/11) | Dashboard com dados reais — Concluída | [#28](https://github.com/AlineRaquelC/gestor-diario/pull/28) |
+| [#20](https://github.com/AlineRaquelC/gestor-diario/issues/20) | Calendário do MVP — Concluída | [#29](https://github.com/AlineRaquelC/gestor-diario/pull/29) |
+
+Pendentes (Issues abertas):
+
+- [#10](https://github.com/AlineRaquelC/gestor-diario/issues/10): exclusão lógica com confirmação e desfazer.
+- [#12](https://github.com/AlineRaquelC/gestor-diario/issues/12): sincronização manual geral e migração/reconciliação dos dados locais legados.
+- [#13](https://github.com/AlineRaquelC/gestor-diario/issues/13): pipeline CI inicial.
+- [#21](https://github.com/AlineRaquelC/gestor-diario/issues/21): filtros e ordenação completos do MVP.
+
+#11 e #20 foram priorizadas antes de #10 para preparar um incremento visual demonstrável para a apresentação de 2026-10-05 pela manhã. Isso altera a ordem de execução, não o escopo nem o estado das Issues. #10 continua pendente; Sprint 1 e Entrega 1 permanecem em andamento.
+
+### Resultados técnicos já entregues
+
+Mini API Node.js + TypeScript, Express, validação Zod, SQLite, Drizzle ORM e migrations; CRUD de projetos na API; Tasks create/read/update; status, conclusão/reabertura e histórico; Subtasks e progresso automático; Notes; Dashboard e Calendário Dia/Semana/Mês com dados reais.
+
+Arquitetura utilizada:
+
+```text
+React Native + TypeScript
+    ↓
+Context / State
+    ↓
+Services HTTP
+    ↓
+API REST Node.js / Express
+    ↓
+Services / Repositories
+    ↓
+Drizzle ORM
+    ↓
+SQLite
+
+AsyncStorage
+    ↓
+cache/apoio local durante a transição
+```
+
+Tarefas novas dos fluxos integrados já operam Mobile → API → SQLite. AsyncStorage permanece como cache/apoio; isso não significa sincronização geral pronta. O gerenciamento geral de projetos no mobile continua sujeito à reconciliação da #12.
+
+### Validação e dívidas conhecidas
+
+- Backend: 258 testes em 9 arquivos, typecheck e build aprovados no [registro de Notes](../arquitetura/integracao-observacoes.md).
+- Mobile: 216 testes focados em 14 suítes aprovados; lint dos quatro arquivos de código/testes do calendário com zero erros e zero avisos; `git diff --check` aprovado. Evidências no [Calendário](../arquitetura/calendario-mvp.md) e na revisão do PR #29.
+- Android validado nos fluxos integrados, incluindo Dia/Semana/Mês, detalhes, edição de data sem reload, vazio e persistência após reabertura. Resultados anteriores registrados, sem reexecução nesta atualização documental.
+- Permanecem os mesmos 14 erros globais TypeScript preexistentes, sem novo diagnóstico no calendário.
+- Jest global legado: conflito com testes Vitest do backend e ESM de React Navigation em App.test.tsx; os testes focados acima passam.
+- Quatro alertas moderados conhecidos na cadeia do Drizzle Kit e avisos/dívidas de lint preexistentes em outras telas, conforme [status/histórico](../arquitetura/integracao-status-historico.md) e [subtarefas](../arquitetura/integracao-subtarefas-progresso.md). Lint focado limpo não equivale a lint global limpo.
+
+### Tarefas legadas e offline
+
+Tarefas antigas criadas na fase Front-only podem existir exclusivamente no AsyncStorage. Podem ser exibidas, mas algumas mutações remotas podem falhar por não existir registro correspondente no SQLite/API. Migração e reconciliação pertencem à #12; não foram implementadas agora.
+
+Há tratamento de falhas/offline nos fluxos implementados, preservando dados disponíveis e informando falhas remotas. O comportamento offline é parcial e não garante novas mutações remotas sem API ou sincronização geral.
+
+---
+
 ## 1. Identificação
 
 - **Produto:** Gestor Diário
@@ -8,8 +82,8 @@
 - **Base documental:** `docs/requisitos/requisitos-oficiais.md`, `docs/backlog/backlog-produto.md` e `docs/backlog/entregas.md`
 - **Plataforma:** Android
 - **Mobile:** React Native + TypeScript
-- **Backend previsto:** Node.js
-- **Banco de dados:** a definir na decisão de arquitetura da Sprint
+- **Backend atual:** Node.js + TypeScript / Express
+- **Banco de dados:** SQLite / Drizzle ORM / migrations
 - **Persistência local existente:** AsyncStorage
 - **Fluxo de desenvolvimento:** Issue → Branch → Commit → Pull Request → `dev` → testes/CI → Pull Request → `main`
 
@@ -17,10 +91,10 @@
 
 ---
 
-## Status atual após refinamento — 2026-10-03
+## Status histórico em 2026-10-03 — após refinamento
 
 - **Sprint refinada:** 15 Issues planejadas, 4 concluídas e 11 pendentes.
-- **Progresso formal atual:** 4/15 = **26,7%**.
+- **Progresso formal naquele momento:** 4/15 = **26,7%**.
 - **Concluídas:** #1 (PR #14), #2 (PR #15), #3 (PR #16) e #4 (PR #17).
 - **Próxima:** #5 — Consultar e visualizar tarefas; ainda não iniciada.
 - Base da API Node.js concluída, com `GET /health` funcionando.
@@ -30,7 +104,7 @@
 - **Teste manual Android aprovado**, conforme [registro de integração](../arquitetura/integracao-criacao-tarefas.md#validação-manual-android--2026-10-03).
 - Entrega 1 permanece em andamento. O planejamento original abaixo é preservado como referência histórica e complementado pelo refinamento; seus critérios não representam a conclusão de toda a Sprint.
 
-### Dívidas técnicas e funcionalidades pendentes
+### Dívidas técnicas e funcionalidades pendentes naquele momento
 
 - 14 erros globais preexistentes de TypeScript no mobile.
 - Falhas antigas da configuração global do Jest.
@@ -42,7 +116,7 @@ Esses itens permanecem registrados, sem correções nesta atualização document
 
 ---
 
-## Refinamento formal do Sprint Backlog após auditoria — 2026-10-03
+## Refinamento formal do Sprint Backlog — status histórico em 2026-10-03
 
 O planejamento inicial possuía **13 Issues**. Com #1–#4 concluídas, o status anterior era **4/13 = 30,8%**. Após a [auditoria do Front-end do MVP](../auditorias/auditoria-front-mvp.md), foram formalizados dois itens que **já pertenciam à Entrega 1 — MVP**:
 
@@ -566,7 +640,7 @@ Não utilizar quantidade de commits ou linhas de código como métrica de produt
 
 ---
 
-# 17. Próximos passos após versionar este documento
+# 17. Próximos passos do planejamento inicial — histórico
 
 1. revisar o escopo da Sprint 1 no repositório;
 2. criar as decisões de arquitetura necessárias para API e banco;
