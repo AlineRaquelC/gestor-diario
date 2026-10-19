@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { ProjectError } from '../errors/projects.js';
-import { TaskValidationError, TaskNotFoundError } from '../errors/tasks.js';
+import { TaskValidationError, TaskNotFoundError, TaskConflictError } from '../errors/tasks.js';
 import { ProjectsRepository } from '../repositories/projects.js';
 import { TasksRepository } from '../repositories/tasks.js';
 import type { CreateTask, UpdateTask } from '../schemas/tasks.js';
@@ -44,6 +44,32 @@ export class TasksService {
   findHistory(id: string) {
     this.findById(id);
     return this.repository.findHistoryByTaskId(id);
+  }
+
+  delete(id: string) {
+    return this.repository.transaction(() => {
+      // Repeating DELETE uses the normal operational 404 policy, without another event.
+      const task = this.findById(id);
+      const timestamp = new Date(Math.max(Date.now(), Date.parse(task.updatedAt) + 1)).toISOString();
+      this.repository.setDeletedAt(id, timestamp, timestamp);
+      this.repository.createHistoryEvent({ id: randomUUID(), taskId: id,
+        action: 'DELETE', createdAt: timestamp, metadata: { deletedAt: timestamp } });
+      return { id, deletedAt: timestamp, updatedAt: timestamp };
+    });
+  }
+
+  restore(id: string) {
+    return this.repository.transaction(() => {
+      const task = this.repository.findIncludingDeleted(id);
+      if (!task) throw new TaskNotFoundError();
+      if (!task.deletedAt) throw new TaskConflictError();
+      if (!this.projects.findById(task.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
+      const timestamp = new Date(Math.max(Date.now(), Date.parse(task.updatedAt) + 1)).toISOString();
+      this.repository.setDeletedAt(id, null, timestamp);
+      this.repository.createHistoryEvent({ id: randomUUID(), taskId: id,
+        action: 'RESTORE', createdAt: timestamp, metadata: { deletedAt: task.deletedAt } });
+      return this.findById(id);
+    });
   }
 
   update(id: string, input: UpdateTask) {

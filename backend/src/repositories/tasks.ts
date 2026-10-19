@@ -44,6 +44,15 @@ export class TasksRepository {
       .where(and(eq(tasks.id, id), isNull(tasks.deletedAt))).returning().get();
   }
 
+  findIncludingDeleted(id: string) {
+    return this.db.select().from(tasks).where(eq(tasks.id, id)).get();
+  }
+
+  setDeletedAt(id: string, deletedAt: string | null, updatedAt: string) {
+    return this.db.update(tasks).set({ deletedAt, undoUntil: null, updatedAt })
+      .where(eq(tasks.id, id)).returning().get();
+  }
+
   recordUpdate(taskId: string, id: string, createdAt: string, fields: string[]) {
     this.createHistoryEvent({ id, taskId, action: 'UPDATED', createdAt, metadata: { fields } });
   }

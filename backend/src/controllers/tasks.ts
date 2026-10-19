@@ -16,6 +16,12 @@ export class TasksController {
   update = (req: Request<{ id: string }>, res: Response) => {
     res.status(200).json(this.service.update(req.params.id, updateTaskSchema.parse(req.body)));
   };
+  delete = (req: Request<{ id: string }>, res: Response) => {
+    res.status(200).json(this.service.delete(req.params.id));
+  };
+  restore = (req: Request<{ id: string }>, res: Response) => {
+    res.status(200).json(this.service.restore(req.params.id));
+  };
   create = (req: Request, res: Response) => {
     res.status(201).json(this.service.create(createTaskSchema.parse(req.body)));
   };
