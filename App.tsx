@@ -1,5 +1,6 @@
 import React from 'react';
 
+import TaskUndoFeedback from './src/components/TaskUndoFeedback';
 import AppNavigator from './src/navigation/AppNavigator';
 
 import {
@@ -17,6 +18,7 @@ export default function App() {
       <TaskProvider>
 
         <AppNavigator />
+        <TaskUndoFeedback />
 
       </TaskProvider>
 

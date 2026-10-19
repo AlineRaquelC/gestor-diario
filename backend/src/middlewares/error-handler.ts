@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { TaskValidationError, TaskNotFoundError } from '../errors/tasks.js';
+import { TaskValidationError, TaskNotFoundError, TaskConflictError } from '../errors/tasks.js';
 import { ProjectError } from '../errors/projects.js';
 import { SubtaskNotFoundError } from '../errors/subtasks.js';
 import { NoteNotFoundError } from '../errors/notes.js';
@@ -10,6 +10,11 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
 
   if (error instanceof ZodError) {
     res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.' } });
+    return;
+  }
+
+  if (error instanceof TaskConflictError) {
+    res.status(409).json({ error: { code: error.code, message: error.message } });
     return;
   }
 

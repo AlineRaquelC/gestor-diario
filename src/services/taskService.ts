@@ -7,7 +7,7 @@ export type NewTask = Omit<Task, 'id' | 'status'> & { status: LegacyTaskStatus; 
 export type TaskUpdate = Omit<Partial<Task>, 'status'> & { status?: LegacyTaskStatus };
 export type TaskHistoryEvent = {
   id: string; taskId: string;
-  action: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'COMPLETED' | 'REOPENED';
+  action: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'COMPLETED' | 'REOPENED' | 'DELETE' | 'RESTORE' | 'DELETED' | 'RESTORED';
   metadata: Record<string, unknown> | null; createdAt: string;
 };
 export type ApiTask = {
@@ -128,4 +128,19 @@ export async function createTask(input: NewTask, projectId: string): Promise<Tas
   // Draft IDs are temporary. Their confirmed replacements come from SQLite;
   // merging them as local children would duplicate the submitted subtasks.
   return fromApiTask(response, { ...input, subtasks: undefined });
+}
+
+export async function deleteTask(id: string) {
+  try {
+    return await apiRequest<{ id: string; deletedAt: string; updatedAt: string }>(`/tasks/${encodeURIComponent(id)}`, 'DELETE');
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw new Error('Tarefa não encontrada no servidor. Ela pode existir apenas neste dispositivo ou já estar excluída. Nenhuma exclusão foi confirmada.');
+    }
+    throw error;
+  }
+}
+
+export async function restoreTask(id: string): Promise<Task> {
+  return fromApiTask(await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}/restore`, 'POST'));
 }

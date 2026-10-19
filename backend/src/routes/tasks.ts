@@ -7,6 +7,8 @@ export function createTasksRouter(controller: TasksController) {
   router.get('/:id/history', controller.findHistory);
   router.get('/:id', controller.findById);
   router.patch('/:id', controller.update);
+  router.delete('/:id', controller.delete);
+  router.post('/:id/restore', controller.restore);
   router.post('/', controller.create);
   return router;
 }

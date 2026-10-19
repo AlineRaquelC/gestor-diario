@@ -527,3 +527,26 @@ desfaz tudo. DELETE é físico somente da Note; updatedAt da resposta é do pai.
 Não há eventos NOTE_*, backfill, upload de notas locais ou sincronização geral.
 
 Veja [integração de observações](../docs/arquitetura/integracao-observacoes.md).
+
+## Exclusão lógica e restauração — Issue #10 / RF04
+
+| Endpoint | Sucesso | Erros previstos |
+|---|---|---|
+| DELETE /tasks/:id | 200, {id, deletedAt, updatedAt} | 404 TASK_NOT_FOUND (inexistente/já excluída) |
+| POST /tasks/:id/restore | 200, Task completa (mesmo ID) | 404 TASK_NOT_FOUND; 409 TASK_NOT_DELETED (ativa); 404 PROJECT_NOT_FOUND |
+
+DELETE preenche deletedAt; restore limpa deletedAt. Cada operação atualiza
+updatedAt e registra DELETE ou RESTORE atomicamente, com metadata.deletedAt.
+Task, subtarefas, notas, projeto e histórico anterior permanecem no SQLite.
+GET /tasks exclui soft-deleted; detalhe/histórico/filhos/notas operacionais retornam
+404 enquanto o pai estiver excluído. Restore exige projeto ativo.
+
+Execute `npm run db:migrate` antes de iniciar: migration 0001 adiciona os eventos
+DELETE/RESTORE, preservando DELETED/RESTORED e os dados anteriores. Falha no evento
+provoca rollback da alteração. Não há hard delete ou limpeza após expiração.
+O mobile oferece DESFAZER por cinco segundos; o endpoint restore não impõe prazo
+no servidor. undoUntil permanece null. Não há lixeira, fila offline ou migração
+em massa de tarefas antigas.
+
+Veja [integração de exclusão/desfazer](../docs/arquitetura/integracao-exclusao-desfazer.md)
+para decisões, erros/cache/legado, concorrência e evidências Android.

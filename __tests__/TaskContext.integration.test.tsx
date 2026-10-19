@@ -3,10 +3,10 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TaskProvider, useTasks } from '../src/context/TaskContext';
 import { ProjectProvider } from '../src/context/ProjectContext';
-import { createTask, resolveProject, getTasks, getTaskById, updateTask, getTaskHistory, createSubtask, updateSubtask, deleteSubtask } from '../src/services/taskService';
+import { createTask, resolveProject, getTasks, getTaskById, updateTask, getTaskHistory, createSubtask, updateSubtask, deleteSubtask, deleteTask, restoreTask } from '../src/services/taskService';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn() }));
-jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn(), updateTask: jest.fn(), getTaskHistory: jest.fn(), createSubtask: jest.fn(), updateSubtask: jest.fn(), deleteSubtask: jest.fn(), mergeSubtasks: jest.requireActual('../src/services/taskService').mergeSubtasks }));
+jest.mock('../src/services/taskService', () => ({ createTask: jest.fn(), resolveProject: jest.fn(), getTasks: jest.fn(), getTaskById: jest.fn(), updateTask: jest.fn(), getTaskHistory: jest.fn(), createSubtask: jest.fn(), updateSubtask: jest.fn(), deleteSubtask: jest.fn(), deleteTask: jest.fn(), restoreTask: jest.fn(), mergeSubtasks: jest.requireActual('../src/services/taskService').mergeSubtasks }));
 const storage = new Map<string, string>();
 let context: ReturnType<typeof useTasks>;
 let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -412,4 +412,123 @@ it('falha de cache após subtarefa confirmada avisa sem repetir POST', async () 
   jest.mocked(createSubtask).mockClear(); jest.mocked(AsyncStorage.setItem).mockRejectedValue(new Error('disk'));
   await act(async () => { expect((await context.addSubtask(saved.id, 'Nova')).cacheSaved).toBe(false); });
   expect(createSubtask).toHaveBeenCalledTimes(1); expect(context.tasks[0].subtasks).toEqual([child]);
+});
+
+it('DELETE só remove após API; RESTORE preserva mesmo ID, filhos/cache e recalcula dashboard/calendário', async () => {
+  const { dashboardMetrics } = require('../src/utils/dashboard');
+  const { tasksForDay } = require('../src/utils/calendar');
+  const original = { ...saved, dueDate: '2026-10-04', subtasks: [{ id: 's', title: 'Filha', done: false, remote: true }] };
+  jest.mocked(createTask).mockResolvedValueOnce(original);
+  await act(async () => { await context.addTask(draft); });
+  let finish!: () => void;
+  jest.mocked(deleteTask).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ id: saved.id, deletedAt: '2026-10-04T12:00:00Z', updatedAt: '2026-10-04T12:00:00Z' }); }));
+  let pending!: Promise<unknown>;
+  await act(async () => { pending = context.deleteTask(saved.id); });
+  expect(context.tasks).toEqual([original]); expect(context.undo).toBeNull();
+  await act(async () => { await expect(context.deleteTask(saved.id)).rejects.toThrow('andamento'); });
+  expect(deleteTask).toHaveBeenCalledTimes(1);
+  await act(async () => { finish(); await pending; });
+  expect(context.tasks).toEqual([]); expect(context.undo?.id).toBe(saved.id);
+  expect(dashboardMetrics(context.tasks, 'today', new Date(2026, 9, 4)).total).toBe(0);
+  expect(tasksForDay(context.tasks, '2026-10-04')).toEqual([]);
+  jest.mocked(restoreTask).mockResolvedValueOnce(original);
+  await act(async () => { await context.restoreTask(saved.id); });
+  expect(context.tasks).toEqual([original]); expect(context.undo).toBeNull();
+  expect(dashboardMetrics(context.tasks, 'today', new Date(2026, 9, 4)).total).toBe(1);
+  expect(tasksForDay(context.tasks, '2026-10-04')).toEqual([original]);
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual([original]);
+});
+it.each(['offline', 'Tarefa apenas local'])('DELETE %s preserva último estado confirmado e cache', async message => {
+  await act(async () => { await context.addTask(draft); });
+  const cache = storage.get('@taskflow:tasks');
+  jest.mocked(deleteTask).mockRejectedValueOnce(new Error(message));
+  await act(async () => { await expect(context.deleteTask(saved.id)).rejects.toThrow(message); });
+  expect(context.tasks).toEqual([saved]); expect(context.undo).toBeNull();
+  expect(storage.get('@taskflow:tasks')).toBe(cache);
+});
+it('falha de RESTORE mantém exclusão; janela expira sem hard delete e reabertura preserva remoção', async () => {
+  jest.useFakeTimers();
+  try {
+    await act(async () => { await context.addTask(draft); });
+    jest.mocked(deleteTask).mockResolvedValueOnce({ id: saved.id, deletedAt: 'now', updatedAt: 'now' });
+    await act(async () => { await context.deleteTask(saved.id); });
+    jest.mocked(restoreTask).mockRejectedValueOnce(new Error('offline'));
+    await act(async () => { await expect(context.restoreTask(saved.id)).rejects.toThrow('offline'); });
+    expect(context.tasks).toEqual([]); expect(context.undo?.id).toBe(saved.id);
+    await act(async () => { jest.advanceTimersByTime(5000); });
+    expect(context.undo).toBeNull();
+    await act(async () => { await expect(context.restoreTask(saved.id)).rejects.toThrow('prazo'); });
+    expect(restoreTask).toHaveBeenCalledTimes(1); expect(deleteTask).toHaveBeenCalledTimes(1);
+    await act(async () => renderer.unmount()); await mount();
+    expect(context.tasks).toEqual([]);
+  } finally { jest.useRealTimers(); }
+});
+it('segunda exclusão substitui undo; callback antigo não restaura ID errado e duplo RESTORE é bloqueado', async () => {
+  await act(async () => { await context.addTask(draft); });
+  jest.mocked(createTask).mockResolvedValueOnce({ ...saved, id: 'second' });
+  await act(async () => { await context.addTask(draft); });
+  jest.mocked(deleteTask).mockResolvedValue({ id: saved.id, deletedAt: 'now', updatedAt: 'now' });
+  await act(async () => { await context.deleteTask(saved.id); await context.deleteTask('second'); });
+  expect(context.undo?.id).toBe('second');
+  await act(async () => { await expect(context.restoreTask(saved.id)).rejects.toThrow('prazo'); });
+  let finish!: () => void;
+  jest.mocked(restoreTask).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ ...saved, id: 'second' }); }));
+  let pending!: Promise<unknown>;
+  await act(async () => { pending = context.restoreTask('second'); });
+  await act(async () => { await expect(context.restoreTask('second')).rejects.toThrow('andamento'); });
+  expect(restoreTask).toHaveBeenCalledTimes(1);
+  await act(async () => { finish(); await pending; });
+  expect(context.tasks.map(task => task.id)).toEqual(['second']);
+});
+it('GET individual atrasado não ressuscita tarefa após DELETE confirmado', async () => {
+  await act(async () => { await context.addTask(draft); });
+  let finish!: () => void;
+  jest.mocked(getTaskById).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(saved); }));
+  let pending!: Promise<unknown>;
+  await act(async () => { pending = context.loadTaskById(saved.id); });
+  jest.mocked(deleteTask).mockResolvedValueOnce({ id: saved.id, deletedAt: 'now', updatedAt: 'now' });
+  await act(async () => { await context.deleteTask(saved.id); });
+  await act(async () => { finish(); await expect(pending).rejects.toThrow('excluída'); });
+  expect(context.tasks).toEqual([]);
+});
+it('timer antigo não encerra undo da segunda tarefa; expira apenas após seus próprios cinco segundos', async () => {
+  jest.useFakeTimers();
+  try {
+    await act(async () => { await context.addTask(draft); });
+    jest.mocked(createTask).mockResolvedValueOnce({ ...saved, id: 'second' });
+    await act(async () => { await context.addTask(draft); });
+    jest.mocked(deleteTask).mockResolvedValue({ id: saved.id, deletedAt: 'now', updatedAt: 'now' });
+    await act(async () => { await context.deleteTask(saved.id); jest.advanceTimersByTime(4000); });
+    await act(async () => { await context.deleteTask('second'); jest.advanceTimersByTime(1000); });
+    expect(context.undo?.id).toBe('second');
+    await act(async () => { jest.advanceTimersByTime(3999); });
+    expect(context.undo?.id).toBe('second');
+    await act(async () => { jest.advanceTimersByTime(1); });
+    expect(context.undo).toBeNull(); expect(context.tasks).toEqual([]);
+  } finally { jest.useRealTimers(); }
+});
+it('restore iniciado dentro da janela pode terminar depois dela, sem duplicar a tarefa', async () => {
+  jest.useFakeTimers();
+  try {
+    await act(async () => { await context.addTask(draft); });
+    jest.mocked(deleteTask).mockResolvedValueOnce({ id: saved.id, deletedAt: 'now', updatedAt: 'now' });
+    await act(async () => { await context.deleteTask(saved.id); });
+    let finish!: () => void;
+    jest.mocked(restoreTask).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(saved); }));
+    let pending!: Promise<unknown>;
+    await act(async () => { pending = context.restoreTask(saved.id); jest.advanceTimersByTime(6000); });
+    expect(context.tasks).toEqual([]);
+    await act(async () => { finish(); await pending; });
+    expect(context.tasks).toEqual([saved]); expect(context.undo).toBeNull();
+  } finally { jest.useRealTimers(); }
+});
+it('falhas de cache após DELETE/RESTORE retornam warning e conservam estado confirmado da API', async () => {
+  await act(async () => { await context.addTask(draft); });
+  jest.mocked(AsyncStorage.setItem).mockRejectedValue(new Error('cache cheio'));
+  jest.mocked(deleteTask).mockResolvedValueOnce({ id: saved.id, deletedAt: 'now', updatedAt: 'now' });
+  await act(async () => { expect(await context.deleteTask(saved.id)).toEqual({ cacheSaved: false }); });
+  expect(context.tasks).toEqual([]); expect(context.undo?.id).toBe(saved.id);
+  jest.mocked(restoreTask).mockResolvedValueOnce(saved);
+  await act(async () => { expect((await context.restoreTask(saved.id)).cacheSaved).toBe(false); });
+  expect(context.tasks).toEqual([saved]);
 });

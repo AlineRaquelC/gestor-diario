@@ -15,6 +15,8 @@ import {
   useRoute,
 } from '@react-navigation/native';
 
+import {useTaskDeletion} from '../hooks/useTaskDeletion';
+
 import {useTasks} from '../context/TaskContext';
 import {presentTaskHistory} from '../models/taskHistory';
 import TaskNotesSection from '../components/TaskNotesSection';
@@ -27,7 +29,6 @@ export default function TaskDetailsScreen() {
 
   const {
     tasks,
-    deleteTask,
     toggleTask,
     toggleSubtask: toggleChild,
     loading,
@@ -35,6 +36,10 @@ export default function TaskDetailsScreen() {
     taskHistory,
     loadTaskHistory,
   } = useTasks();
+
+  const handleDeleteTask = useTaskDeletion(taskId, () => {
+    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+  });
 
   const task = tasks.find(
     item => item.id === taskId,
@@ -177,34 +182,6 @@ export default function TaskDetailsScreen() {
     }
   }
 
-  function handleDeleteTask() {
-    Alert.alert(
-      'Excluir tarefa',
-      'Tem certeza que deseja excluir esta tarefa?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => {
-            deleteTask(taskId);
-
-            navigation.reset({
-              index: 0,
-              routes: [
-                {
-                  name: 'Home',
-                },
-              ],
-            });
-          },
-        },
-      ],
-    );
-  }
 
   return (
     <SafeAreaView

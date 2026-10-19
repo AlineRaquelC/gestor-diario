@@ -34,6 +34,8 @@ import {
 
 import {calendarDate} from '../services/taskService';
 
+import {useTaskDeletion} from '../hooks/useTaskDeletion';
+
 const PRIORITIES = [
   {
     value: 'low' as Priority,
@@ -92,7 +94,6 @@ export default function EditTaskScreen() {
   const {
     tasks,
     updateTask,
-    deleteTask,
     addSubtask: createChild,
     toggleSubtask: toggleChild,
     removeSubtask: removeChild,
@@ -101,6 +102,10 @@ export default function EditTaskScreen() {
   const {
     projects,
   } = useProjects();
+
+  const confirmDelete = useTaskDeletion(taskId, () => {
+    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+  });
 
   const task =
     tasks.find(
@@ -112,6 +117,102 @@ export default function EditTaskScreen() {
   const submitting = useRef(false);
   const [subtaskSaving, setSubtaskSaving] = useState<string | null>(null);
   const subtaskRequest = useRef(false);
+
+  const originalStartDate = task?.startDate;
+  const linkedProject = projects.find(item => item.id === task?.projectId || item.remoteId === task?.projectId);
+  // Retain a real remote relationship even before general project sync (#12).
+  const projectOptions = task?.projectId && !linkedProject
+    ? [...projects, { id: task.projectId, remoteId: task.projectId, name: task.project, color: '#5C4DFF', icon: '📁' }]
+    : projects;
+  const [title, setTitle] =
+    useState(task?.title ?? '');
+
+  const [
+    description,
+    setDescription,
+  ] = useState(
+    task?.description ?? '',
+  );
+
+  const [
+    startDate,
+    setStartDate,
+  ] = useState(
+    task?.startDate
+      ? new Date(
+          task.startDate,
+        )
+      : new Date(),
+  );
+
+  const [
+    dueDate,
+    setDueDate,
+  ] = useState(
+    task?.dueDate
+      ? new Date(
+          task.dueDate,
+        )
+      : new Date(),
+  );
+
+  const [
+    showStartDatePicker,
+    setShowStartDatePicker,
+  ] = useState(false);
+
+  const [
+    showDueDatePicker,
+    setShowDueDatePicker,
+  ] = useState(false);
+
+  const [time, setTime] =
+    useState(
+      task?.time ?? '',
+    );
+
+  const [
+    priority,
+    setPriority,
+  ] = useState<Priority>(
+    task?.priority ?? 'medium',
+  );
+
+  const [
+    project,
+    setProject,
+  ] = useState(
+    linkedProject?.id ?? task?.projectId ?? '',
+  );
+
+  const [
+    status,
+    setStatus,
+  ] = useState<TaskStatus>(
+    task?.status ?? 'todo',
+  );
+
+  const [
+    subtasks,
+    setSubtasks,
+  ] = useState<Subtask[]>(
+    task?.subtasks ?? [],
+  );
+
+  const [
+    addingSubtask,
+    setAddingSubtask,
+  ] = useState(false);
+
+  const [
+    newSubtask,
+    setNewSubtask,
+  ] = useState('');
+
+  const [
+    dirty,
+    setDirty,
+  ] = useState(false);
 
   if (!task) {
     return (
@@ -154,102 +255,6 @@ export default function EditTaskScreen() {
       </SafeAreaView>
     );
   }
-
-  const originalStartDate = task.startDate;
-  const linkedProject = projects.find(item => item.id === task.projectId || item.remoteId === task.projectId);
-  // Retain a real remote relationship even before general project sync (#12).
-  const projectOptions = task.projectId && !linkedProject
-    ? [...projects, { id: task.projectId, remoteId: task.projectId, name: task.project, color: '#5C4DFF', icon: '📁' }]
-    : projects;
-  const [title, setTitle] =
-    useState(task.title);
-
-  const [
-    description,
-    setDescription,
-  ] = useState(
-    task.description ?? '',
-  );
-
-  const [
-    startDate,
-    setStartDate,
-  ] = useState(
-    task.startDate
-      ? new Date(
-          task.startDate,
-        )
-      : new Date(),
-  );
-
-  const [
-    dueDate,
-    setDueDate,
-  ] = useState(
-    task.dueDate
-      ? new Date(
-          task.dueDate,
-        )
-      : new Date(),
-  );
-
-  const [
-    showStartDatePicker,
-    setShowStartDatePicker,
-  ] = useState(false);
-
-  const [
-    showDueDatePicker,
-    setShowDueDatePicker,
-  ] = useState(false);
-
-  const [time, setTime] =
-    useState(
-      task.time ?? '',
-    );
-
-  const [
-    priority,
-    setPriority,
-  ] = useState<Priority>(
-    task.priority,
-  );
-
-  const [
-    project,
-    setProject,
-  ] = useState(
-    linkedProject?.id ?? task.projectId ?? '',
-  );
-
-  const [
-    status,
-    setStatus,
-  ] = useState<TaskStatus>(
-    task.status,
-  );
-
-  const [
-    subtasks,
-    setSubtasks,
-  ] = useState<Subtask[]>(
-    task.subtasks ?? [],
-  );
-
-  const [
-    addingSubtask,
-    setAddingSubtask,
-  ] = useState(false);
-
-  const [
-    newSubtask,
-    setNewSubtask,
-  ] = useState('');
-
-  const [
-    dirty,
-    setDirty,
-  ] = useState(false);
 
   function formatDateBR(
     date: Date,
@@ -337,39 +342,6 @@ export default function EditTaskScreen() {
     }
   }
 
-  function confirmDelete() {
-    Alert.alert(
-      'Excluir tarefa',
-      'Tem certeza que deseja excluir esta tarefa?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-
-          onPress: () => {
-            deleteTask(
-              taskId,
-            );
-
-            navigation.reset({
-              index: 0,
-
-              routes: [
-                {
-                  name:
-                    'Home',
-                },
-              ],
-            });
-          },
-        },
-      ],
-    );
-  }
 
   return (
     <SafeAreaView
@@ -1147,7 +1119,7 @@ export default function EditTaskScreen() {
                 style={
                   styles.deleteSubtitle
                 }>
-                Esta ação não pode ser desfeita
+                Você poderá desfazer por 5 segundos
               </Text>
 
             </View>
