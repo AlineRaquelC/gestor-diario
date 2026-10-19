@@ -1,6 +1,10 @@
 import type { TaskHistoryEvent } from '../services/taskService';
 
 const presentation = {
+  DELETE: { emoji: '🗑', title: 'Tarefa excluída' },
+  RESTORE: { emoji: '↩', title: 'Tarefa restaurada' },
+  DELETED: { emoji: '🗑', title: 'Tarefa excluída' },
+  RESTORED: { emoji: '↩', title: 'Tarefa restaurada' },
   CREATED: { emoji: '🆕', title: 'Tarefa criada' },
   UPDATED: { emoji: '✎', title: 'Tarefa atualizada' },
   STATUS_CHANGED: { emoji: '↔', title: 'Status alterado' },

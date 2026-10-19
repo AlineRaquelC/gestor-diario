@@ -13,6 +13,7 @@ import { useProjects } from './ProjectContext';
 import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask } from '../services/taskService';
 import { getTaskHistory, createSubtask, updateSubtask, deleteSubtask, mergeSubtasks } from '../services/taskService';
 import type { NewTask, TaskHistoryEvent } from '../services/taskService';
+import { deleteTask as remoteDeleteTask, restoreTask as remoteRestoreTask } from '../services/taskService';
 import { normalizeTaskStatus } from '../models/taskStatus';
 import type { TaskStatus } from '../models/taskStatus';
 import { getTaskNotes, createTaskNote, updateTaskNote, deleteTaskNote } from '../services/noteService';
@@ -79,9 +80,9 @@ type TaskContextType = {
     id: string,
   ) => Promise<{ task: Task; cacheSaved: boolean }>;
 
-  deleteTask: (
-    id: string,
-  ) => void;
+  deleteTask: (id: string) => Promise<{ cacheSaved: boolean }>;
+  restoreTask: (id: string) => Promise<{ task: Task; cacheSaved: boolean }>;
+  undo: { id: string; expiresAt: number } | null;
 
   addTask: (
     task: NewTask,
@@ -146,6 +147,12 @@ export function TaskProvider({
   const { projects, updateProject, hydrated: projectsHydrated } = useProjects();
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+  const deletedIds = useRef(new Set<string>());
+  const deletionBusy = useRef(false);
+  const [undo, setUndo] = useState<{ id: string; expiresAt: number } | null>(null);
+  const undoRef = useRef<{ id: string; expiresAt: number; task: Task } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (undoTimer.current) {clearTimeout(undoTimer.current);} }, []);
   const creating = useRef(false);
   const updating = useRef(new Set<string>());
   // Confirmed notes are kept separately from Task and its persisted cache.
@@ -220,7 +227,7 @@ export function TaskProvider({
       try {
         const remote = await getTasks();
         if (!active) {return;}
-        tasksRef.current = mergeReadTasks(tasksRef.current, remote);
+        tasksRef.current = mergeReadTasks(tasksRef.current, remote.filter(task => !deletedIds.current.has(task.id)));
         setTasks(tasksRef.current);
       } catch (error) {
         if (active) {setReadError([cacheError, error instanceof Error ? error.message : 'Erro ao consultar tarefas.'].filter(Boolean).join(' '));}
@@ -234,6 +241,7 @@ export function TaskProvider({
 
   const loadTaskById = useCallback(async (id: string) => {
     const remote = await fetchTaskById(id);
+    if (deletedIds.current.has(id)) {throw new Error('Tarefa excluída.');}
     const next = mergeReadTasks(tasksRef.current, [remote]);
     tasksRef.current = next;
     setTasks(next);
@@ -274,15 +282,52 @@ export function TaskProvider({
     return updateTask(id, { status: task.status === 'completed' ? 'todo' : 'completed' });
   }
 
-  function deleteTask(
-    id: string,
-  ) {
-    setTasks(current =>
-      current.filter(
-        task =>
-          task.id !== id,
-      ),
-    );
+  async function deleteTask(id: string) {
+    if (!hydrated || loading) {throw new Error('Aguarde o carregamento das tarefas.');}
+    if (deletionBusy.current || updating.current.has(id)) {throw new Error('Uma operação já está em andamento.');}
+    const task = tasksRef.current.find(item => item.id === id);
+    if (!task) {throw new Error('Tarefa não encontrada.');}
+    deletionBusy.current = true;
+    updating.current.add(id);
+    try {
+      await remoteDeleteTask(id);
+      deletedIds.current.add(id);
+      const next = tasksRef.current.filter(item => item.id !== id);
+      tasksRef.current = next;
+      setTasks(next);
+      if (undoTimer.current) {clearTimeout(undoTimer.current);}
+      const opportunity = { id, expiresAt: Date.now() + 5000, task };
+      undoRef.current = opportunity;
+      setUndo({ id, expiresAt: opportunity.expiresAt });
+      undoTimer.current = setTimeout(() => {
+        if (undoRef.current === opportunity) {undoRef.current = null; setUndo(null);}
+      }, 5000);
+      try { await persistTasks(next); return { cacheSaved: true }; }
+      catch { return { cacheSaved: false }; }
+    } finally { deletionBusy.current = false; updating.current.delete(id); }
+  }
+
+  async function restoreTask(id: string) {
+    const opportunity = undoRef.current;
+    if (!opportunity || opportunity.id !== id || Date.now() >= opportunity.expiresAt) {
+      throw new Error('O prazo para desfazer terminou.');
+    }
+    if (deletionBusy.current || updating.current.has(id)) {throw new Error('Uma operação já está em andamento.');}
+    deletionBusy.current = true;
+    updating.current.add(id);
+    try {
+      const remote = await remoteRestoreTask(id);
+      const task = { ...remote, subtasks: mergeSubtasks(remote.subtasks, opportunity.task.subtasks), reminders: opportunity.task.reminders };
+      deletedIds.current.delete(id);
+      const next = mergeReadTasks(tasksRef.current, [task]);
+      tasksRef.current = next;
+      setTasks(next);
+      if (undoTimer.current) {clearTimeout(undoTimer.current);}
+      undoRef.current = null;
+      setUndo(null);
+      try { await persistTasks(next); return { task, cacheSaved: true }; }
+      catch { return { task, cacheSaved: false }; }
+    } finally { deletionBusy.current = false; updating.current.delete(id); }
   }
 
   async function addTask(draft: NewTask) {
@@ -443,6 +488,8 @@ export function TaskProvider({
         removeTaskNote,
         toggleTask,
         deleteTask,
+        restoreTask,
+        undo,
         addTask,
         updateTask,
         updateTaskLocal,
