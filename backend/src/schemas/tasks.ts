@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createSubtaskSchema } from './subtasks.js';
 
 export const createTaskSchema = z.strictObject({
+  clientId: z.string().min(1).max(200).optional(),
   title: z.string().trim().min(1),
   description: z.string().nullable().optional(),
   projectId: z.string().min(1).refine(value => value.trim().length > 0),
@@ -15,7 +16,7 @@ export const createTaskSchema = z.strictObject({
 export type CreateTask = z.infer<typeof createTaskSchema>;
 
 // Avoid creation defaults in a partial update (especially status).
-export const updateTaskSchema = createTaskSchema.omit({ status: true, time: true, subtasks: true }).partial().extend({
+export const updateTaskSchema = createTaskSchema.omit({ status: true, time: true, subtasks: true, clientId: true }).partial().extend({
   status: z.enum(['PENDING', 'PARTIAL', 'COMPLETED']).optional(),
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional(),
 }).refine(value => Object.values(value).some(field => field !== undefined), 'Informe ao menos um campo.');

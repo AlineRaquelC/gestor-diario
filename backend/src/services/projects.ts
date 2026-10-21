@@ -7,9 +7,15 @@ export class ProjectsService {
   constructor(private readonly repository: ProjectsRepository) {}
 
   create(input: CreateProject) {
-    const timestamp = new Date().toISOString();
-    return this.repository.create({
-      ...input, id: randomUUID(), createdAt: timestamp, updatedAt: timestamp,
+    return this.repository.transaction(() => {
+      if (input.clientId) {
+        const existing = this.repository.findByClientId(input.clientId);
+        if (existing) return existing;
+      }
+      const timestamp = new Date().toISOString();
+      return this.repository.create({
+        ...input, id: randomUUID(), createdAt: timestamp, updatedAt: timestamp,
+      });
     });
   }
 
@@ -24,9 +30,15 @@ export class ProjectsService {
   }
 
   update(id: string, input: UpdateProject) {
-    const project = this.repository.update(id, input, new Date().toISOString());
-    if (!project) throw new ProjectError('PROJECT_NOT_FOUND');
-    return project;
+    return this.repository.transaction(() => {
+      const current = this.findById(id);
+      const { expectedUpdatedAt, ...changes } = input;
+      if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== current.updatedAt) {
+        throw new ProjectError('PROJECT_CONFLICT');
+      }
+      const updatedAt = new Date(Math.max(Date.now(), Date.parse(current.updatedAt) + 1)).toISOString();
+      return this.repository.update(id, changes, updatedAt)!;
+    });
   }
 
   delete(id: string) {

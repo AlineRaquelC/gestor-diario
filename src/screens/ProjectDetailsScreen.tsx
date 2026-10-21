@@ -67,7 +67,7 @@ export default function ProjectDetailsScreen() {
   const projectTasks =
     tasks.filter(
       task =>
-        task.project === project.name,
+        task.projectId === project.id || (!!project.remoteId && task.projectId === project.remoteId),
     );
 
   const completed =
@@ -86,6 +86,7 @@ export default function ProjectDetailsScreen() {
       : 0;
 
   function confirmDelete() {
+    if (!project) {return;}
     Alert.alert(
       'Excluir projeto',
       `Tem certeza que deseja excluir "${project.name}"?`,
@@ -98,10 +99,9 @@ export default function ProjectDetailsScreen() {
           text: 'Excluir',
           style: 'destructive',
 
-          onPress: () => {
-            deleteProject(project.id);
-
-            navigation.goBack();
+          onPress: async () => {
+            try {await deleteProject(project.id); navigation.goBack();}
+            catch (error) {Alert.alert('Não foi possível excluir', error instanceof Error ? error.message : 'Tente novamente.');}
           },
         },
       ],

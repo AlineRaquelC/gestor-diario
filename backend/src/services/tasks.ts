@@ -31,8 +31,8 @@ export class TasksService {
     private readonly subtasks: SubtasksRepository,
   ) {}
 
-  findAll() {
-    return this.repository.findAll();
+  findAll(includeDeleted = false) {
+    return this.repository.findAll(includeDeleted);
   }
 
   findById(id: string) {
@@ -116,17 +116,27 @@ export class TasksService {
   }
 
   create(input: CreateTask) {
+    // The retry may arrive after the original date passed, or after soft-delete.
+    // Resolve its immutable import identity before any creation validation.
+    if (input.clientId) {
+      const existing = this.repository.findByClientId(input.clientId);
+      if (existing) return existing.deletedAt ? existing : this.findById(existing.id);
+    }
     const now = new Date();
     if (!isCalendarDate(input.startDate) || !isCalendarDate(input.dueDate)) {
       throw new TaskValidationError('Informe datas válidas no formato YYYY-MM-DD.');
     }
-    if (input.startDate < localToday(now)) {
+    if (!input.clientId && input.startDate < localToday(now)) {
       throw new TaskValidationError('A data de início não pode ser anterior à data atual.');
     }
     if (input.dueDate < input.startDate) {
       throw new TaskValidationError('O prazo não pode ser anterior à data de início.');
     }
     return this.repository.transaction(() => {
+      if (input.clientId) {
+        const existing = this.repository.findByClientId(input.clientId);
+        if (existing) return existing.deletedAt ? existing : this.findById(existing.id);
+      }
       if (!this.projects.findById(input.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
       const timestamp = now.toISOString();
       const completed = input.status === 'COMPLETED';

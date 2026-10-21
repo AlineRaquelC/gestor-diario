@@ -122,8 +122,12 @@ it('upgrade 0000 → 0001 preserva eventos antigos, Task, Notes e Subtasks em SQ
   const old = openDatabase(join(directory, 'upgrade.db'));
   try {
     migrate(old.db, { migrationsFolder: folder });
-    old.db.insert(projects).values({ id: 'p', name: 'Projeto', color: '#fff', icon: 'P' }).run();
-    old.db.insert(tasks).values(task).run();
+    old.sqlite.prepare("INSERT INTO projects (id, name, color, icon) VALUES ('p', 'Projeto', '#fff', 'P')").run();
+    old.sqlite.prepare(`INSERT INTO tasks (id, title, project_id, start_date, due_date, priority,
+      status, done, progress, favorite, created_at, updated_at, deleted_at, undo_until, description, time)
+      VALUES (@id, @title, @projectId, @startDate, @dueDate, @priority, @status, @done, @progress,
+        @favorite, @createdAt, @updatedAt, @deletedAt, @undoUntil, @description, @time)`)
+      .run({ ...task, done: Number(task.done), favorite: Number(task.favorite) });
     old.db.insert(notes).values({ id: 'n', taskId: 't', content: 'Original' }).run();
     old.db.insert(subtasks).values({ id: 's', taskId: 't', title: 'Original' }).run();
     old.db.insert(taskHistory).values({ id: 'h', taskId: 't', action: 'DELETED', metadata: { original: true } }).run();

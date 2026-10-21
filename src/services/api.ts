@@ -17,6 +17,7 @@ export async function apiRequest<T>(path: string, method = 'GET', body?: unknown
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal as RequestInit['signal'],
     });
+    if (response.status === 204) {return undefined as T;}
     const data = await response.json() as { error?: { message?: string; code?: string } };
     if (!response.ok) {
       throw new ApiError(data.error?.message ?? (method === 'GET' ? 'Não foi possível consultar a API.' : 'Não foi possível salvar na API.'), response.status, data.error?.code);

@@ -8,6 +8,10 @@ type Database = ReturnType<typeof openDatabase>['db'];
 export class ProjectsRepository {
   constructor(private readonly db: Database) {}
 
+  findByClientId(clientId: string) {
+    return this.db.select().from(projects).where(eq(projects.clientId, clientId)).get();
+  }
+
   create(project: typeof projects.$inferInsert) {
     return this.db.insert(projects).values(project).returning().get();
   }

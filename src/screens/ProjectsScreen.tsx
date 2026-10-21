@@ -120,8 +120,7 @@ export default function ProjectsScreen() {
               const tasksInProject =
                 tasks.filter(
                   task =>
-                    task.project ===
-                    project.name,
+                    task.projectId === project.id || (!!project.remoteId && task.projectId === project.remoteId),
                 );
 
               const completed =

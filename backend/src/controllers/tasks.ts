@@ -4,8 +4,8 @@ import type { TasksService } from '../services/tasks.js';
 
 export class TasksController {
   constructor(private readonly service: TasksService) {}
-  findAll = (_req: Request, res: Response) => {
-    res.status(200).json(this.service.findAll());
+  findAll = (req: Request, res: Response) => {
+    res.status(200).json(this.service.findAll(req.query.includeDeleted === 'true'));
   };
   findHistory = (req: Request<{ id: string }>, res: Response) => {
     res.status(200).json(this.service.findHistory(req.params.id));
