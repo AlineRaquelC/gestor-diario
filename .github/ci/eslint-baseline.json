@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "source": "dev@2ec581ea08781eaa5d8e0a0d5451395a108ea07b; Node 24.21.0; npm ci; auditoria 2026-10-21",
+  "diagnostics": [
+    {
+      "file": "backend/tests/tasks-update.test.ts",
+      "rule": "@typescript-eslint/no-unused-vars",
+      "severity": 2,
+      "message": "'_originalUpdated' is assigned a value but never used.",
+      "count": 1
+    },
+    {
+      "file": "backend/tests/tasks-update.test.ts",
+      "rule": "@typescript-eslint/no-unused-vars",
+      "severity": 2,
+      "message": "'_project' is assigned a value but never used.",
+      "count": 1
+    },
+    {
+      "file": "backend/tests/tasks-update.test.ts",
+      "rule": "@typescript-eslint/no-unused-vars",
+      "severity": 2,
+      "message": "'_subtasks' is assigned a value but never used.",
+      "count": 1
+    },
+    {
+      "file": "src/screens/CreateProjectScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { width: '35%' }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/CreateProjectScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { width: 38 }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/EditProjectScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { width: '40%' }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/EditProjectScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { width: 75 }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/EditTaskScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { width: 75 }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/HomeScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { backgroundColor: 'task.done\\n' + \" ? '#CBD5E1'\\n\" + ' : priorityColors[\\n' + ' task.priority\\n' + ' ]' }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/NewTaskScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { width: 70 }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/ProjectDetailsScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { backgroundColor: \"task.priority === 'high'\\n\" + \" ? '#F43F5E'\\n\" + \" : task.priority === 'medium'\\n\" + \" ? '#F59E0B'\\n\" + \" : '#5C4DFF'\" }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/ProjectDetailsScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { width: 38 }",
+      "count": 1
+    },
+    {
+      "file": "src/screens/TaskDetailsScreen.tsx",
+      "rule": "react-native/no-inline-styles",
+      "severity": 1,
+      "message": "Inline style: { borderColor: \"accent\\n ? `${accentColor}33`\\n : '#F1F5F9'\" }",
+      "count": 1
+    }
+  ]
+}
