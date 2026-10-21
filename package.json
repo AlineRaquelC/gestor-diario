@@ -7,7 +7,11 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "lint:ci": "node scripts/ci/check-eslint-baseline.mjs",
+    "typecheck:ci": "node scripts/ci/check-typescript-baseline.mjs",
+    "test:ci": "jest --config .github/ci/jest.config.cjs --ci --runInBand",
+    "test:ci-scripts": "node --test scripts/ci/baseline.test.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",
