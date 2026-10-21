@@ -4,9 +4,9 @@ Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido 
 
 ## Status atual — 2026-10-21
 
-**Sprint 1 em andamento: 13/15 Issues concluídas — 86,7%.** Estado conferido
-no GitHub. #12 (RF20) está implementada nesta branch e aguarda revisão/merge;
-#13 (CI inicial) permanece pendente. Não há merge automático.
+**Sprint 1 em andamento: 14/15 Issues concluídas — 93,3%.** #12 integrada pelo
+PR #33. #13 (CI inicial) está implementada nesta branch e aguarda revisão
+do PR e merge; permanece aberta. Não há merge automático.
 
 ## Funcionalidades atuais
 
@@ -61,15 +61,30 @@ cache/apoio local durante a transição
 - Evidências Android e limites constam no [registro do RF20](docs/arquitetura/sincronizacao-manual.md).
 - Jest global legado (Vitest do backend/ESM de React Navigation), demais dívidas
   globais de lint/TypeScript e alertas conhecidos do Drizzle Kit permanecem fora
-  deste escopo. CI inicial continua pendente (#13).
+  deste escopo. CI inicial da #13 está descrito no [registro de CI](docs/arquitetura/ci-inicial.md).
+- CI mobile valida a dívida auditada: 11 diagnósticos TypeScript e 3 erros/10
+  warnings globais de ESLint. Novas identidades/ocorrências falham; verde não
+  significa ausência de dívida. Backend permanece estrito.
 
 ## Como executar
 
 Consulte a [execução do backend](backend/README.md) e a [integração Android](docs/arquitetura/integracao-criacao-tarefas.md) para executar localmente.
 
+Para reproduzir os checks mobile:
+
+```bash
+npm ci
+npm run test:ci-scripts
+npm run lint:ci
+npm run typecheck:ci
+npm run test:ci
+```
+
+Triggers, jobs, banco temporário e limites estão no [README do workflow](.github/workflows/README.md).
+
 ## Metodologia e branches
 
-Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` recebe promoção por PR após revisão. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. CI/CD permanece planejado. Esta implementação abre PR para `dev`, sem merge automático ou promoção para `main`.
+Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` recebe promoção por PR após revisão. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. O workflow CI valida Mobile e Backend separadamente; não publica nem gera APK. Esta implementação abre PR para `dev`, sem merge automático ou promoção para `main`.
 
 ## Estrutura
 
