@@ -57,7 +57,7 @@ saída desconhecida, novo diagnóstico ou teste falhando torna o job vermelho.
 
 ## Backend
 
-Todos os comandos são estritos. DATABASE_PATH aponta para
+Todos os comandos são estritos. Na etapa Migrate database, DATABASE_PATH aponta para
 `${{ runner.temp }}/gestor-diario-ci/backend.db`, criado pela conexão/migrations;
 TASK_TIMEZONE=America/Sao_Paulo. Não utiliza banco versionado nem .env pessoal.
 Os testes mantêm seus bancos isolados. Build gera dist/ apenas no runner.

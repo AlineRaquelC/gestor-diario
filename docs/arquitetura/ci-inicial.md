@@ -118,3 +118,12 @@ YAML foi analisado localmente; diff --check aprovado. Nenhuma alteração em src
 backend/src/, dependências ou regras de produto. docs/prompts continua ausente.
 A conclusão operacional exige ainda observar **Mobile** e **Backend** no run real
 do PR; sucesso local/validade sintática não substituem a execução do Actions.
+
+
+## Validação no GitHub
+
+A primeira tentativa foi rejeitada antes de criar jobs: runner.temp havia sido
+usado em env do job, contexto indisponível nessa posição. DATABASE_PATH foi movido
+para env da etapa Migrate database, onde runner está disponível. Nenhum check,
+baseline, teste ou regra de produto foi removido/relaxado. Referência de contextos:
+https://docs.github.com/en/actions/reference/workflows-and-actions/contexts.
