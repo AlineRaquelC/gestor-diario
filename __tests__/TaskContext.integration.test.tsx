@@ -164,7 +164,7 @@ it('carrega API depois do cache, sem duplicatas e preservando subtarefas/lembret
   await mount();
   expect(context.loading).toBe(false);
   expect(context.readError).toBeNull();
-  expect(context.tasks).toEqual([{ ...saved, title: 'SQLite', progress: 60, subtasks: local.subtasks, reminders: local.reminders }, legacy]);
+  expect(context.tasks).toEqual([{ ...saved, title: 'SQLite', progress: 60, subtasks: local.subtasks, reminders: local.reminders, syncSnapshot: local, syncSnapshots: [local] }, legacy]);
   expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(context.tasks);
 });
 it('consulta indisponível mantém cache e informa erro', async () => {

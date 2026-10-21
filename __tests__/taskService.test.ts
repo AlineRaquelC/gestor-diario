@@ -109,3 +109,24 @@ it('falha de rede na leitura usa mensagem de consulta', async () => {
 it.each([['LOW', 'PENDING', 'low', 'todo'], ['MEDIUM', 'PARTIAL', 'medium', 'in_progress'], ['HIGH', 'COMPLETED', 'high', 'completed']] as const)('mapeia leitura %s/%s', (priority, status, mappedPriority, mappedStatus) => {
   expect(fromApiTask({ ...remote, priority, status })).toMatchObject({ priority: mappedPriority, status: mappedStatus });
 });
+
+it('importação manual envia apenas pai, clientId e projectId resolvido, sem copiar filhos', async () => {
+  const { importLocalTask } = require('../src/services/taskService') as typeof import('../src/services/taskService');
+  fetchMock.mockResolvedValue(response(remote, 201));
+  const result = await importLocalTask({ ...draft, status: 'in_progress', id: 'local' }, 'remote-p', 'stable-key');
+  const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+  expect(body).toMatchObject({ clientId: 'stable-key', projectId: 'remote-p', status: 'PARTIAL' });
+  expect(body).not.toHaveProperty('subtasks'); expect(body).not.toHaveProperty('reminders');
+  expect(result).toMatchObject({ remoteId: remote.id });
+});
+it('consulta manual inclui tombstones sem alterar GET operacional', async () => {
+  const { getTasksForSync } = require('../src/services/taskService') as typeof import('../src/services/taskService');
+  fetchMock.mockResolvedValue(response([{ ...remote, deletedAt: '2026-10-21T12:00:00Z' }]));
+  const tasks = await getTasksForSync();
+  expect(tasks[0]).toMatchObject({ id: remote.id, remoteId: remote.id, deletedAt: '2026-10-21T12:00:00Z' });
+  expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/tasks?includeDeleted=true`);
+});
+it('DELETE de projeto com 204 não exige corpo JSON', async () => {
+  fetchMock.mockResolvedValue({ ok: true, status: 204, json: jest.fn().mockRejectedValue(new Error('sem JSON')) });
+  await expect(apiRequest('/projects/p', 'DELETE')).resolves.toBeUndefined();
+});
