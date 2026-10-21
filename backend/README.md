@@ -58,7 +58,8 @@ O teste HTTP utiliza Vitest e Supertest.
 
 `database/` contém a conexão, o schema e o executor de migrations.
 O CRUD de projetos segue Route → Controller → Service → Repository → Drizzle → SQLite.
-A criação de tarefas está integrada ao mobile; não há sincronização geral.
+A criação de tarefas está integrada ao mobile; a sincronização manual é orquestrada
+pelos services mobile, reutilizando CRUD. Consulte o [fluxo RF20](../docs/arquitetura/sincronizacao-manual.md).
 
 ## SQLite e migrations
 
@@ -550,3 +551,29 @@ em massa de tarefas antigas.
 
 Veja [integração de exclusão/desfazer](../docs/arquitetura/integracao-exclusao-desfazer.md)
 para decisões, erros/cache/legado, concorrência e evidências Android.
+
+## Suporte à sincronização manual — RF20
+
+A migration `0002` acrescenta `client_id` opcional e único a Projects/Tasks;
+colunas existentes, dados e FKs são preservados. Aplique `npm run db:migrate`
+antes de executar o mobile desta versão. POST /projects e POST /tasks aceitam
+`clientId` (1–200 caracteres), persistido pelo mobile antes de enviar. Uma repetição
+retorna o mesmo registro, inclusive excluído, sem sobrescrever campos, recriar
+filhos nem registrar outro CREATED. Nomes/títulos não identificam registros.
+Reutilizar a chave com outro conteúdo continua retornando o registro canônico.
+Chaves não expiram e não são autenticação. PATCH não permite alterar clientId.
+
+POST /tasks com clientId é importação identificada: aceita início no passado,
+mas continua exigindo dias reais, prazo >= início e projeto ativo. A criação
+normal sem clientId continua proibindo início passado. Dados legados incompletos
+permanecem no mobile com pendência; não são fabricadas datas/projetos.
+
+GET /tasks?includeDeleted=true inclui tombstones para reconciliação. GET /tasks
+e GET /tasks/:id preservam a política operacional anterior. Nenhuma exclusão é
+desfeita pelo sync. Não há endpoint /sync nem sincronização em background.
+
+PATCH /projects/:id aceita expectedUpdatedAt opcional. Se diferir do timestamp
+atual, retorna 409 PROJECT_CONFLICT sem atualizar; o mobile usa essa precondição
+ao enviar edição de projeto. Atualizações preservam timestamp monotônico.
+DELETE /projects/:id continua bloqueando tarefas vinculadas, inclusive excluídas;
+o mobile adota a mesma política e não move tarefas para Geral por nome.

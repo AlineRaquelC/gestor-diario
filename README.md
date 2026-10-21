@@ -2,13 +2,11 @@
 
 Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido em React Native e integrado progressivamente a uma API Node.js com persistência SQLite.
 
-## Status atual — 2026-10-04
+## Status atual — 2026-10-21
 
-**Sprint 1 em andamento: 11/15 Issues concluídas — 73,3%.** Estado conferido diretamente no GitHub; Entrega 1 permanece em andamento.
-
-Concluídas: #1, #2, #3, #4, #5, #6, #7, #8, #9, #11 e #20. Pendentes: #10 (exclusão lógica + desfazer), #12 (sincronização manual geral e reconciliação de dados legados), #13 (CI inicial) e #21 (filtros e ordenação completos).
-
-#11 e #20 foram priorizadas antes de #10 para a demonstração de 05/10/2026, sem mudança de escopo. Não há sincronização geral pronta.
+**Sprint 1 em andamento: 13/15 Issues concluídas — 86,7%.** Estado conferido
+no GitHub. #12 (RF20) está implementada nesta branch e aguarda revisão/merge;
+#13 (CI inicial) permanece pendente. Não há merge automático.
 
 ## Funcionalidades atuais
 
@@ -19,8 +17,14 @@ Concluídas: #1, #2, #3, #4, #5, #6, #7, #8, #9, #11 e #20. Pendentes: #10 (excl
 - Dashboard com indicadores reais e calendário Dia/Semana/Mês alimentados pelo TaskContext.
 - Persistência de dados novos Mobile → API → SQLite; AsyncStorage como cache/apoio local.
 - Tratamento de falhas/offline nos fluxos implementados e testes manuais Android registrados.
+- Sincronização manual em Configurações → Sincronizar, com projetos antes de tarefas,
+  preservação do legado, identidades persistentes e pendências explícitas.
 
-O comportamento offline é parcial. Tarefas antigas da fase Front-only podem existir apenas no AsyncStorage: podem ser exibidas, mas mutações remotas podem falhar sem registro correspondente na API/SQLite. Reconciliação e gerenciamento geral de projetos no mobile pertencem à #12.
+O comportamento offline é parcial: falhas preservam dados e não confirmam envio.
+A API é canônica para registros identificados; AsyncStorage conserva cache,
+vínculos e snapshots de versões locais. Registros antigos sem projeto identificável
+ou dados válidos permanecem locais e pendentes, sem associação por nome. Consulte
+[a política e as evidências de sincronização](docs/arquitetura/sincronizacao-manual.md).
 
 ## Tecnologias
 
@@ -50,12 +54,14 @@ cache/apoio local durante a transição
 
 ## Validação e dívidas técnicas
 
-- Backend: 258 testes em 9 arquivos, typecheck e build aprovados no [registro de observações](docs/arquitetura/integracao-observacoes.md).
-- Mobile: 216 testes focados em 14 suítes aprovados. Lint dos quatro arquivos de código/testes do calendário: zero erros e zero avisos; `git diff --check` aprovado. [Evidências do calendário](docs/arquitetura/calendario-mvp.md).
-- Android: fluxos integrados validados, incluindo calendário, navegação para detalhes, mudança de data sem reload, vazio e persistência após reabertura.
-- Permanecem 14 erros globais TypeScript preexistentes, sem novo diagnóstico no calendário; falhas do Jest global legado (Vitest do backend/ESM de React Navigation); quatro alertas moderados conhecidos do Drizzle Kit e dívidas/avisos de lint em outras telas registrados nos documentos de integração. Lint focado limpo não representa lint global limpo.
-
-Resultados registrados nas integrações e revisão do PR #29; não reexecutados nesta atualização exclusivamente documental. CI inicial continua pendente (#13).
+- Backend: migrations, typecheck, build e 278 testes aprovados.
+- Mobile: 322 testes focados aprovados em 20 suítes; lint alterado sem erros,
+  com seis avisos inline preexistentes. `git diff --check` aprovado.
+- TypeScript: 14 diagnósticos na base e 11 após a alteração, sem diagnóstico novo.
+- Evidências Android e limites constam no [registro do RF20](docs/arquitetura/sincronizacao-manual.md).
+- Jest global legado (Vitest do backend/ESM de React Navigation), demais dívidas
+  globais de lint/TypeScript e alertas conhecidos do Drizzle Kit permanecem fora
+  deste escopo. CI inicial continua pendente (#13).
 
 ## Como executar
 
@@ -63,7 +69,7 @@ Consulte a [execução do backend](backend/README.md) e a [integração Android]
 
 ## Metodologia e branches
 
-Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` recebe promoção por PR após revisão. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. CI/CD permanece planejado. Esta preparação documental abre PR para `dev`, sem merge automático ou promoção para `main`.
+Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` recebe promoção por PR após revisão. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. CI/CD permanece planejado. Esta implementação abre PR para `dev`, sem merge automático ou promoção para `main`.
 
 ## Estrutura
 
