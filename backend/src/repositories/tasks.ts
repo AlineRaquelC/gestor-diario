@@ -7,6 +7,10 @@ type Database = ReturnType<typeof openDatabase>['db'];
 export class TasksRepository {
   constructor(private readonly db: Database) {}
 
+  findByClientId(clientId: string) {
+    return this.db.select().from(tasks).where(eq(tasks.clientId, clientId)).get();
+  }
+
   create(task: typeof tasks.$inferInsert) {
     return this.db.insert(tasks).values(task).returning().get();
   }
@@ -16,8 +20,8 @@ export class TasksRepository {
       .leftJoin(projects, eq(tasks.projectId, projects.id));
   }
 
-  findAll() {
-    const rows = this.query().where(isNull(tasks.deletedAt))
+  findAll(includeDeleted = false) {
+    const rows = this.query().where(includeDeleted ? undefined : isNull(tasks.deletedAt))
       .orderBy(asc(tasks.createdAt), asc(tasks.id)).all();
     const children = rows.length === 0 ? [] : this.db.select().from(subtasks)
       .where(inArray(subtasks.taskId, rows.map(row => row.task.id)))

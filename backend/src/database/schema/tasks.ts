@@ -5,6 +5,7 @@ import { timestamps } from './timestamps.js';
 
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey().notNull(),
+  clientId: text('client_id').unique(),
   title: text('title').notNull(),
   description: text('description'),
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'restrict', onUpdate: 'no action' }),

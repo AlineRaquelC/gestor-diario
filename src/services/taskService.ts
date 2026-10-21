@@ -11,6 +11,7 @@ export type TaskHistoryEvent = {
   metadata: Record<string, unknown> | null; createdAt: string;
 };
 export type ApiTask = {
+  clientId?: string | null;
   id: string; title: string; description: string | null; projectId: string;
   startDate: string; dueDate: string; time: string | null;
   priority: 'LOW' | 'MEDIUM' | 'HIGH'; status: 'PENDING' | 'PARTIAL' | 'COMPLETED';
@@ -48,7 +49,7 @@ export function toApiTask(input: NewTask, projectId: string) {
 
 export function fromApiTask(task: ApiTask, draft?: Pick<Task, 'project' | 'subtasks' | 'reminders'>): Task {
   return {
-    id: task.id, title: task.title, description: task.description ?? undefined,
+    id: task.id, remoteId: task.id, clientId: task.clientId ?? undefined, deletedAt: task.deletedAt, title: task.title, description: task.description ?? undefined,
     project: task.project?.name ?? draft?.project ?? 'Projeto indisponível',
     projectId: task.projectId, time: task.time ?? undefined,
     priority: mobilePriority[task.priority], status: mobileStatus[task.status], done: task.done,
@@ -143,4 +144,16 @@ export async function deleteTask(id: string) {
 
 export async function restoreTask(id: string): Promise<Task> {
   return fromApiTask(await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}/restore`, 'POST'));
+}
+
+// Only the explicit manual sync asks for tombstones. Ordinary lists stay active.
+export async function getTasksForSync(): Promise<Task[]> {
+  return (await apiRequest<ApiTask[]>('/tasks?includeDeleted=true')).map(task => fromApiTask(task));
+}
+
+export async function importLocalTask(task: Task, projectId: string, clientId: string): Promise<Task> {
+  if (!task.startDate || !task.dueDate) {throw new Error('Tarefa legada sem datas válidas; dados preservados.');}
+  const input = { ...task, projectId, startDate: task.startDate, dueDate: task.dueDate, subtasks: undefined };
+  const response = await apiRequest<ApiTask>('/tasks', 'POST', { ...toApiTask(input, projectId), clientId });
+  return fromApiTask(response);
 }

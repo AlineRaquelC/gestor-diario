@@ -3,14 +3,21 @@ import React, {
   useContext,
   useEffect,
   useState,
+  useRef,
   ReactNode,
 } from 'react';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteProject as remoteDeleteProject } from '../services/projectService';
+import { assertDataAvailable, dataGuard } from '../services/dataGuard';
 
 export type Project = {
   id: string;
   remoteId?: string;
+  clientId?: string;
+  syncPending?: string;
+  dirty?: boolean;
+  updatedAt?: string;
   name: string;
   description?: string;
   color: string;
@@ -20,6 +27,10 @@ export type Project = {
 type ProjectContextType = {
   projects: Project[];
   hydrated: boolean;
+  readError: string | null;
+  flushProjects: () => Promise<unknown>;
+  persistProjects: (projects: Project[]) => Promise<void>;
+  publishProjects: (projects: Project[]) => void;
 
   addProject: (
     project: Project,
@@ -32,7 +43,7 @@ type ProjectContextType = {
 
   deleteProject: (
     id: string,
-  ) => void;
+  ) => Promise<void>;
 
   getProjectById: (
     id: string,
@@ -111,126 +122,80 @@ export function ProjectProvider({
 }: {
   children: ReactNode;
 }) {
-  const [
-    projects,
-    setProjects,
-  ] = useState<Project[]>(
-    initialProjects,
-  );
-
-  const [
-    hydrated,
-    setHydrated,
-  ] = useState(false);
-
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const projectsRef = useRef(projects);
+  const [hydrated, setHydrated] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
+  const writable = useRef(false);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  function publishProjects(list: Project[]) {projectsRef.current = list; setProjects(list);}
+  function persistProjects(list: Project[]) {
+    if (!writable.current) {return Promise.reject(new Error('Cache de projetos não carregado com segurança.'));}
+    const write = queue.current.catch(() => undefined).then(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list)));
+    queue.current = write;
+    return write;
+  }
+  const flushProjects = () => queue.current;
   useEffect(() => {
-    async function loadProjects() {
+    let active = true;
+    async function load() {
       try {
-        const storedProjects =
-          await AsyncStorage.getItem(
-            STORAGE_KEY,
-          );
-
-        if (storedProjects) {
-          const parsedProjects =
-            JSON.parse(
-              storedProjects,
-            ) as Project[];
-
-          setProjects(
-            parsedProjects,
-          );
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const parsed: Project[] = stored ? JSON.parse(stored) : initialProjects;
+        if (!Array.isArray(parsed) || parsed.some(project => !project || typeof project.id !== 'string')) {
+          throw new Error('Cache inválido.');
         }
-      } catch (error) {
-        console.log(
-          'Erro ao carregar projetos:',
-          error,
-        );
-      } finally {
-        setHydrated(true);
-      }
+        if (active) {writable.current = true; publishProjects(parsed);}
+      } catch {
+        if (active) {setReadError('Cache de projetos indisponível. Conteúdo original preservado.');}
+      } finally {if (active) {setHydrated(true);}}
     }
-
-    loadProjects();
+    load();
+    return () => {active = false;};
   }, []);
-
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-
-    async function saveProjects() {
-      try {
-        await AsyncStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(
-            projects,
-          ),
-        );
-      } catch (error) {
-        console.log(
-          'Erro ao salvar projetos:',
-          error,
-        );
+  function change(list: Project[]) {
+    assertDataAvailable();
+    if (!writable.current) {throw new Error('Aguarde o carregamento seguro dos projetos.');}
+    publishProjects(list);
+    persistProjects(list).catch(() => setReadError('Não foi possível atualizar o cache de projetos.'));
+  }
+  function addProject(project: Project) {change([...projectsRef.current, project]);}
+  function updateProject(id: string, changes: Partial<Project>) {
+    change(projectsRef.current.map(project => project.id === id
+      ? { ...project, ...changes, ...(['name', 'description', 'color', 'icon'].some(key => key in changes) ? { dirty: true } : {}) } : project));
+  }
+  async function deleteProject(id: string) {
+    assertDataAvailable();
+    if (!writable.current) {throw new Error('Cache de projetos indisponível.');}
+    if (dataGuard.activeTasks) {throw new Error('Aguarde as operações de tarefas antes de excluir o projeto.');}
+    dataGuard.deletingProject = true;
+    try {
+      await queue.current;
+      const stored = await AsyncStorage.getItem('@taskflow:tasks');
+      const tasks: { projectId?: string }[] = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(tasks)) {throw new Error('Cache de tarefas inválido.');}
+      const project = projectsRef.current.find(item => item.id === id);
+      if (!project) {throw new Error('Projeto não encontrado.');}
+      if (tasks.some(task => !task.projectId || task.projectId === id || task.projectId === project.remoteId)) {
+        throw new Error('Não é possível excluir projeto com tarefas vinculadas ou vínculos legados pendentes.');
       }
-    }
-
-    saveProjects();
-  }, [
-    projects,
-    hydrated,
-  ]);
-
-  function addProject(
-    project: Project,
-  ) {
-    setProjects(current => [
-      ...current,
-      project,
-    ]);
+      if (project.remoteId) {await remoteDeleteProject(project.remoteId);}
+      const next = projectsRef.current.filter(item => item.id !== id);
+      await persistProjects(next);
+      publishProjects(next);
+    } finally {dataGuard.deletingProject = false;}
   }
-
-  function updateProject(
-    id: string,
-    updatedProject: Partial<Project>,
-  ) {
-    setProjects(current =>
-      current.map(project =>
-        project.id === id
-          ? {
-              ...project,
-              ...updatedProject,
-            }
-          : project,
-      ),
-    );
-  }
-
-  function deleteProject(
-    id: string,
-  ) {
-    setProjects(current =>
-      current.filter(
-        project =>
-          project.id !== id,
-      ),
-    );
-  }
-
-  function getProjectById(
-    id: string,
-  ) {
-    return projects.find(
-      project =>
-        project.id === id,
-    );
-  }
+  function getProjectById(id: string) {return projectsRef.current.find(project => project.id === id);}
 
   return (
     <ProjectContext.Provider
       value={{
         projects,
         hydrated,
+        readError,
+        flushProjects,
+        persistProjects,
+        publishProjects,
         addProject,
         updateProject,
         deleteProject,

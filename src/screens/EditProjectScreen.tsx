@@ -72,6 +72,27 @@ export default function EditProjectScreen() {
       item => item.id === projectId,
     );
 
+  const originalProjectName =
+    project?.name ?? '';
+
+  const [name, setName] =
+    useState(project?.name ?? '');
+
+  const [description, setDescription] =
+    useState(
+      project?.description ?? '',
+    );
+
+  const [color, setColor] =
+    useState(project?.color ?? '#5C4DFF');
+
+  const [icon, setIcon] =
+    useState(project?.icon ?? '📁');
+
+  const [dirty, setDirty] =
+    useState(false);
+
+
   if (!project) {
     return (
       <SafeAreaView style={styles.container}>
@@ -94,26 +115,6 @@ export default function EditProjectScreen() {
     );
   }
 
-  const originalProjectName =
-    project.name;
-
-  const [name, setName] =
-    useState(project.name);
-
-  const [description, setDescription] =
-    useState(
-      project.description ?? '',
-    );
-
-  const [color, setColor] =
-    useState(project.color);
-
-  const [icon, setIcon] =
-    useState(project.icon ?? '📁');
-
-  const [dirty, setDirty] =
-    useState(false);
-
   const canSave =
     name.trim().length > 0;
 
@@ -122,6 +123,7 @@ export default function EditProjectScreen() {
   }
 
   function handleSave() {
+    if (!project) {return;}
     if (!canSave) {
       return;
     }
@@ -129,36 +131,39 @@ export default function EditProjectScreen() {
     const newName =
       name.trim();
 
-    if (
-      newName !==
-      originalProjectName
-    ) {
-      tasks
-        .filter(
-          task =>
-            task.project ===
-            originalProjectName,
-        )
-        .forEach(task => {
-          updateTask(
-            task.id,
-            {
-              project: newName,
-            },
-          );
-        });
-    }
+    try {
+      updateProject(
+        projectId,
+        {
+          name: newName,
+          description:
+            description.trim(),
+          color,
+          icon,
+        },
+      );
+      if (
+        newName !==
+        originalProjectName
+      ) {
+        tasks
+          .filter(
+            task =>
+              task.projectId === projectId || (!!project.remoteId && task.projectId === project.remoteId),
+          )
+          .forEach(task => {
+            updateTask(
+              task.id,
+              {
+                project: newName,
+              },
+            );
+          });
+      }
 
-    updateProject(
-      projectId,
-      {
-        name: newName,
-        description:
-          description.trim(),
-        color,
-        icon,
-      },
-    );
+    } catch (error) {
+      Alert.alert('Não foi possível salvar', error instanceof Error ? error.message : 'Tente novamente.'); return;
+    }
 
     setDirty(false);
 
@@ -176,55 +181,16 @@ export default function EditProjectScreen() {
   }
 
   function handleDelete() {
-    const linkedTasks =
-      tasks.filter(
-        task =>
-          task.project ===
-          originalProjectName,
-      );
-
-    Alert.alert(
-      'Excluir projeto',
-      linkedTasks.length > 0
-        ? `Este projeto possui ${linkedTasks.length} tarefa(s). Elas serão movidas para "Geral". Deseja continuar?`
-        : `Tem certeza que deseja excluir "${project.name}"?`,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-
-          onPress: () => {
-            linkedTasks.forEach(
-              task => {
-                updateTask(
-                  task.id,
-                  {
-                    project: 'Geral',
-                  },
-                );
-              },
-            );
-
-            deleteProject(
-              projectId,
-            );
-
-            navigation.reset({
-              index: 0,
-              routes: [
-                {
-                  name: 'Projetos',
-                },
-              ],
-            });
-          },
-        },
-      ],
-    );
+    if (!project) {return;}
+    Alert.alert('Excluir projeto', `Excluir "${project.name}"? Projetos com tarefas não podem ser excluídos.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: async () => {
+        try {
+          await deleteProject(projectId);
+          navigation.reset({ index: 0, routes: [{ name: 'Projetos' }] });
+        } catch (error) {Alert.alert('Não foi possível excluir', error instanceof Error ? error.message : 'Tente novamente.');}
+      } },
+    ]);
   }
 
   return (

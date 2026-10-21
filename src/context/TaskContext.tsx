@@ -17,6 +17,8 @@ import { deleteTask as remoteDeleteTask, restoreTask as remoteRestoreTask } from
 import { normalizeTaskStatus } from '../models/taskStatus';
 import type { TaskStatus } from '../models/taskStatus';
 import { getTaskNotes, createTaskNote, updateTaskNote, deleteTaskNote } from '../services/noteService';
+import { synchronize, preserveTask } from '../services/syncService';
+import { assertDataAvailable, dataGuard } from '../services/dataGuard';
 import { sortNotes } from '../models/note';
 import type { Note } from '../models/note';
 export type { TaskStatus } from '../models/taskStatus';
@@ -35,6 +37,13 @@ export type Subtask = {
 
 export type Task = {
   id: string;
+  remoteId?: string;
+  localId?: string;
+  clientId?: string;
+  deletedAt?: string | null;
+  syncPending?: string;
+  syncSnapshot?: Omit<Task, 'syncSnapshot' | 'syncSnapshots'>;
+  syncSnapshots?: Omit<Task, 'syncSnapshot' | 'syncSnapshots'>[];
   projectId?: string;
   progress?: number;
   createdAt?: string;
@@ -66,6 +75,8 @@ export type Task = {
 type TaskContextType = {
   tasks: Task[];
   loading: boolean;
+  syncing: boolean;
+  synchronizeManually: () => Promise<import('../services/syncService').SyncResult>;
   readError: string | null;
   loadTaskById: (id: string) => Promise<Task>;
   taskHistory: Record<string, TaskHistoryEvent[]>;
@@ -106,25 +117,25 @@ type TaskContextType = {
 const STORAGE_KEY =
   '@taskflow:tasks';
 
-// Read-only reconciliation: retain cache-only records until Issue #12.
+// Startup reads preserve local candidates; only explicit manual sync uploads them.
 function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
   const normalize = (task: Task): Task => {
-    const status = normalizeTaskStatus(task.status);
+    const status = task.status ? normalizeTaskStatus(task.status) : task.done ? 'completed' : 'todo';
     return { ...task, status, done: status === 'completed',
       progress: status === 'completed' ? 100 : task.progress === 100 ? 0 : task.progress };
   };
-  const byId = new Map(current.map(task => [task.id, normalize(task)]));
+  const byId = new Map(current.map(task => [task.remoteId ?? task.id, normalize(task)]));
   for (const task of remote) {
     const cached = byId.get(task.id);
     // An older in-flight GET must not undo a confirmed PATCH.
     if (cached?.updatedAt && task.updatedAt && Date.parse(task.updatedAt) < Date.parse(cached.updatedAt)) {continue;}
     byId.set(task.id, normalize({
-      ...cached, ...task,
+      ...preserveTask(task, cached),
       subtasks: mergeSubtasks(task.subtasks, cached?.subtasks),
       reminders: task.reminders ?? cached?.reminders,
     }));
   }
-  return [...byId.values()];
+  return [...byId.values()].filter(task => !task.deletedAt);
 }
 
 const TaskContext =
@@ -144,7 +155,8 @@ export function TaskProvider({
     [],
   );
 
-  const { projects, updateProject, hydrated: projectsHydrated } = useProjects();
+  const { projects, updateProject, hydrated: projectsHydrated, readError: projectReadError, flushProjects, persistProjects, publishProjects } = useProjects();
+  const [syncing, setSyncing] = useState(false);
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
   const deletedIds = useRef(new Set<string>());
@@ -240,7 +252,9 @@ export function TaskProvider({
   }, []);
 
   const loadTaskById = useCallback(async (id: string) => {
+    if (dataGuard.syncing) {throw new Error('Sincronização em andamento.');}
     const remote = await fetchTaskById(id);
+    if (dataGuard.syncing) {throw new Error('Sincronização em andamento.');}
     if (deletedIds.current.has(id)) {throw new Error('Tarefa excluída.');}
     const next = mergeReadTasks(tasksRef.current, [remote]);
     tasksRef.current = next;
@@ -276,6 +290,30 @@ export function TaskProvider({
     persistTasks,
   ]);
 
+  async function synchronizeManually() {
+    assertDataAvailable();
+    if (!hydrated || !projectsHydrated || loading || !cacheWritable.current || projectReadError) {
+      throw new Error('Aguarde o carregamento seguro dos dados antes de sincronizar.');
+    }
+    if (creating.current || updating.current.size || deletionBusy.current || undoRef.current) {
+      throw new Error('Aguarde as operações e a janela de desfazer antes de sincronizar.');
+    }
+    dataGuard.syncing = true;
+    setSyncing(true);
+    try {
+      await storageQueue.current;
+      await flushProjects();
+      const result = await synchronize(projects, tasksRef.current);
+      await persistProjects(result.projects);
+      await persistTasks(result.tasks);
+      publishProjects(result.projects);
+      tasksRef.current = result.tasks;
+      setTasks(result.tasks);
+      setReadError(null);
+      return result;
+    } finally {dataGuard.syncing = false; setSyncing(false);}
+  }
+
   async function toggleTask(id: string) {
     const task = tasksRef.current.find(item => item.id === id);
     if (!task) {throw new Error('Tarefa não encontrada.');}
@@ -283,12 +321,14 @@ export function TaskProvider({
   }
 
   async function deleteTask(id: string) {
+    assertDataAvailable();
     if (!hydrated || loading) {throw new Error('Aguarde o carregamento das tarefas.');}
     if (deletionBusy.current || updating.current.has(id)) {throw new Error('Uma operação já está em andamento.');}
     const task = tasksRef.current.find(item => item.id === id);
     if (!task) {throw new Error('Tarefa não encontrada.');}
     deletionBusy.current = true;
     updating.current.add(id);
+    dataGuard.activeTasks++;
     try {
       await remoteDeleteTask(id);
       deletedIds.current.add(id);
@@ -304,10 +344,11 @@ export function TaskProvider({
       }, 5000);
       try { await persistTasks(next); return { cacheSaved: true }; }
       catch { return { cacheSaved: false }; }
-    } finally { deletionBusy.current = false; updating.current.delete(id); }
+    } finally { deletionBusy.current = false; updating.current.delete(id); dataGuard.activeTasks--; }
   }
 
   async function restoreTask(id: string) {
+    assertDataAvailable();
     const opportunity = undoRef.current;
     if (!opportunity || opportunity.id !== id || Date.now() >= opportunity.expiresAt) {
       throw new Error('O prazo para desfazer terminou.');
@@ -315,9 +356,10 @@ export function TaskProvider({
     if (deletionBusy.current || updating.current.has(id)) {throw new Error('Uma operação já está em andamento.');}
     deletionBusy.current = true;
     updating.current.add(id);
+    dataGuard.activeTasks++;
     try {
       const remote = await remoteRestoreTask(id);
-      const task = { ...remote, subtasks: mergeSubtasks(remote.subtasks, opportunity.task.subtasks), reminders: opportunity.task.reminders };
+      const task = { ...opportunity.task, ...remote, subtasks: mergeSubtasks(remote.subtasks, opportunity.task.subtasks), reminders: opportunity.task.reminders };
       deletedIds.current.delete(id);
       const next = mergeReadTasks(tasksRef.current, [task]);
       tasksRef.current = next;
@@ -327,15 +369,17 @@ export function TaskProvider({
       setUndo(null);
       try { await persistTasks(next); return { task, cacheSaved: true }; }
       catch { return { task, cacheSaved: false }; }
-    } finally { deletionBusy.current = false; updating.current.delete(id); }
+    } finally { deletionBusy.current = false; updating.current.delete(id); dataGuard.activeTasks--; }
   }
 
   async function addTask(draft: NewTask) {
+    assertDataAvailable();
     if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     if (creating.current) {throw new Error('A criação de tarefa já está em andamento.');}
     const project = projects.find(item => item.id === draft.projectId);
     if (!project) {throw new Error('Selecione um projeto válido.');}
     creating.current = true;
+    dataGuard.activeTasks++;
     try {
       const remoteId = await resolveProject(project);
       if (remoteId !== project.remoteId) {updateProject(project.id, { remoteId });}
@@ -352,15 +396,18 @@ export function TaskProvider({
       }
     } finally {
       creating.current = false;
+      dataGuard.activeTasks--;
     }
   }
 
   async function updateTask(id: string, changes: Partial<Task>) {
+    assertDataAvailable();
     if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     const current = tasksRef.current.find(task => task.id === id);
     if (!current) {throw new Error('Tarefa não encontrada.');}
     if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
     updating.current.add(id);
+    dataGuard.activeTasks++;
     try {
       const payload = { ...changes };
       if (changes.projectId !== undefined) {
@@ -379,7 +426,7 @@ export function TaskProvider({
       // applies to their actual cached done values as well as remote children.
       const collective = changes.status === 'completed' || changes.status === 'todo';
       const task: Task = {
-        ...remote,
+        ...current, ...remote,
         subtasks: collective ? confirmedSubtasks?.map(child => child.remote ? child : { ...child, done: remote.done }) : confirmedSubtasks,
         reminders: changes.reminders ?? current.reminders,
       };
@@ -393,7 +440,7 @@ export function TaskProvider({
         return { task, cacheSaved: false };
       }
     } finally {
-      updating.current.delete(id);
+      updating.current.delete(id); dataGuard.activeTasks--;
     }
   }
 
@@ -402,33 +449,29 @@ export function TaskProvider({
     updatedTask:
       Partial<Task>,
   ) {
-    setTasks(current =>
-      current.map(task =>
-        task.id === id
-          ? {
-              ...task,
-              ...updatedTask,
-            }
-          : task,
-      ),
-    );
+    assertDataAvailable();
+    const next = tasksRef.current.map(task => task.id === id ? { ...task, ...updatedTask } : task);
+    tasksRef.current = next;
+    setTasks(next);
   }
 
   async function mutateSubtask(id: string, request: (current: Task) => Promise<Task>) {
+    assertDataAvailable();
     if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     const current = tasksRef.current.find(task => task.id === id);
     if (!current) {throw new Error('Tarefa não encontrada.');}
     if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
     updating.current.add(id);
+    dataGuard.activeTasks++;
     try {
       const remote = await request(current);
-      const task = { ...remote, subtasks: mergeSubtasks(remote.subtasks, current.subtasks), reminders: current.reminders };
+      const task = { ...current, ...remote, subtasks: mergeSubtasks(remote.subtasks, current.subtasks), reminders: current.reminders };
       const next = tasksRef.current.map(item => item.id === id ? task : item);
       tasksRef.current = next;
       setTasks(next);
       try { await persistTasks(next); return { task, cacheSaved: true }; }
       catch { return { task, cacheSaved: false }; }
-    } finally { updating.current.delete(id); }
+    } finally { updating.current.delete(id); dataGuard.activeTasks--; }
   }
   function remoteChild(task: Task, id: string) {
     const child = task.subtasks?.find(item => item.id === id);
@@ -440,10 +483,12 @@ export function TaskProvider({
   const removeSubtask = (id: string, childId: string) => mutateSubtask(id, task => { remoteChild(task, childId); return deleteSubtask(id, childId); });
 
   async function mutateNote(id: string, operation: () => Promise<Note | { id: string; taskId: string; updatedAt: string }>, remove = false) {
+    assertDataAvailable();
     if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     if (!tasksRef.current.some(task => task.id === id)) {throw new Error('Tarefa não encontrada.');}
     if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
     updating.current.add(id);
+    dataGuard.activeTasks++;
     try {
       const confirmed = await operation();
       // Invalidate an older GET so it cannot undo the confirmed mutation.
@@ -457,7 +502,7 @@ export function TaskProvider({
       setTasks(next);
       try { await persistTasks(next); return { cacheSaved: true }; }
       catch { return { cacheSaved: false }; }
-    } finally { updating.current.delete(id); }
+    } finally { updating.current.delete(id); dataGuard.activeTasks--; }
   }
   const addTaskNote = (id: string, content: string) => mutateNote(id, () => createTaskNote(id, content));
   const editTaskNote = (id: string, noteId: string, content: string) => mutateNote(id, () => updateTaskNote(id, noteId, content));
@@ -477,6 +522,8 @@ export function TaskProvider({
       value={{
         tasks,
         loading,
+        syncing,
+        synchronizeManually,
         readError,
         loadTaskById,
         taskHistory,

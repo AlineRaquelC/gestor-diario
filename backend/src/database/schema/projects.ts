@@ -4,6 +4,7 @@ import { timestamps } from './timestamps.js';
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey().notNull(),
+  clientId: text('client_id').unique(),
   name: text('name').notNull(),
   description: text('description'),
   color: text('color').notNull(),

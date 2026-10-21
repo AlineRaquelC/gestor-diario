@@ -61,13 +61,15 @@ export default function CreateProjectScreen() {
       return;
     }
 
-    addProject({
+    try {addProject({
       id: Date.now().toString(),
       name: name.trim(),
       description: description.trim(),
       color,
       icon,
-    });
+    });} catch (error) {
+      Alert.alert('Não foi possível criar', error instanceof Error ? error.message : 'Tente novamente.'); return;
+    }
 
     Alert.alert(
       'Projeto criado',
