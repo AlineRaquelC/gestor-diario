@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   ScrollView,
   View,
@@ -22,6 +22,9 @@ import {
 import {useProjects} from '../context/ProjectContext';
 import {dashboardDate, dashboardMetrics, greeting, isCompleted, percentage as completionPercentage, projectMetrics} from '../utils/dashboard';
 import type {DashboardPeriod} from '../utils/dashboard';
+import TaskListControls from '../components/TaskListControls';
+import {DEFAULT_FILTERS, DEFAULT_SORTING, activeFilterCount, filterTasks, sortTasks, taskProjectOptions} from '../utils/taskFilters';
+import type {TaskFilters, TaskSorting} from '../utils/taskFilters';
 
 const priorityColors = {
   high: '#F43F5E',
@@ -50,8 +53,14 @@ export default function HomeScreen() {
     });
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
-  const doneTasks = tasks.filter(isCompleted);
-  const pendingTasks = tasks.filter(task => !isCompleted(task));
+  const [filters, setFilters] = useState<TaskFilters>({...DEFAULT_FILTERS});
+  const [sorting, setSorting] = useState<TaskSorting>({...DEFAULT_SORTING});
+  const visibleTasks = useMemo(() => sortTasks(filterTasks(tasks, filters, projects, now), sorting), [tasks, filters, projects, now, sorting]);
+  const projectOptions = useMemo(() => taskProjectOptions(projects, tasks), [projects, tasks]);
+  const sorted = sorting.criterion !== 'none';
+  const doneTasks = sorted ? [] : visibleTasks.filter(isCompleted);
+  const pendingTasks = sorted ? visibleTasks : visibleTasks.filter(task => !isCompleted(task));
+  const noResults = tasks.length > 0 && visibleTasks.length === 0 && activeFilterCount(filters) > 0;
   const metrics = dashboardMetrics(tasks, period, now);
   const progress = metrics.progress;
   // Context appends newly created projects; show the last three with linked tasks.
@@ -220,8 +229,10 @@ export default function HomeScreen() {
         ))}
 
         {/* Tarefas pendentes */}
+        <TaskListControls filters={filters} sorting={sorting} projects={projectOptions}
+          onApply={(nextFilters, nextSorting) => {setFilters(nextFilters); setSorting(nextSorting);}} />
         <Text style={styles.sectionTitle}>
-          Para fazer
+          {sorted || activeFilterCount(filters) > 0 ? 'Tarefas' : 'Para fazer'}
         </Text>
 
         {loading && (
@@ -236,7 +247,8 @@ export default function HomeScreen() {
           </Text>
         )}
 
-        {!loading && !readError && pendingTasks.length === 0 && (
+        {!loading && noResults && <Text style={styles.emptyStateText}>Nenhuma tarefa encontrada com esses filtros.</Text>}
+        {!loading && !readError && !noResults && pendingTasks.length === 0 && (tasks.length === 0 || activeFilterCount(filters) === 0) && (
           <View style={styles.emptyState}>
 
             <Text style={styles.emptyStateIcon}>
@@ -244,11 +256,11 @@ export default function HomeScreen() {
             </Text>
 
             <Text style={styles.emptyStateTitle}>
-              Tudo em dia!
+              {tasks.length === 0 ? 'Nenhuma tarefa cadastrada' : 'Tudo em dia!'}
             </Text>
 
             <Text style={styles.emptyStateText}>
-              Você não possui tarefas pendentes.
+              {tasks.length === 0 ? 'Crie uma tarefa para começar.' : 'Você não possui tarefas pendentes.'}
             </Text>
 
           </View>
