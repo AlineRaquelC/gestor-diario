@@ -101,12 +101,46 @@ async function press(label: string) {
   expect(control).toBeDefined();
   await act(async () => control!.props.onPress());
 }
+async function openFilters() {
+  const button = renderer.root
+    .findAll(node => typeof node.props.onPress === 'function')
+    .find(node =>
+      /^Filtrar tarefas/.test(node.props.accessibilityLabel ?? ''),
+    )!;
+  await act(async () => button.props.onPress());
+}
+async function selectProject(label: string) {
+  const selector = renderer.root
+    .findAll(node => typeof node.props.onPress === 'function')
+    .find(node =>
+      /^Selecionar projeto:/.test(node.props.accessibilityLabel ?? ''),
+    )!;
+  await act(async () => selector.props.onPress());
+  await press(label);
+}
 async function apply(...options: string[]) {
-  await press('Filtrar e ordenar tarefas');
-  for (const option of options) {
-    await press(option);
+  const filterOptions = options.filter(
+    option => !option.startsWith('Ordenação:') && !option.startsWith('Direção'),
+  );
+  const sortOptions = options.filter(option => !filterOptions.includes(option));
+  if (filterOptions.length) {
+    await openFilters();
+    for (const option of filterOptions) {
+      if (option.startsWith('Projeto:')) {
+        await selectProject(option);
+      } else {
+        await press(option);
+      }
+    }
+    await press('Aplicar filtros');
   }
-  await press('Aplicar');
+  if (sortOptions.length) {
+    await press('Ordenar tarefas');
+    for (const option of sortOptions) {
+      await press(option);
+    }
+    await press('Aplicar ordenação');
+  }
 }
 const metrics = () =>
   renderer.root
@@ -157,20 +191,33 @@ afterEach(async () => {
 });
 
 test('opens filters, changes drafts only, applies intersection, indicates active filters, clears to full list', async () => {
-  await press('Filtrar e ordenar tarefas');
+  await openFilters();
   expect(renderer.root.findByType(Modal).props.visible).toBe(true);
   await press('Status: Parciais');
   await press('Prioridade: Alta');
-  await press('Projeto: Projeto B');
+  await selectProject('Projeto: Projeto B');
   await press('Período: Mês');
   expect(titles()).toHaveLength(4);
-  await press('Aplicar');
+  await press('Aplicar filtros');
   expect(renderer.root.findByType(Modal).props.visible).toBe(false);
   expect(titles()).toEqual(['Alta parcial B']);
-  expect(JSON.stringify(labels())).toContain('Filtros ativos: 4');
-  await press('Limpar filtros');
+  expect(labels()).toEqual(
+    expect.arrayContaining([
+      'Filtrar · 4',
+      'Parciais',
+      'Alta',
+      'Projeto B',
+      'Mês',
+    ]),
+  );
+  await press('Limpar filtros e ordenação');
   expect(titles()).toHaveLength(4);
-  expect(JSON.stringify(labels())).not.toContain('Filtros ativos:');
+  expect(labels()).toContain('Filtrar');
+  expect(
+    renderer.root.findAll(node =>
+      /^Filtrar tarefas,/.test(node.props.accessibilityLabel ?? ''),
+    ),
+  ).toHaveLength(0);
 });
 test.each([
   ['Pendentes', ['Alta pendente A', 'Baixa pendente B']],
@@ -188,11 +235,11 @@ test('no matching results is distinct from no registered tasks and does not repo
 });
 test('cancel and Android back discard drafts; reopening starts from applied selection', async () => {
   await apply('Prioridade: Alta');
-  await press('Filtrar e ordenar tarefas');
+  await openFilters();
   await press('Prioridade: Baixa');
   await press('Cancelar');
   expect(titles()).toEqual(['Alta pendente A', 'Alta parcial B']);
-  await press('Filtrar e ordenar tarefas');
+  await openFilters();
   expect(
     renderer.root
       .findAll(node => typeof node.props.onPress === 'function')
@@ -206,11 +253,15 @@ test('cancel and Android back discard drafts; reopening starts from applied sele
 test('restoring default resets sorting and filters together', async () => {
   await apply('Prioridade: Baixa', 'Ordenação: Prazo');
   expect(titles()).toEqual(['Baixa pendente B']);
-  await press('Filtrar e ordenar tarefas');
-  await press('Restaurar padrão');
+  await openFilters();
+  await press('Limpar filtros e ordenação');
   expect(titles()).toHaveLength(4);
   expect(labels()).toContain('Para fazer');
-  expect(labels()).not.toContain('Ordenação ativa');
+  expect(
+    renderer.root.findAll(
+      node => node.props.accessibilityLabel === 'Ordenar tarefas',
+    )[0].props.accessibilityState.selected,
+  ).toBe(false);
 });
 test('sorts the whole list, including completed tasks, in both directions without writing to Context, cache or API', async () => {
   const original = context.tasks;
@@ -222,7 +273,11 @@ test('sorts the whole list, including completed tasks, in both directions withou
     'Alta pendente A',
     'Alta parcial B',
   ]);
-  expect(labels()).toContain('Ordenação ativa');
+  expect(
+    renderer.root.findAll(
+      node => node.props.accessibilityLabel === 'Ordenar tarefas',
+    )[0].props.accessibilityState.selected,
+  ).toBe(true);
   await apply('Direção da prioridade: Alta → baixa');
   expect(titles()).toEqual([
     'Alta pendente A',
@@ -254,7 +309,7 @@ test('filtering and sorting leave dashboard and project metrics unchanged; dashb
   expect(metrics()).toEqual(before);
   await press('Semana');
   expect(titles()).toEqual(['Baixa pendente B']);
-  await press('Limpar filtros');
+  await press('Limpar filtros e ordenação');
   expect(titles()).toHaveLength(4);
 });
 test('soft-deleted task cannot reappear on filter, sort or clear; restore comes only from Context', async () => {
@@ -263,7 +318,7 @@ test('soft-deleted task cannot reappear on filter, sort or clear; restore comes 
   });
   await apply('Status: Pendentes', 'Ordenação: Prioridade');
   expect(titles()).toEqual(['Baixa pendente B']);
-  await press('Limpar filtros');
+  await press('Limpar filtros e ordenação');
   expect(titles()).not.toContain(tasks[0].title);
   await act(async () => {
     await context.restoreTask(tasks[0].id);
@@ -307,4 +362,105 @@ test('no registered tasks has its own message, distinct from no matching results
   expect(labels()).not.toContain(
     'Nenhuma tarefa encontrada com esses filtros.',
   );
+});
+
+test('project names stay out of filter chips; selector opens rows and preserves draft on back', async () => {
+  await openFilters();
+  expect(
+    renderer.root.findAll(node =>
+      /^Projeto:/.test(node.props.accessibilityLabel ?? ''),
+    ),
+  ).toHaveLength(0);
+  expect(
+    renderer.root.findAll(node =>
+      /^Ordenação:/.test(node.props.accessibilityLabel ?? ''),
+    ),
+  ).toHaveLength(0);
+  await press('Selecionar projeto: Todos os projetos');
+  expect(
+    renderer.root.findAll(
+      node =>
+        typeof node.props.onPress === 'function' &&
+        /^Projeto:/.test(node.props.accessibilityLabel ?? ''),
+    ),
+  ).toHaveLength(4);
+  await act(async () => renderer.root.findByType(Modal).props.onRequestClose());
+  expect(renderer.root.findByType(Modal).props.visible).toBe(true);
+  await selectProject('Projeto: Projeto B');
+  expect(titles()).toHaveLength(4);
+  await press('Aplicar filtros');
+  expect(titles()).toEqual(['Baixa pendente B', 'Alta parcial B']);
+  expect(labels()).toContain('Filtrar · 1');
+  expect(
+    renderer.root.findAll(
+      node =>
+        node.props.accessibilityLabel === 'Filtrar tarefas, 1 filtro ativo',
+    ).length,
+  ).toBeGreaterThan(0);
+  expect(labels()).toContain('Projeto B');
+  await openFilters();
+  await selectProject('Projeto: Todos os projetos');
+  await press('Aplicar filtros');
+  expect(titles()).toHaveLength(4);
+});
+
+test('project selection uses IDs even for identical display names', async () => {
+  await act(async () => renderer.unmount());
+  storage.set(
+    '@taskflow:projects',
+    JSON.stringify([
+      project('a', 'Mesmo nome', 'remote-a'),
+      project('b', 'Mesmo nome'),
+    ]),
+  );
+  await act(async () => {
+    renderer = TestRenderer.create(
+      <ProjectProvider>
+        <TaskProvider>
+          <Probe />
+        </TaskProvider>
+      </ProjectProvider>,
+    );
+  });
+  await openFilters();
+  await press('Selecionar projeto: Todos os projetos');
+  const rows = renderer.root.findAll(
+    node =>
+      typeof node.props.onPress === 'function' &&
+      node.props.accessibilityLabel === 'Projeto: Mesmo nome',
+  );
+  expect(rows).toHaveLength(2);
+  await act(async () => rows[1].props.onPress());
+  await press('Aplicar filtros');
+  expect(titles()).toEqual(['Baixa pendente B', 'Alta parcial B']);
+});
+
+test('sorting panel hides filters and shows direction only for selected criteria', async () => {
+  await press('Ordenar tarefas');
+  expect(
+    renderer.root.findAll(node =>
+      /^Status:|^Prioridade:|^Selecionar projeto:|^Direção/.test(
+        node.props.accessibilityLabel ?? '',
+      ),
+    ),
+  ).toHaveLength(0);
+  await press('Ordenação: Prioridade → Prazo');
+  await press('Direção da prioridade: Baixa → alta');
+  await press('Direção do prazo: Mais distante → mais próximo');
+  await press('Aplicar ordenação');
+  expect(titles()).toEqual([
+    'Baixa pendente B',
+    'Média concluída A',
+    'Alta parcial B',
+    'Alta pendente A',
+  ]);
+  await press('Ordenar tarefas');
+  await press('Ordenação: Padrão');
+  expect(
+    renderer.root.findAll(node =>
+      /^Direção/.test(node.props.accessibilityLabel ?? ''),
+    ),
+  ).toHaveLength(0);
+  await press('Aplicar ordenação');
+  expect(labels()).toContain('Para fazer');
 });
