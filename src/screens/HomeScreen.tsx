@@ -173,9 +173,6 @@ export default function HomeScreen() {
             </Pressable>
           ))}
         </View>
-        <Text style={styles.metricsHint}>
-          Por prazo · Atrasadas e projetos: total geral
-        </Text>
 
         <View style={styles.summaryCard}>
           <View style={styles.progressHeader}>
@@ -536,7 +533,7 @@ const styles = StyleSheet.create({
     padding: SPACING.xs,
     backgroundColor: COLORS.surfaceSecondary,
     borderRadius: RADIUS.md,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   periodChip: {
     flex: 1,
@@ -549,11 +546,6 @@ const styles = StyleSheet.create({
   periodChipSelected: { backgroundColor: COLORS.surface },
   periodText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
   periodTextSelected: { color: COLORS.primary },
-  metricsHint: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    marginBottom: SPACING.md,
-  },
   summaryCard: {
     padding: SPACING.lg,
     borderRadius: RADIUS.lg,

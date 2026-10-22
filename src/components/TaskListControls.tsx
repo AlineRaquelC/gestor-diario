@@ -146,7 +146,10 @@ export default function TaskListControls({
                 }`
               : 'Filtrar tarefas'
           }
-          style={styles.toolbarButton}
+          style={({ pressed }) => [
+            styles.toolbarButton,
+            pressed && styles.toolbarPressed,
+          ]}
           onPress={() => open('filters')}
         >
           <Text style={styles.toolbarText}>
@@ -157,9 +160,10 @@ export default function TaskListControls({
           accessibilityRole="button"
           accessibilityLabel="Ordenar tarefas"
           accessibilityState={{ selected: sorting.criterion !== 'none' }}
-          style={[
+          style={({ pressed }) => [
             styles.toolbarButton,
             sorting.criterion !== 'none' && styles.selected,
+            pressed && styles.toolbarPressed,
           ]}
           onPress={() => open('sorting')}
         >
@@ -301,10 +305,6 @@ export default function TaskListControls({
                     setDraftFilters({ ...draftFilters, period })
                   }
                 />
-                <Text style={styles.hint}>
-                  Por prazo; sem prazo válido, usa a data de início. Semana de
-                  segunda a domingo.
-                </Text>
               </>
             ) : (
               <>
@@ -397,9 +397,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.primarySoft,
   },
-  toolbarText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  toolbarPressed: { opacity: 0.7, borderColor: COLORS.primary },
+  toolbarText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
   clearButton: {
     minHeight: 44,
     minWidth: 44,
@@ -479,7 +480,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  hint: { fontSize: 12, lineHeight: 18, color: COLORS.textSecondary },
   footer: {
     padding: SPACING.lg,
     flexDirection: 'row',
