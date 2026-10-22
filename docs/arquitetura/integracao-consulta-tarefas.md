@@ -1,5 +1,11 @@
 # Consulta de tarefas — integração (Issue #5)
 
+> **Atualização documental — 2026-10-21:** Issue #5 concluída, PR #23 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 Fluxo: SQLite → TasksRepository → TasksService → TasksController → GET /tasks
 ou GET /tasks/:id → taskService/api → TaskContext → Home/TaskDetailsScreen.
 A implementação ocorre em `feature/5-tasks-read`, com PR para `dev`; a Issue

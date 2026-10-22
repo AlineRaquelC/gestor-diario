@@ -1,6 +1,44 @@
 # Planejamento de Issues — Sprint 1 — Gestor Diário
 
-## Status atual — 2026-10-04
+## Fechamento técnico pós-entrega — 2026-10-21
+
+**Sprint 1: 15 Issues planejadas, 15 concluídas, 0 abertas — 15/15 = 100%.**
+
+A Sprint já havia sido apresentada/entregue anteriormente. Após a entrega foram
+concluídos os gargalos técnicos que continuavam formalmente abertos no GitHub:
+#10, #21, #12 e #13. A data da apresentação anterior não é a data do fechamento
+técnico das Issues: o fechamento consolidado é de **21/10/2026**.
+
+Auditoria direta no GitHub realizada em 22/10/2026: milestone
+[Sprint 1](https://github.com/AlineRaquelC/gestor-diario/milestone/1) com 15 fechadas e nenhuma aberta;
+os 15 PRs abaixo integrados em `dev`, com vínculo `Closes` à Issue correspondente.
+Sem divergências em relação à rastreabilidade esperada.
+
+| Issue | Resultado | PR | Estado |
+|---|---|---|---|
+| [#1](https://github.com/AlineRaquelC/gestor-diario/issues/1) | Base técnica da mini API Node.js | [#14](https://github.com/AlineRaquelC/gestor-diario/pull/14) | Concluída |
+| [#2](https://github.com/AlineRaquelC/gestor-diario/issues/2) | Schema SQLite e migrations | [#15](https://github.com/AlineRaquelC/gestor-diario/pull/15) | Concluída |
+| [#3](https://github.com/AlineRaquelC/gestor-diario/issues/3) | CRUD de Projects | [#16](https://github.com/AlineRaquelC/gestor-diario/pull/16) | Concluída |
+| [#4](https://github.com/AlineRaquelC/gestor-diario/issues/4) | Criar e persistir Tasks | [#17](https://github.com/AlineRaquelC/gestor-diario/pull/17) | Concluída |
+| [#5](https://github.com/AlineRaquelC/gestor-diario/issues/5) | Consultar e visualizar Tasks | [#23](https://github.com/AlineRaquelC/gestor-diario/pull/23) | Concluída |
+| [#6](https://github.com/AlineRaquelC/gestor-diario/issues/6) | Editar Tasks | [#24](https://github.com/AlineRaquelC/gestor-diario/pull/24) | Concluída |
+| [#7](https://github.com/AlineRaquelC/gestor-diario/issues/7) | Status, conclusão/reabertura e histórico | [#25](https://github.com/AlineRaquelC/gestor-diario/pull/25) | Concluída |
+| [#8](https://github.com/AlineRaquelC/gestor-diario/issues/8) | Subtasks e progresso | [#26](https://github.com/AlineRaquelC/gestor-diario/pull/26) | Concluída |
+| [#9](https://github.com/AlineRaquelC/gestor-diario/issues/9) | Notes / múltiplas observações | [#27](https://github.com/AlineRaquelC/gestor-diario/pull/27) | Concluída |
+| [#10](https://github.com/AlineRaquelC/gestor-diario/issues/10) | Confirmação, soft delete e desfazer | [#31](https://github.com/AlineRaquelC/gestor-diario/pull/31) | Concluída |
+| [#11](https://github.com/AlineRaquelC/gestor-diario/issues/11) | Dashboard com dados reais | [#28](https://github.com/AlineRaquelC/gestor-diario/pull/28) | Concluída |
+| [#12](https://github.com/AlineRaquelC/gestor-diario/issues/12) | Sincronização manual Mobile ↔ API | [#33](https://github.com/AlineRaquelC/gestor-diario/pull/33) | Concluída |
+| [#13](https://github.com/AlineRaquelC/gestor-diario/issues/13) | Pipeline CI inicial | [#34](https://github.com/AlineRaquelC/gestor-diario/pull/34) | Concluída |
+| [#20](https://github.com/AlineRaquelC/gestor-diario/issues/20) | Calendário Dia/Semana/Mês | [#29](https://github.com/AlineRaquelC/gestor-diario/pull/29) | Concluída |
+| [#21](https://github.com/AlineRaquelC/gestor-diario/issues/21) | Filtros e ordenação do MVP | [#32](https://github.com/AlineRaquelC/gestor-diario/pull/32) | Concluída |
+
+Os critérios originais, User Stories, refinamentos e branches sugeridas são preservados,
+inclusive as marcações históricas; o estado atual das 15 Issues é **Concluída**.
+Limites e evidências consolidados em [Sprint 1](sprint-1.md).
+
+---
+
+## Status histórico — 2026-10-04
 
 **Sprint 1 EM ANDAMENTO: 15 Issues planejadas, 11 concluídas, 4 pendentes; 11/15 = 73,3%.**
 
@@ -29,7 +67,7 @@ Pendentes (Issues abertas):
 
 #11 e #20 foram priorizadas antes de #10 para preparar um incremento visual demonstrável para a apresentação de 2026-10-05 pela manhã. Isso altera a ordem de execução, não o escopo nem o estado das Issues. #10 continua pendente; Sprint 1 e Entrega 1 permanecem em andamento.
 
-> Os critérios de aceite e User Stories abaixo são preservados como planejamento original, inclusive suas marcações históricas. O estado operacional de cada Issue vem do GitHub; critérios dependentes de #10/#12 não são declarados entregues por esse fechamento.
+> Os critérios de aceite e User Stories abaixo são preservados como planejamento original, inclusive suas marcações históricas. O estado operacional de cada Issue vem do GitHub; as marcações históricas não são checklist operacional atual. #10/#12 estão concluídas no recorte validado, com limites descritos no fechamento acima.
 
 ## 1. Objetivo
 
@@ -615,7 +653,7 @@ feature/task-notes
 
 ## ISSUE #10 — Excluir tarefa com confirmação e desfazer
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #31](https://github.com/AlineRaquelC/gestor-diario/pull/31).
 
 ### Requisito de origem
 
@@ -716,7 +754,7 @@ feature/dashboard-real-data
 
 ## ISSUE #12 — Implementar sincronização manual Mobile ↔ API
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #33](https://github.com/AlineRaquelC/gestor-diario/pull/33).
 
 ### Requisito de origem
 
@@ -777,13 +815,13 @@ Critérios adicionais, preservando todos os critérios anteriores:
 - [ ] definir política única de exclusão de projeto no mobile;
 - [ ] manter AsyncStorage consistente com API após sincronização.
 
-Decisão: a integridade geral de projetos será absorvida em #6 e #12, sem terceira Issue. A política única de exclusão deverá ser definida no trabalho futuro; nenhuma política foi alterada no código neste refinamento.
+Decisão histórica do refinamento: a integridade geral de projetos será absorvida em #6 e #12, sem terceira Issue. A política única de exclusão deverá ser definida no trabalho futuro; nenhuma política foi alterada no código neste refinamento.
 
 ---
 
 ## ISSUE #13 — Pipeline CI inicial
 
-**Status:** Pendente.
+**Status:** Concluída — [PR #34](https://github.com/AlineRaquelC/gestor-diario/pull/34).
 
 ### Tipo
 
@@ -904,7 +942,7 @@ A ordem geral prevê calendário após #11 e antes de sincronização manual/CI.
 
 ## ISSUE #21 — Completar filtros e ordenação do MVP
 
-**GitHub:** [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21). **Status:** Pendente — não iniciada.
+**GitHub:** [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21). **Status:** Concluída — [PR #32](https://github.com/AlineRaquelC/gestor-diario/pull/32).
 
 ### Requisitos de origem
 
@@ -918,7 +956,7 @@ PBI-10 — Filtrar e ordenar tarefas.
 
 `user-story` — Front-end, prioridade alta, milestone Sprint 1.
 Labels: `frontend`, `test`, `sprint-1`, `user-story`, `priority-high`.
-Status: pendente, não iniciada. Item já pertencente à Entrega 1 — MVP, formalizado após a auditoria do Front; nenhum requisito novo foi criado.
+Status: Concluída — PR #32. Item já pertencente à Entrega 1 — MVP, formalizado após a auditoria do Front; nenhum requisito novo foi criado.
 
 ### User Story
 
@@ -1075,10 +1113,14 @@ Dados continuam consistentes
 
 ---
 
-## Status atual — 2026-10-04
+## Status histórico — 2026-10-04
 
 **Sprint 1 em andamento — 11/15 Issues concluídas (73,3%).**
 
 Concluídas: #1 (PR #14), #2 (PR #15), #3 (PR #16), #4 (PR #17), #5 (PR #23), #6 (PR #24), #7 (PR #25), #8 (PR #26), #9 (PR #27), #11 (PR #28) e #20 (PR #29).
 Pendentes: #10, #12, #13 e #21. Não foi iniciada outra Issue nesta atualização documental.
 Histórico em 2026-10-03: 4/13 = 30,8% no planejamento inicial; 4/15 = 26,7% após refinamento. #5 era a próxima naquele momento; hoje está concluída.
+
+## Resumo final — 2026-10-21
+
+**15/15 concluídas — 100% — 0 Issues abertas.** Rastreabilidade final na tabela do topo.

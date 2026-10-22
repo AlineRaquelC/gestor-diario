@@ -4,15 +4,21 @@ Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido 
 
 ## Status atual — 2026-10-21
 
-**Sprint 1 em andamento: 14/15 Issues concluídas — 93,3%.** #12 integrada pelo
-PR #33. #13 (CI inicial) está implementada nesta branch e aguarda revisão
-do PR e merge; permanece aberta. Não há merge automático.
+**Sprint 1 — fechamento técnico concluído: 15/15 Issues concluídas — 100%.**
+
+A Sprint havia sido apresentada/entregue anteriormente; os gargalos técnicos
+remanescentes foram concluídos posteriormente, em 21/10/2026. Não existem Issues
+abertas no milestone Sprint 1. Rastreabilidade completa no [fechamento](docs/sprints/sprint-1.md).
+A conclusão da Sprint não implica aceite integral de todos os PBIs da Entrega 1.
 
 ## Funcionalidades atuais
 
 - API Node.js, SQLite, Drizzle ORM e migrations; CRUD de projetos na API.
 - Criação, consulta/listagem, detalhes e edição de tarefas integradas.
 - Status, conclusão/reabertura e histórico persistido.
+- Exclusão com confirmação, soft delete, desfazer em 5s e restore (#10 / PR #31).
+- Filtros combináveis e ordenação por prioridade/prazo (#21 / PR #32).
+- CI inicial integrado (#13 / PR #34).
 - Subtarefas com progresso automático e múltiplas observações independentes da descrição.
 - Dashboard com indicadores reais e calendário Dia/Semana/Mês alimentados pelo TaskContext.
 - Persistência de dados novos Mobile → API → SQLite; AsyncStorage como cache/apoio local.
@@ -54,17 +60,27 @@ cache/apoio local durante a transição
 
 ## Validação e dívidas técnicas
 
-- Backend: migrations, typecheck, build e 278 testes aprovados.
-- Mobile: 322 testes focados aprovados em 20 suítes; lint alterado sem erros,
-  com seis avisos inline preexistentes. `git diff --check` aprovado.
-- TypeScript: 14 diagnósticos na base e 11 após a alteração, sem diagnóstico novo.
-- Evidências Android e limites constam no [registro do RF20](docs/arquitetura/sincronizacao-manual.md).
-- Jest global legado (Vitest do backend/ESM de React Navigation), demais dívidas
-  globais de lint/TypeScript e alertas conhecidos do Drizzle Kit permanecem fora
-  deste escopo. CI inicial da #13 está descrito no [registro de CI](docs/arquitetura/ci-inicial.md).
-- CI mobile valida a dívida auditada: 11 diagnósticos TypeScript e 3 erros/10
-  warnings globais de ESLint. Novas identidades/ocorrências falham; verde não
-  significa ausência de dívida. Backend permanece estrito.
+- Backend: migrations, typecheck e build aprovados; **278 testes em 11 suítes**.
+- Mobile: **322 testes em 20 suítes** no fluxo atual do CI.
+- Issue #13 concluída, PR #34 integrado. GitHub Actions executa em PR/push de
+  `dev`/`main`: **Mobile ✅ / Backend ✅** na
+  [execução real do PR #34](https://github.com/AlineRaquelC/gestor-diario/actions/runs/39618412835).
+- O CI bloqueia regressões novas em relação às dívidas explicitamente baselineadas:
+  11 diagnósticos TypeScript (9 identidades), 3 erros e 10 warnings ESLint históricos.
+  Backend permanece estrito. CI verde não significa ausência de erros no projeto.
+- A dívida específica de `App.test.tsx`/Jest (imports ESM não transformados,
+  AsyncStorage/React Navigation) permanece; o teste tem exclusão explícita no CI.
+- Alertas conhecidos de dependências permanecem, incluindo a cadeia Drizzle Kit.
+- Offline parcial; três Tasks legadas sem `projectId` preservadas localmente,
+  com pendências informadas pela UI. Filhos legados não são migrados automaticamente.
+- Sem sincronização automática, autenticação real ou recursos da Entrega 2.
+
+Esses limites não são Issues abertas dentre as 15 da Sprint 1. As evidências de
+execução são as já registradas nos PRs/documentos; esta atualização é documental,
+sem reexecutar testes funcionais ou declarar dívidas corrigidas.
+
+Evidências e operação: [RF20](docs/arquitetura/sincronizacao-manual.md) e
+[CI inicial](docs/arquitetura/ci-inicial.md).
 
 ## Como executar
 
@@ -84,7 +100,7 @@ Triggers, jobs, banco temporário e limites estão no [README do workflow](.gith
 
 ## Metodologia e branches
 
-Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` recebe promoção por PR após revisão. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. O workflow CI valida Mobile e Backend separadamente; não publica nem gera APK. Esta implementação abre PR para `dev`, sem merge automático ou promoção para `main`.
+Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` recebe promoção por PR após revisão. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. O workflow CI valida Mobile e Backend separadamente; não publica nem gera APK. O fechamento documental usa PR para `dev`, sem merge automático ou promoção para `main`.
 
 ## Estrutura
 
@@ -95,6 +111,11 @@ __tests__/           testes mobile
 android/ e ios/      projetos nativos
 docs/                requisitos, backlog, arquitetura, sprints e decisões
 ```
+
+## Histórico anterior ao fechamento
+
+Em 21/10/2026, antes do merge de #34, o topo registrava 14/15 = 93,3%,
+com #13 aguardando revisão/merge. Esse retrato foi superado pelo fechamento técnico.
 
 ## Status histórico em 2026-10-03
 

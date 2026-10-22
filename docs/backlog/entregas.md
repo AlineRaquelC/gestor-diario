@@ -37,7 +37,33 @@ Cada entrega deve resultar em um incremento executável, demonstrável e version
 
 # 3. Entrega 1 — MVP funcional e integrado
 
-## Status atual — 2026-10-04
+## Fechamento técnico da Sprint 1 / cobertura da Entrega 1 — 2026-10-21
+
+**Sprint 1: 15/15 Issues concluídas — 100% — 0 abertas.**
+
+A Sprint já havia sido apresentada/entregue; o fechamento técnico posterior das
+Issues ocorreu em 21/10/2026, após #10 / PR #31, #21 / PR #32, #12 / PR #33 e
+#13 / PR #34. Auditoria GitHub de 22/10/2026 confirmou todos os PRs em `dev`.
+Tabela completa e evidências no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
+**Entrega 1: cobertura parcial, sem declaração de aceite integral.** PBIs 01–07
+e 09 estão concluídos no escopo documentado; PBI-11 concluído no escopo RF20,
+com legado preservado. Projects está integrado por #3/#6/#12, mas PBI-08 permanece
+parcial conservadoramente: não foi implementado um sistema de etiquetas.
+RF12 permite projetos **ou** etiquetas; essa alternativa oficial é preservada,
+sem inferir aceite integral dos critérios mais amplos do PBI. PBI-10 está concluído
+no recorte da Sprint (#21); RF48 integral inclui etiqueta, sem cobertura comprovada.
+Os critérios de conclusão da Entrega 1 abaixo permanecem como referência de aceite,
+sem serem marcados automaticamente pelo fechamento das 15 Issues.
+
+CI inicial integrado: Mobile ✅ / Backend ✅, em PR/push de `dev`/`main`, com
+baselines explícitas que bloqueiam regressões novas, sem declarar dívida corrigida.
+Permanecem TypeScript/lint históricos, App.test.tsx/Jest, alertas de dependências,
+offline parcial, três Tasks legadas sem projectId locais e filhos não migrados
+automaticamente. Sem sync automático, autenticação real ou recursos da Entrega 2.
+Esses limites não são Issues pendentes da Sprint 1.
+
+## Status histórico — 2026-10-04
 
 **Sprint 1 EM ANDAMENTO: 15 Issues planejadas, 11 concluídas, 4 pendentes; 11/15 = 73,3%.**
 

@@ -1,5 +1,11 @@
 # Calendário do MVP — Issue #20
 
+> **Atualização documental — 2026-10-21:** Issue #20 concluída, PR #29 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 ## Escopo
 
 RF06 / RF07, PBI-05: visualizar tarefas reais por dia, semana e mês, com

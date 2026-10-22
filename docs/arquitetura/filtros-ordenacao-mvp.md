@@ -1,5 +1,16 @@
 # Filtros e ordenação do MVP — Issue #21
 
+## Estado consolidado — 2026-10-21
+
+Issue #21 concluída; [PR #32](https://github.com/AlineRaquelC/gestor-diario/pull/32)
+integrado em `dev`. Sprint 1: **15/15 = 100%, 0 Issues abertas**.
+As seções seguintes preservam a auditoria e a execução anteriores ao merge;
+menções a Issue aberta, revisão pendente ou outras Issues não iniciadas são
+históricas e não representam o estado atual. Limites técnicos continuam válidos
+conforme o [fechamento consolidado](../sprints/sprint-1.md).
+
+## Registro histórico da implementação
+
 ## Escopo e rastreabilidade
 
 [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21), PBI-10,
