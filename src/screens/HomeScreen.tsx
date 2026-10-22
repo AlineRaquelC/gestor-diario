@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   View,
@@ -10,227 +10,253 @@ import {
   AppState,
 } from 'react-native';
 
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 import BottomNavigation from '../components/BottomNavigation';
-import {
-  useTasks,
-  Task,
-} from '../context/TaskContext';
+import { useTasks, Task } from '../context/TaskContext';
 
-import {useProjects} from '../context/ProjectContext';
-import {dashboardDate, dashboardMetrics, greeting, isCompleted, percentage as completionPercentage, projectMetrics} from '../utils/dashboard';
-import type {DashboardPeriod} from '../utils/dashboard';
+import { useProjects } from '../context/ProjectContext';
+import {
+  dashboardDate,
+  dashboardMetrics,
+  greeting,
+  isCompleted,
+  percentage as completionPercentage,
+  projectMetrics,
+} from '../utils/dashboard';
+import type { DashboardPeriod } from '../utils/dashboard';
 import TaskListControls from '../components/TaskListControls';
-import {DEFAULT_FILTERS, DEFAULT_SORTING, activeFilterCount, filterTasks, sortTasks, taskProjectOptions} from '../utils/taskFilters';
-import type {TaskFilters, TaskSorting} from '../utils/taskFilters';
+import {
+  DEFAULT_FILTERS,
+  DEFAULT_SORTING,
+  activeFilterCount,
+  filterTasks,
+  sortTasks,
+  taskProjectOptions,
+} from '../utils/taskFilters';
+import type { TaskFilters, TaskSorting } from '../utils/taskFilters';
+
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
 
 const priorityColors = {
-  high: '#F43F5E',
-  medium: '#F59E0B',
-  low: '#5C4DFF',
+  high: COLORS.danger,
+  medium: COLORS.warning,
+  low: COLORS.primary,
 };
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
 
-  const {
-    tasks,
-    toggleTask,
-    loading,
-    readError,
-  } = useTasks();
+  const { tasks, toggleTask, loading, readError } = useTasks();
 
-  const {projects, hydrated} = useProjects();
+  const { projects, hydrated } = useProjects();
   const [period, setPeriod] = useState<DashboardPeriod>('today');
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const refresh = () => setNow(new Date());
     const timer = setInterval(refresh, 60000);
     const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active') {refresh();}
+      if (state === 'active') {
+        refresh();
+      }
     });
-    return () => { clearInterval(timer); subscription.remove(); };
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
   }, []);
-  const [filters, setFilters] = useState<TaskFilters>({...DEFAULT_FILTERS});
-  const [sorting, setSorting] = useState<TaskSorting>({...DEFAULT_SORTING});
-  const visibleTasks = useMemo(() => sortTasks(filterTasks(tasks, filters, projects, now), sorting), [tasks, filters, projects, now, sorting]);
-  const projectOptions = useMemo(() => taskProjectOptions(projects, tasks), [projects, tasks]);
+  const [filters, setFilters] = useState<TaskFilters>({ ...DEFAULT_FILTERS });
+  const [sorting, setSorting] = useState<TaskSorting>({ ...DEFAULT_SORTING });
+  const visibleTasks = useMemo(
+    () => sortTasks(filterTasks(tasks, filters, projects, now), sorting),
+    [tasks, filters, projects, now, sorting],
+  );
+  const projectOptions = useMemo(
+    () => taskProjectOptions(projects, tasks),
+    [projects, tasks],
+  );
   const sorted = sorting.criterion !== 'none';
   const doneTasks = sorted ? [] : visibleTasks.filter(isCompleted);
-  const pendingTasks = sorted ? visibleTasks : visibleTasks.filter(task => !isCompleted(task));
-  const noResults = tasks.length > 0 && visibleTasks.length === 0 && activeFilterCount(filters) > 0;
+  const pendingTasks = sorted
+    ? visibleTasks
+    : visibleTasks.filter(task => !isCompleted(task));
+  const noResults =
+    tasks.length > 0 &&
+    visibleTasks.length === 0 &&
+    activeFilterCount(filters) > 0;
   const metrics = dashboardMetrics(tasks, period, now);
   const progress = metrics.progress;
   // Context appends newly created projects; show the last three with linked tasks.
-  const activeProjects = projectMetrics(projects, tasks).filter(project => project.total > 0).reverse().slice(0, 3);
-  const progressTitle = {today: 'Progresso de hoje', week: 'Progresso da semana', month: 'Progresso do mês'}[period];
+  const activeProjects = projectMetrics(projects, tasks)
+    .filter(project => project.total > 0)
+    .reverse()
+    .slice(0, 3);
+  const progressTitle = {
+    today: 'Progresso de hoje',
+    week: 'Progresso da semana',
+    month: 'Progresso do mês',
+  }[period];
 
   async function handleToggle(id: string) {
     try {
       const result = await toggleTask(id);
-      if (!result.cacheSaved) {Alert.alert('Status salvo no servidor', 'Não foi possível atualizar o cache local.');}
+      if (!result.cacheSaved) {
+        Alert.alert(
+          'Status salvo no servidor',
+          'Não foi possível atualizar o cache local.',
+        );
+      }
     } catch (error) {
-      Alert.alert('Não foi possível alterar o status', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+      Alert.alert(
+        'Não foi possível alterar o status',
+        error instanceof Error
+          ? error.message
+          : 'Verifique a conexão e tente novamente.',
+      );
     }
   }
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top', 'bottom']}>
-
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F8F9FD"
-      />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-
+        showsVerticalScrollIndicator={false}
+      >
         {/* Cabeçalho */}
         <View style={styles.header}>
-
           <View style={styles.headerTextContainer}>
+            <Text style={styles.date}>{dashboardDate(now)}</Text>
 
-            <Text style={styles.date}>
-              {dashboardDate(now)}
-            </Text>
-
-            <Text style={styles.greeting}>
-              {greeting(now)} 👋
-            </Text>
-
+            <Text style={styles.greeting}>{greeting(now)}</Text>
           </View>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Abrir configurações"
             style={styles.profileButton}
-            onPress={() =>
-              navigation.navigate(
-                'Configuracoes',
-              )
-            }>
-
-            <Text style={styles.profileIcon}>
-              👤
-            </Text>
-
+            onPress={() => navigation.navigate('Configuracoes')}
+          >
+            <Text style={styles.profileIcon}>GD</Text>
           </Pressable>
-
         </View>
 
         <View style={styles.periodSelector}>
-          {([['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês']] as const).map(([value, label]) => (
-            <Pressable key={value} accessibilityRole="button" accessibilityState={{selected: period === value}}
-              onPress={() => setPeriod(value)} style={[styles.periodChip, period === value && styles.periodChipSelected]}>
-              <Text style={[styles.periodText, period === value && styles.periodTextSelected]}>{label}</Text>
+          {(
+            [
+              ['today', 'Hoje'],
+              ['week', 'Semana'],
+              ['month', 'Mês'],
+            ] as const
+          ).map(([value, label]) => (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === value }}
+              onPress={() => setPeriod(value)}
+              style={[
+                styles.periodChip,
+                period === value && styles.periodChipSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.periodText,
+                  period === value && styles.periodTextSelected,
+                ]}
+              >
+                {label}
+              </Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.metricsHint}>Por prazo · Atrasadas e projetos: total geral</Text>
 
-        {/* Progresso */}
-        <View style={styles.progressCard}>
-
-          <Text style={styles.progressLabel}>
-            {progressTitle}
-          </Text>
-
-          <Text style={styles.progressValue}>
-            {metrics.completed}
-
-            <Text style={styles.progressTotal}>
-              /{metrics.total}
-            </Text>
-          </Text>
-
-          <Text style={styles.progressSubtitle}>
-            tarefas concluídas
-          </Text>
-
-          <View style={styles.progressBackground}>
-
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  width: `${progress}%`,
-                },
-              ]}
-            />
-
+        <View style={styles.summaryCard}>
+          <View style={styles.progressHeader}>
+            <View style={styles.progressContent}>
+              <Text style={styles.progressLabel}>{progressTitle}</Text>
+              <Text style={styles.progressSubtitle}>
+                {metrics.completed} de {metrics.total} concluídas
+              </Text>
+            </View>
+            <Text style={styles.progressPercent}>{progress}%</Text>
           </View>
-
-          <Text style={styles.progressPercent}>
-            {progress}%
-          </Text>
-
-        </View>
-
-        {/* Estatísticas */}
-        <View style={styles.statsContainer}>
-
-          <StatCard
-            value={metrics.overdue}
-            label="Atrasadas"
-            emoji="🔴"
-            background="#FFF1F3"
-            color="#F43F5E"
-          />
-
-          <StatCard
-            value={metrics.pending}
-            label="Pendentes"
-            emoji="📋"
-            background="#F3F2FF"
-            color="#5C4DFF"
-          />
-
-          <StatCard
-            value={metrics.completed}
-            label="Concluídas"
-            emoji="✅"
-            background="#F0FDF4"
-            color="#22C55E"
-          />
-
+          <View
+            style={styles.progressBackground}
+            accessibilityRole="progressbar"
+            accessibilityLabel={progressTitle}
+            accessibilityValue={{ min: 0, max: 100, now: progress }}
+          >
+            <View style={[styles.progressBar, { width: `${progress}%` }]} />
+          </View>
+          <View style={styles.statsContainer}>
+            <StatCard
+              value={metrics.overdue}
+              label="Atrasadas"
+              background={COLORS.dangerSoft}
+              color={COLORS.danger}
+            />
+            <StatCard
+              value={metrics.pending}
+              label="Pendentes"
+              background={COLORS.primarySoft}
+              color={COLORS.primary}
+            />
+            <StatCard
+              value={metrics.completed}
+              label="Concluídas"
+              background={COLORS.successSoft}
+              color={COLORS.success}
+            />
+          </View>
         </View>
 
         {/* Projetos */}
         <View style={styles.sectionHeader}>
-
-          <Text style={styles.sectionTitle}>
-            Projetos Ativos
-          </Text>
+          <Text style={styles.sectionTitle}>Projetos Ativos</Text>
 
           <Pressable
-            onPress={() =>
-              navigation.navigate(
-                'Projetos',
-              )
-            }>
-
-            <Text style={styles.seeAll}>
-              Ver todos →
-            </Text>
-
+            accessibilityRole="button"
+            accessibilityLabel="Ver todos os projetos"
+            style={styles.seeAllButton}
+            onPress={() => navigation.navigate('Projetos')}
+          >
+            <Text style={styles.seeAll}>Ver todos →</Text>
           </Pressable>
-
         </View>
 
-        {!hydrated ? <Text style={styles.emptyStateText}>Carregando projetos…</Text> : activeProjects.length === 0 ? (
-          <Text style={styles.emptyStateText}>Nenhum projeto com tarefas vinculadas.</Text>
-        ) : activeProjects.map(project => (
-          <ProjectCard key={project.id} emoji={project.icon} name={project.name}
-            completed={project.completed} total={project.total} color={project.color} />
-        ))}
+        {!hydrated ? (
+          <Text style={styles.emptyStateText}>Carregando projetos…</Text>
+        ) : activeProjects.length === 0 ? (
+          <Text style={styles.emptyStateText}>
+            Nenhum projeto com tarefas vinculadas.
+          </Text>
+        ) : (
+          activeProjects.map(project => (
+            <ProjectCard
+              key={project.id}
+              emoji={project.icon}
+              name={project.name}
+              completed={project.completed}
+              total={project.total}
+              color={project.color}
+            />
+          ))
+        )}
 
         {/* Tarefas pendentes */}
-        <TaskListControls filters={filters} sorting={sorting} projects={projectOptions}
-          onApply={(nextFilters, nextSorting) => {setFilters(nextFilters); setSorting(nextSorting);}} />
+        <TaskListControls
+          filters={filters}
+          sorting={sorting}
+          projects={projectOptions}
+          onApply={(nextFilters, nextSorting) => {
+            setFilters(nextFilters);
+            setSorting(nextSorting);
+          }}
+        />
         <Text style={styles.sectionTitle}>
           {sorted || activeFilterCount(filters) > 0 ? 'Tarefas' : 'Para fazer'}
         </Text>
@@ -242,81 +268,80 @@ export default function HomeScreen() {
         )}
 
         {readError && (
-          <Text style={styles.emptyStateText} accessibilityRole="alert">
-            {readError} {tasks.length > 0 ? 'As tarefas disponíveis foram mantidas.' : ''}
-          </Text>
-        )}
-
-        {!loading && noResults && <Text style={styles.emptyStateText}>Nenhuma tarefa encontrada com esses filtros.</Text>}
-        {!loading && !readError && !noResults && pendingTasks.length === 0 && (tasks.length === 0 || activeFilterCount(filters) === 0) && (
-          <View style={styles.emptyState}>
-
-            <Text style={styles.emptyStateIcon}>
-              🎉
-            </Text>
-
-            <Text style={styles.emptyStateTitle}>
-              {tasks.length === 0 ? 'Nenhuma tarefa cadastrada' : 'Tudo em dia!'}
-            </Text>
-
-            <Text style={styles.emptyStateText}>
-              {tasks.length === 0 ? 'Crie uma tarefa para começar.' : 'Você não possui tarefas pendentes.'}
-            </Text>
-
+          <View
+            style={styles.errorAlert}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <Text style={styles.errorText}>{readError}</Text>
+            {tasks.length > 0 && (
+              <Text style={styles.errorText}>
+                As tarefas disponíveis foram mantidas.
+              </Text>
+            )}
           </View>
         )}
 
-        {pendingTasks.map(task => (
+        {!loading && noResults && (
+          <Text style={styles.emptyStateText}>
+            Nenhuma tarefa encontrada com esses filtros.
+          </Text>
+        )}
+        {!loading &&
+          !readError &&
+          !noResults &&
+          pendingTasks.length === 0 &&
+          (tasks.length === 0 || activeFilterCount(filters) === 0) && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>
+                {tasks.length === 0
+                  ? 'Nenhuma tarefa cadastrada'
+                  : 'Tudo em dia!'}
+              </Text>
 
+              <Text style={styles.emptyStateText}>
+                {tasks.length === 0
+                  ? 'Crie uma tarefa para começar.'
+                  : 'Você não possui tarefas pendentes.'}
+              </Text>
+            </View>
+          )}
+
+        {pendingTasks.map(task => (
           <TaskCard
             key={task.id}
             task={task}
             onToggle={handleToggle}
             onPress={() =>
-              navigation.navigate(
-                'DetalheTarefa',
-                {
-                  taskId: task.id,
-                },
-              )
+              navigation.navigate('DetalheTarefa', {
+                taskId: task.id,
+              })
             }
           />
-
         ))}
 
         {/* Tarefas concluídas */}
         {doneTasks.length > 0 && (
           <>
-
-            <Text style={styles.completedTitle}>
-              Concluídas
-            </Text>
+            <Text style={styles.completedTitle}>Concluídas</Text>
 
             {doneTasks.map(task => (
-
               <TaskCard
                 key={task.id}
                 task={task}
                 onToggle={handleToggle}
                 onPress={() =>
-                  navigation.navigate(
-                    'DetalheTarefa',
-                    {
-                      taskId: task.id,
-                    },
-                  )
+                  navigation.navigate('DetalheTarefa', {
+                    taskId: task.id,
+                  })
                 }
               />
-
             ))}
-
           </>
         )}
-
       </ScrollView>
 
       <BottomNavigation active="Home" />
-
     </SafeAreaView>
   );
 }
@@ -324,13 +349,11 @@ export default function HomeScreen() {
 function StatCard({
   value,
   label,
-  emoji,
   background,
   color,
 }: {
   value: number;
   label: string;
-  emoji: string;
   background: string;
   color: string;
 }) {
@@ -341,19 +364,16 @@ function StatCard({
         {
           backgroundColor: background,
         },
-      ]}>
-
-      <Text style={styles.statEmoji}>
-        {emoji}
-      </Text>
-
+      ]}
+    >
       <Text
         style={[
           styles.statValue,
           {
             color,
           },
-        ]}>
+        ]}
+      >
         {value}
       </Text>
 
@@ -363,10 +383,10 @@ function StatCard({
           {
             color,
           },
-        ]}>
+        ]}
+      >
         {label}
       </Text>
-
     </View>
   );
 }
@@ -384,23 +404,15 @@ function ProjectCard({
   total: number;
   color: string;
 }) {
-  const percentage =
-    completionPercentage(completed, total);
+  const percentage = completionPercentage(completed, total);
 
   return (
     <View style={styles.projectCard}>
-
-      <Text style={styles.projectEmoji}>
-        {emoji}
-      </Text>
+      <Text style={styles.projectEmoji}>{emoji}</Text>
 
       <View style={styles.projectContent}>
-
         <View style={styles.projectHeader}>
-
-          <Text style={styles.projectName}>
-            {name}
-          </Text>
+          <Text style={styles.projectName}>{name}</Text>
 
           <Text
             style={[
@@ -408,14 +420,13 @@ function ProjectCard({
               {
                 color,
               },
-            ]}>
+            ]}
+          >
             {percentage}%
           </Text>
-
         </View>
 
         <View style={styles.projectProgressBackground}>
-
           <View
             style={[
               styles.projectProgress,
@@ -425,15 +436,12 @@ function ProjectCard({
               },
             ]}
           />
-
         </View>
 
         <Text style={styles.projectSubtitle}>
           {completed} de {total} concluídas
         </Text>
-
       </View>
-
     </View>
   );
 }
@@ -449,387 +457,274 @@ function TaskCard({
 }) {
   return (
     <Pressable
-      style={[
-        styles.taskCard,
-        task.done &&
-          styles.taskCardDone,
-      ]}
-      onPress={onPress}>
-
+      style={[styles.taskCard, task.done && styles.taskCardDone]}
+      accessibilityRole="button"
+      accessibilityLabel={`Abrir tarefa: ${task.title}`}
+      onPress={onPress}
+    >
       {/* Faixa prioridade */}
       <View
         style={[
           styles.priorityStripe,
           {
-            backgroundColor:
-              task.done
-                ? '#CBD5E1'
-                : priorityColors[
-                    task.priority
-                  ],
+            backgroundColor: task.done
+              ? COLORS.border
+              : priorityColors[task.priority],
           },
         ]}
       />
 
-      {/* Checkbox */}
       <Pressable
-        style={[
-          styles.checkbox,
-          task.done &&
-            styles.checkboxDone,
-        ]}
-        onPress={() =>
-          onToggle(task.id)
-        }>
-
-        {task.done && (
-          <Text style={styles.checkmark}>
-            ✓
-          </Text>
-        )}
-
+        style={styles.checkboxTarget}
+        accessibilityRole="checkbox"
+        accessibilityLabel={`Concluir tarefa: ${task.title}`}
+        accessibilityState={{ checked: task.done }}
+        onPress={event => {
+          event?.stopPropagation();
+          onToggle(task.id);
+        }}
+      >
+        <View style={[styles.checkbox, task.done && styles.checkboxDone]}>
+          {task.done && <Text style={styles.checkmark}>✓</Text>}
+        </View>
       </Pressable>
 
       {/* Conteúdo */}
       <View style={styles.taskContent}>
-
-        <Text
-          style={[
-            styles.taskTitle,
-            task.done &&
-              styles.taskTitleDone,
-          ]}>
+        <Text style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
           {task.title}
         </Text>
 
-        <View style={styles.taskMetadata}>
-
-          <Text style={styles.taskProject}>
-            {task.project}
-          </Text>
-
-          {task.time && (
-            <Text style={styles.taskTime}>
-              🕒 {task.time}
-            </Text>
-          )}
-
-        </View>
-
+        <Text style={styles.taskMetadata}>
+          {task.project}
+          {task.time ? ` · ${task.time}` : ''}
+        </Text>
       </View>
-
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  periodSelector: {flexDirection: 'row', gap: 8, marginBottom: 8},
-  periodChip: {paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F3F2FF'},
-  periodChipSelected: {backgroundColor: '#5C4DFF'},
-  periodText: {color: '#5C4DFF', fontWeight: '600'},
-  periodTextSelected: {color: '#FFFFFF'},
-  metricsHint: {color: '#6B7280', fontSize: 12, marginBottom: 12},
-
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FD',
-  },
-
+  container: { flex: 1, backgroundColor: COLORS.background },
   content: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 26,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xl,
   },
-
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
-
-  headerTextContainer: {
-    flex: 1,
-    paddingRight: 14,
-  },
-
-  date: {
-    color: '#5C4DFF',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-
-  greeting: {
-    color: '#1E1B3A',
-    fontSize: 25,
-    fontWeight: '700',
-  },
-
+  headerTextContainer: { flex: 1, paddingRight: SPACING.md },
+  date: { fontSize: 12, color: COLORS.textSecondary, marginBottom: SPACING.xs },
+  greeting: { fontSize: 26, fontWeight: '700', color: COLORS.textPrimary },
   profileButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#5C4DFF',
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileIcon: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
+  periodSelector: {
+    flexDirection: 'row',
+    padding: SPACING.xs,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.lg,
+  },
+  periodChip: {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: SPACING.sm,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: RADIUS.sm,
   },
-
-  profileIcon: {
-    fontSize: 19,
+  periodChipSelected: { backgroundColor: COLORS.surface },
+  periodText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  periodTextSelected: { color: COLORS.primary },
+  summaryCard: {
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.lg,
   },
-
-  progressCard: {
-    backgroundColor: '#6857FF',
-    borderRadius: 22,
-    padding: 20,
-    marginBottom: 18,
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
   },
-
-  progressLabel: {
-    color: '#D8D4FF',
-    fontSize: 12,
-  },
-
-  progressValue: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '700',
-  },
-
-  progressTotal: {
-    color: '#D8D4FF',
-    fontSize: 17,
-  },
-
+  progressContent: { flex: 1 },
+  progressLabel: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '700' },
   progressSubtitle: {
-    color: '#D8D4FF',
-    marginBottom: 15,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: SPACING.xs,
   },
-
+  progressPercent: { color: COLORS.primary, fontSize: 24, fontWeight: '700' },
   progressBackground: {
     height: 6,
-    borderRadius: 6,
-    backgroundColor: '#8C7EFF',
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primarySoft,
+    overflow: 'hidden',
   },
-
   progressBar: {
     height: 6,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primary,
   },
-
-  progressPercent: {
-    color: '#FFFFFF',
-    alignSelf: 'flex-end',
-    marginTop: 6,
-    fontWeight: '600',
-  },
-
   statsContainer: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
   },
-
   statCard: {
     flex: 1,
-    borderRadius: 18,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
-    paddingVertical: 14,
   },
-
-  statEmoji: {
-    fontSize: 20,
-  },
-
-  statValue: {
-    fontSize: 26,
-    fontWeight: '700',
-  },
-
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-
+  statValue: { fontSize: 22, fontWeight: '700' },
+  statLabel: { fontSize: 11, fontWeight: '600', marginTop: 2 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: SPACING.sm,
   },
-
   sectionTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 17,
     fontWeight: '700',
-    marginBottom: 12,
-    marginTop: 8,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.sm,
   },
-
-  seeAll: {
-    color: '#5C4DFF',
-    fontSize: 12,
-    fontWeight: '600',
+  seeAllButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xs,
   },
-
+  seeAll: { color: COLORS.primary, fontSize: 12, fontWeight: '600' },
   projectCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
+    alignItems: 'center',
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.sm,
   },
-
-  projectEmoji: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-
-  projectContent: {
-    flex: 1,
-  },
-
+  projectEmoji: { fontSize: 22, marginRight: SPACING.md },
+  projectContent: { flex: 1 },
   projectHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: SPACING.sm,
   },
-
   projectName: {
-    color: '#1E1B3A',
+    flex: 1,
+    fontSize: 14,
     fontWeight: '600',
+    color: COLORS.textPrimary,
   },
-
-  projectPercent: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
+  projectPercent: { fontSize: 12, fontWeight: '700' },
   projectProgressBackground: {
-    height: 5,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 5,
-    marginTop: 7,
+    height: 4,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.sm,
+    marginTop: SPACING.sm,
+    overflow: 'hidden',
   },
-
-  projectProgress: {
-    height: 5,
-    borderRadius: 5,
-  },
-
+  projectProgress: { height: 4, borderRadius: RADIUS.sm },
   projectSubtitle: {
-    color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 5,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
   },
-
   taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 10,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingRight: SPACING.md,
+    paddingLeft: SPACING.sm,
+    marginBottom: SPACING.sm,
+    minHeight: 68,
   },
-
-  taskCardDone: {
-    opacity: 0.6,
+  taskCardDone: { backgroundColor: COLORS.surfaceSecondary },
+  priorityStripe: { width: 3, alignSelf: 'stretch', borderRadius: RADIUS.sm },
+  checkboxTarget: {
+    width: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  priorityStripe: {
-    width: 4,
-    height: 40,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-
   checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#CBC6FF',
+    width: 24,
+    height: 24,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1.5,
+    borderColor: COLORS.textSecondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-
   checkboxDone: {
-    backgroundColor: '#22C55E',
-    borderColor: '#22C55E',
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
   },
-
-  checkmark: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-
-  taskContent: {
-    flex: 1,
-  },
-
-  taskTitle: {
-    color: '#1E1B3A',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-
+  checkmark: { color: COLORS.surface, fontWeight: '700' },
+  taskContent: { flex: 1, paddingVertical: SPACING.xs },
+  taskTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '600' },
   taskTitleDone: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
-
   taskMetadata: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: SPACING.xs,
   },
-
-  taskProject: {
-    backgroundColor: '#F8FAFC',
-    color: '#94A3B8',
-    fontSize: 11,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-
-  taskTime: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-
   completedTitle: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 17,
     fontWeight: '700',
-    marginVertical: 12,
+    marginVertical: SPACING.md,
   },
-
   emptyState: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 24,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: SPACING.md,
   },
-
-  emptyStateIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-
   emptyStateTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
-
   emptyStateText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 4,
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
   },
-
+  errorAlert: {
+    backgroundColor: COLORS.dangerSoft,
+    borderColor: COLORS.danger,
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    gap: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  errorText: { color: COLORS.danger, fontSize: 13, lineHeight: 19 },
 });
