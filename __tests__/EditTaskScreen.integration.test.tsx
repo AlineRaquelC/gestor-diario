@@ -48,8 +48,14 @@ it('falha de PATCH informa erro e não navega como se estivesse salvo', async ()
   expect(button('✓ Salvar alterações').props.disabled).toBe(false);
 });
 it('seleção de projetos homônimos usa ID e preserva início antigo inalterado', async () => {
-  const choices = renderer.root.findAll(node => typeof node.props.onPress === 'function').filter(node => node.findAll(child => String(child.type) === 'Text').some(child => child.props.children === 'Mesmo nome'));
+  const selector = renderer.root.findAll(node => typeof node.props.onPress === 'function').find(node => node.props.accessibilityLabel === 'Selecionar projeto: Mesmo nome')!;
+  expect(renderer.root.findAll(node => node.props.accessibilityLabel === 'Projeto: Mesmo nome')).toHaveLength(0);
+  await act(async () => selector.props.onPress());
+  const choices = renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Projeto: Mesmo nome');
+  expect(choices).toHaveLength(2);
+  expect(choices[0].props.accessibilityState.selected).toBe(true);
   await act(async () => { choices[1].props.onPress(); });
+  expect(renderer.root.findAll(node => node.props.accessibilityLabel === 'Projeto: Mesmo nome')).toHaveLength(0);
   await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
   expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ projectId: 'b', startDate: task.startDate }));
   expect(patch.mock.calls[0][1]).not.toHaveProperty('project');

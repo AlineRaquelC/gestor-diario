@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, { useState, useRef } from 'react';
 
 import {
   View,
@@ -9,14 +9,13 @@ import {
   Pressable,
   Alert,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -28,35 +27,34 @@ import {
   Task,
 } from '../context/TaskContext';
 
-import {
-  useProjects,
-} from '../context/ProjectContext';
+import { useProjects } from '../context/ProjectContext';
 
-import {calendarDate} from '../services/taskService';
+import { calendarDate } from '../services/taskService';
 
-import {useTaskDeletion} from '../hooks/useTaskDeletion';
+import { useTaskDeletion } from '../hooks/useTaskDeletion';
+
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
+import { taskFormStyles } from '../styles/taskFormStyles';
+import TaskProjectSelector from '../components/TaskProjectSelector';
 
 const PRIORITIES = [
   {
     value: 'low' as Priority,
     label: 'Baixa',
-    color: '#64748B',
-    background: '#F1F5F9',
-    symbol: '▽',
+    color: COLORS.textSecondary,
+    background: COLORS.surfaceSecondary,
   },
   {
     value: 'medium' as Priority,
     label: 'Média',
-    color: '#D97706',
-    background: '#FEF3C7',
-    symbol: '◈',
+    color: COLORS.warning,
+    background: COLORS.warningSoft,
   },
   {
     value: 'high' as Priority,
     label: 'Alta',
-    color: '#F43F5E',
-    background: '#FFE4E9',
-    symbol: '▲',
+    color: COLORS.danger,
+    background: COLORS.dangerSoft,
   },
 ];
 
@@ -64,32 +62,29 @@ const STATUSES = [
   {
     value: 'todo' as TaskStatus,
     label: 'A fazer',
-    color: '#64748B',
-    background: '#F1F5F9',
+    color: COLORS.textSecondary,
+    background: COLORS.surfaceSecondary,
   },
   {
     value: 'in_progress' as TaskStatus,
     label: 'Em andamento',
-    color: '#5C4DFF',
-    background: '#EEF0FF',
+    color: COLORS.primary,
+    background: COLORS.primarySoft,
   },
   {
     value: 'completed' as TaskStatus,
     label: 'Concluída',
-    color: '#22C55E',
-    background: '#F0FDF4',
+    color: COLORS.success,
+    background: COLORS.successSoft,
   },
 ];
 
 export default function EditTaskScreen() {
-  const navigation =
-    useNavigation<any>();
+  const navigation = useNavigation<any>();
 
-  const route =
-    useRoute<any>();
+  const route = useRoute<any>();
 
-  const {taskId} =
-    route.params;
+  const { taskId } = route.params;
 
   const {
     tasks,
@@ -99,19 +94,13 @@ export default function EditTaskScreen() {
     removeSubtask: removeChild,
   } = useTasks();
 
-  const {
-    projects,
-  } = useProjects();
+  const { projects } = useProjects();
 
   const confirmDelete = useTaskDeletion(taskId, () => {
     navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
   });
 
-  const task =
-    tasks.find(
-      item =>
-        item.id === taskId,
-    );
+  const task = tasks.find(item => item.id === taskId);
 
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
@@ -119,185 +108,138 @@ export default function EditTaskScreen() {
   const subtaskRequest = useRef(false);
 
   const originalStartDate = task?.startDate;
-  const linkedProject = projects.find(item => item.id === task?.projectId || item.remoteId === task?.projectId);
+  const linkedProject = projects.find(
+    item => item.id === task?.projectId || item.remoteId === task?.projectId,
+  );
   // Retain a real remote relationship even before general project sync (#12).
-  const projectOptions = task?.projectId && !linkedProject
-    ? [...projects, { id: task.projectId, remoteId: task.projectId, name: task.project, color: '#5C4DFF', icon: '📁' }]
-    : projects;
-  const [title, setTitle] =
-    useState(task?.title ?? '');
+  const projectOptions =
+    task?.projectId && !linkedProject
+      ? [
+          ...projects,
+          {
+            id: task.projectId,
+            remoteId: task.projectId,
+            name: task.project,
+            color: COLORS.primary,
+            icon: '',
+          },
+        ]
+      : projects;
+  const [title, setTitle] = useState(task?.title ?? '');
 
-  const [
-    description,
-    setDescription,
-  ] = useState(
-    task?.description ?? '',
+  const [description, setDescription] = useState(task?.description ?? '');
+
+  const [startDate, setStartDate] = useState(
+    task?.startDate ? new Date(task.startDate) : new Date(),
   );
 
-  const [
-    startDate,
-    setStartDate,
-  ] = useState(
-    task?.startDate
-      ? new Date(
-          task.startDate,
-        )
-      : new Date(),
+  const [dueDate, setDueDate] = useState(
+    task?.dueDate ? new Date(task.dueDate) : new Date(),
   );
 
-  const [
-    dueDate,
-    setDueDate,
-  ] = useState(
-    task?.dueDate
-      ? new Date(
-          task.dueDate,
-        )
-      : new Date(),
-  );
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
 
-  const [
-    showStartDatePicker,
-    setShowStartDatePicker,
-  ] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
-  const [
-    showDueDatePicker,
-    setShowDueDatePicker,
-  ] = useState(false);
+  const [time, setTime] = useState(task?.time ?? '');
 
-  const [time, setTime] =
-    useState(
-      task?.time ?? '',
-    );
-
-  const [
-    priority,
-    setPriority,
-  ] = useState<Priority>(
+  const [priority, setPriority] = useState<Priority>(
     task?.priority ?? 'medium',
   );
 
-  const [
-    project,
-    setProject,
-  ] = useState(
+  const [project, setProject] = useState(
     linkedProject?.id ?? task?.projectId ?? '',
   );
 
-  const [
-    status,
-    setStatus,
-  ] = useState<TaskStatus>(
-    task?.status ?? 'todo',
-  );
+  const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'todo');
 
-  const [
-    subtasks,
-    setSubtasks,
-  ] = useState<Subtask[]>(
-    task?.subtasks ?? [],
-  );
+  const [subtasks, setSubtasks] = useState<Subtask[]>(task?.subtasks ?? []);
 
-  const [
-    addingSubtask,
-    setAddingSubtask,
-  ] = useState(false);
+  const [addingSubtask, setAddingSubtask] = useState(false);
 
-  const [
-    newSubtask,
-    setNewSubtask,
-  ] = useState('');
+  const [newSubtask, setNewSubtask] = useState('');
 
-  const [
-    dirty,
-    setDirty,
-  ] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   if (!task) {
     return (
-      <SafeAreaView
-        style={styles.container}>
-
-        <View
-          style={
-            styles.notFoundContainer
-          }>
-
-          <Text
-            style={
-              styles.notFoundTitle
-            }>
-            Tarefa não encontrada
-          </Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.notFoundContainer}>
+          <Text style={styles.notFoundTitle}>Tarefa não encontrada</Text>
 
           <Pressable
-            style={
-              styles.backHomeButton
-            }
-            onPress={() =>
-              navigation.navigate(
-                'Home',
-              )
-            }>
-
-            <Text
-              style={
-                styles.backHomeText
-              }>
-              Voltar para Home
-            </Text>
-
+            accessibilityRole="button"
+            style={styles.backHomeButton}
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.backHomeText}>Voltar para Home</Text>
           </Pressable>
-
         </View>
-
       </SafeAreaView>
     );
   }
 
-  function formatDateBR(
-    date: Date,
-  ) {
-    return date.toLocaleDateString(
-      'pt-BR',
-    );
+  function formatDateBR(date: Date) {
+    return date.toLocaleDateString('pt-BR');
   }
 
   function markDirty() {
     setDirty(true);
   }
 
-  async function mutateSubtask(key: string, request: () => Promise<{ task: Task; cacheSaved: boolean }>) {
-    if (subtaskRequest.current || submitting.current) {return;}
+  async function mutateSubtask(
+    key: string,
+    request: () => Promise<{ task: Task; cacheSaved: boolean }>,
+  ) {
+    if (subtaskRequest.current || submitting.current) {
+      return;
+    }
     subtaskRequest.current = true;
     setSubtaskSaving(key);
     try {
       const result = await request();
       setSubtasks(result.task.subtasks ?? []);
       setStatus(result.task.status);
-      if (!result.cacheSaved) {Alert.alert('Subtarefa salva no servidor', 'Não foi possível atualizar o cache local.');}
+      if (!result.cacheSaved) {
+        Alert.alert(
+          'Subtarefa salva no servidor',
+          'Não foi possível atualizar o cache local.',
+        );
+      }
       return true;
     } catch (error) {
-      Alert.alert('Não foi possível alterar a subtarefa', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+      Alert.alert(
+        'Não foi possível alterar a subtarefa',
+        error instanceof Error
+          ? error.message
+          : 'Verifique a conexão e tente novamente.',
+      );
       return false;
     } finally {
       subtaskRequest.current = false;
       setSubtaskSaving(null);
     }
   }
-  const toggleSubtask = (id: string) => mutateSubtask(id, () => toggleChild(taskId, id));
-  const removeSubtask = (id: string) => mutateSubtask(id, () => removeChild(taskId, id));
+  const toggleSubtask = (id: string) =>
+    mutateSubtask(id, () => toggleChild(taskId, id));
+  const removeSubtask = (id: string) =>
+    mutateSubtask(id, () => removeChild(taskId, id));
   async function handleAddSubtask() {
-    if (!newSubtask.trim()) {return;}
-    if (await mutateSubtask('new', () => createChild(taskId, newSubtask.trim()))) {
+    if (!newSubtask.trim()) {
+      return;
+    }
+    if (
+      await mutateSubtask('new', () => createChild(taskId, newSubtask.trim()))
+    ) {
       setNewSubtask('');
       setAddingSubtask(false);
     }
   }
 
   async function saveChanges() {
-    if (submitting.current || subtaskRequest.current) {return;}
+    if (submitting.current || subtaskRequest.current) {
+      return;
+    }
     if (!title.trim()) {
       Alert.alert('Título obrigatório', 'Informe um título para a tarefa.');
       return;
@@ -309,12 +251,22 @@ export default function EditTaskScreen() {
     }
     const startDay = calendarDate(startDate.toISOString());
     const dueDay = calendarDate(dueDate.toISOString());
-    if (startDay !== (originalStartDate ? calendarDate(originalStartDate) : undefined) && startDay < calendarDate(new Date().toISOString())) {
-      Alert.alert('Data de início inválida', 'Uma nova data de início não pode ser anterior à data atual.');
+    if (
+      startDay !==
+        (originalStartDate ? calendarDate(originalStartDate) : undefined) &&
+      startDay < calendarDate(new Date().toISOString())
+    ) {
+      Alert.alert(
+        'Data de início inválida',
+        'Uma nova data de início não pode ser anterior à data atual.',
+      );
       return;
     }
     if (dueDay < startDay) {
-      Alert.alert('Prazo inválido', 'O prazo não pode ser anterior à data de início.');
+      Alert.alert(
+        'Prazo inválido',
+        'O prazo não pode ser anterior à data de início.',
+      );
       return;
     }
     if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
@@ -325,858 +277,476 @@ export default function EditTaskScreen() {
     setSaving(true);
     try {
       const result = await updateTask(taskId, {
-        title: title.trim(), description: description.trim(),
-        projectId: selectedProject.id, time, priority, status,
-        startDate: startDate.toISOString(), dueDate: dueDate.toISOString(),
+        title: title.trim(),
+        description: description.trim(),
+        projectId: selectedProject.id,
+        time,
+        priority,
+        status,
+        startDate: startDate.toISOString(),
+        dueDate: dueDate.toISOString(),
       });
       setDirty(false);
-      Alert.alert('Alterações salvas', result.cacheSaved
-        ? 'A tarefa foi atualizada com sucesso.'
-        : 'As alterações foram salvas no servidor, mas o cache local falhou. Não envie novamente.',
-      [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      Alert.alert(
+        'Alterações salvas',
+        result.cacheSaved
+          ? 'A tarefa foi atualizada com sucesso.'
+          : 'As alterações foram salvas no servidor, mas o cache local falhou. Não envie novamente.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
+      );
     } catch (error) {
-      Alert.alert('Não foi possível salvar', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+      Alert.alert(
+        'Não foi possível salvar',
+        error instanceof Error
+          ? error.message
+          : 'Verifique a conexão e tente novamente.',
+      );
     } finally {
       submitting.current = false;
       setSaving(false);
     }
   }
 
-
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={[
-        'top',
-        'bottom',
-      ]}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F6F7FF"
-      />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Cabeçalho */}
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </Pressable>
 
-      {/* Cabeçalho */}
-      <View style={styles.header}>
+          <Text style={styles.headerTitle}>Editar Tarefa</Text>
 
-        <Pressable
-          style={
-            styles.backButton
-          }
-          onPress={() =>
-            navigation.goBack()
-          }>
-
-          <Text
-            style={
-              styles.backIcon
-            }>
-            ‹
-          </Text>
-
-        </Pressable>
-
-        <Text
-          style={
-            styles.headerTitle
-          }>
-          Editar Tarefa
-        </Text>
-
-        {dirty ? (
-          <View
-            style={
-              styles.unsavedBadge
-            }>
-
-            <Text
-              style={
-                styles.unsavedText
-              }>
-              Não salvo
-            </Text>
-
-          </View>
-        ) : (
-          <View
-            style={{
-              width: 75,
-            }}
-          />
-        )}
-
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={
-          styles.content
-        }
-        showsVerticalScrollIndicator={
-          false
-        }
-        keyboardShouldPersistTaps="handled">
-
-        {/* Título */}
-        <Field
-          label="Título"
-          required>
-
-          <TextInput
-            style={
-              styles.input
-            }
-            value={title}
-            onChangeText={value => {
-              setTitle(value);
-              markDirty();
-            }}
-            placeholder="Nome da tarefa..."
-            placeholderTextColor="#94A3B8"
-          />
-
-        </Field>
-
-        {/* Descrição */}
-        <Field label="Descrição">
-
-          <TextInput
-            style={[
-              styles.input,
-              styles.textArea,
-            ]}
-            value={
-              description
-            }
-            onChangeText={value => {
-              setDescription(
-                value,
-              );
-
-              markDirty();
-            }}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            placeholder="Adicione detalhes..."
-            placeholderTextColor="#94A3B8"
-          />
-
-        </Field>
-
-        {/* Datas */}
-        <Field label="Datas">
-
-          <View style={styles.row}>
-
-            <View style={styles.flex}>
-
-              <Text
-                style={
-                  styles.subLabel
-                }>
-                INÍCIO
-              </Text>
-
-              <Pressable
-                style={
-                  styles.input
-                }
-                onPress={() =>
-                  setShowStartDatePicker(
-                    true,
-                  )
-                }>
-
-                <Text
-                  style={
-                    styles.dateText
-                  }>
-                  {
-                    formatDateBR(
-                      startDate,
-                    )
-                  }
-                </Text>
-
-              </Pressable>
-
+          {dirty ? (
+            <View style={styles.unsavedBadge}>
+              <Text style={styles.unsavedText}>Não salvo</Text>
             </View>
-
-            <View style={styles.flex}>
-
-              <Text
-                style={
-                  styles.subLabel
-                }>
-                PRAZO
-              </Text>
-
-              <Pressable
-                style={[
-                  styles.input,
-                  styles.accentInput,
-                ]}
-                onPress={() =>
-                  setShowDueDatePicker(
-                    true,
-                  )
-                }>
-
-                <Text
-                  style={
-                    styles.dateText
-                  }>
-                  {
-                    formatDateBR(
-                      dueDate,
-                    )
-                  }
-                </Text>
-
-              </Pressable>
-
-            </View>
-
-          </View>
-
-          {showStartDatePicker && (
-            <DateTimePicker
-              value={
-                startDate
-              }
-              mode="date"
-              display="default"
-              onChange={(
-                event,
-                selectedDate,
-              ) => {
-                setShowStartDatePicker(
-                  false,
-                );
-
-                if (
-                  selectedDate
-                ) {
-                  setStartDate(
-                    selectedDate,
-                  );
-
-                  if (
-                    selectedDate >
-                    dueDate
-                  ) {
-                    setDueDate(
-                      selectedDate,
-                    );
-                  }
-
-                  markDirty();
-                }
+          ) : (
+            <View
+              style={{
+                width: 75,
               }}
             />
           )}
+        </View>
 
-          {showDueDatePicker && (
-            <DateTimePicker
-              value={
-                dueDate
-              }
-              mode="date"
-              display="default"
-              minimumDate={
-                startDate
-              }
-              onChange={(
-                event,
-                selectedDate,
-              ) => {
-                setShowDueDatePicker(
-                  false,
-                );
-
-                if (
-                  selectedDate
-                ) {
-                  setDueDate(
-                    selectedDate,
-                  );
-
-                  markDirty();
-                }
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Título */}
+          <Field label="Título" required>
+            <TextInput
+              style={styles.input}
+              value={title}
+              onChangeText={value => {
+                setTitle(value);
+                markDirty();
               }}
+              accessibilityLabel="Título"
+              placeholder="Nome da tarefa..."
+              placeholderTextColor={COLORS.textSecondary}
             />
-          )}
+          </Field>
 
-        </Field>
+          {/* Descrição */}
+          <Field label="Descrição">
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={description}
+              onChangeText={value => {
+                setDescription(value);
 
-        {/* Horário */}
-        <Field label="Horário">
+                markDirty();
+              }}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              accessibilityLabel="Descrição"
+              placeholder="Adicione detalhes..."
+              placeholderTextColor={COLORS.textSecondary}
+            />
+          </Field>
 
-          <TextInput
-            style={
-              styles.input
-            }
-            value={time}
-            onChangeText={value => {
-              setTime(value);
-              markDirty();
-            }}
-            placeholder="18:00"
-            placeholderTextColor="#94A3B8"
-          />
+          {/* Datas */}
+          <Field label="Datas">
+            <View style={styles.row}>
+              <View style={styles.flex}>
+                <Text style={styles.subLabel}>Início</Text>
 
-        </Field>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Selecionar data de início"
+                  style={styles.input}
+                  onPress={() => setShowStartDatePicker(true)}
+                >
+                  <Text style={styles.dateText}>{formatDateBR(startDate)}</Text>
+                </Pressable>
+              </View>
 
-        {/* Prioridade */}
-        <Field label="Prioridade">
+              <View style={styles.flex}>
+                <Text style={styles.subLabel}>Prazo</Text>
 
-          <View style={styles.row}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Selecionar prazo"
+                  style={[styles.input, styles.accentInput]}
+                  onPress={() => setShowDueDatePicker(true)}
+                >
+                  <Text style={styles.dateText}>{formatDateBR(dueDate)}</Text>
+                </Pressable>
+              </View>
+            </View>
 
-            {PRIORITIES.map(
-              item => {
+            {showStartDatePicker && (
+              <DateTimePicker
+                value={startDate}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowStartDatePicker(false);
 
-                const active =
-                  priority ===
-                  item.value;
+                  if (selectedDate) {
+                    setStartDate(selectedDate);
+
+                    if (selectedDate > dueDate) {
+                      setDueDate(selectedDate);
+                    }
+
+                    markDirty();
+                  }
+                }}
+              />
+            )}
+
+            {showDueDatePicker && (
+              <DateTimePicker
+                value={dueDate}
+                mode="date"
+                display="default"
+                minimumDate={startDate}
+                onChange={(event, selectedDate) => {
+                  setShowDueDatePicker(false);
+
+                  if (selectedDate) {
+                    setDueDate(selectedDate);
+
+                    markDirty();
+                  }
+                }}
+              />
+            )}
+          </Field>
+
+          {/* Horário */}
+          <Field label="Horário">
+            <TextInput
+              style={styles.input}
+              value={time}
+              onChangeText={value => {
+                setTime(value);
+                markDirty();
+              }}
+              accessibilityLabel="Horário"
+              placeholder="18:00"
+              placeholderTextColor={COLORS.textSecondary}
+            />
+          </Field>
+
+          {/* Prioridade */}
+          <Field label="Prioridade">
+            <View style={styles.row}>
+              {PRIORITIES.map(item => {
+                const active = priority === item.value;
 
                 return (
                   <Pressable
-                    key={
-                      item.value
-                    }
+                    key={item.value}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{ selected: active }}
                     style={[
                       styles.optionCard,
 
                       active && {
-                        borderColor:
-                          item.color,
+                        borderColor: item.color,
 
-                        backgroundColor:
-                          item.background,
+                        backgroundColor: item.background,
                       },
                     ]}
                     onPress={() => {
-                      setPriority(
-                        item.value,
-                      );
+                      setPriority(item.value);
 
                       markDirty();
-                    }}>
-
-                    <Text
-                      style={[
-                        styles.optionSymbol,
-                        {
-                          color:
-                            item.color,
-                        },
-                      ]}>
-                      {item.symbol}
-                    </Text>
-
+                    }}
+                  >
                     <Text
                       style={[
                         styles.optionLabel,
 
                         active && {
-                          color:
-                            item.color,
-                        },
-                      ]}>
-                      {item.label}
-                    </Text>
-
-                  </Pressable>
-                );
-              },
-            )}
-
-          </View>
-
-        </Field>
-
-        {/* PROJETOS REAIS */}
-        <Field
-          label="Projeto / Categoria">
-
-          {projectOptions.length === 0 ? (
-
-            <View
-              style={
-                styles.noProjectsCard
-              }>
-
-              <Text
-                style={
-                  styles.noProjectsText
-                }>
-                Nenhum projeto cadastrado.
-              </Text>
-
-              <Pressable
-                onPress={() =>
-                  navigation.navigate(
-                    'CriarProjeto',
-                  )
-                }>
-
-                <Text
-                  style={
-                    styles.createProjectLink
-                  }>
-                  + Criar projeto
-                </Text>
-
-              </Pressable>
-
-            </View>
-
-          ) : (
-
-            <View style={styles.wrap}>
-
-              {projectOptions.map(
-                item => {
-
-                  const active =
-                    project ===
-                    item.id;
-
-                  return (
-                    <Pressable
-                      key={
-                        item.id
-                      }
-                      style={[
-                        styles.projectButton,
-
-                        active && {
-                          borderColor:
-                            item.color,
-
-                          backgroundColor:
-                            item.color +
-                            '15',
+                          color: item.color,
                         },
                       ]}
-                      onPress={() => {
-                        setProject(
-                          item.id,
-                        );
-
-                        markDirty();
-                      }}>
-
-                      <Text
-                        style={
-                          styles.projectIcon
-                        }>
-                        {
-                          item.icon ??
-                          '📁'
-                        }
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.projectText,
-
-                          active && {
-                            color:
-                              item.color,
-                          },
-                        ]}>
-                        {item.name}
-                      </Text>
-
-                    </Pressable>
-                  );
-                },
-              )}
-
+                    >
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          )}
+          </Field>
 
-        </Field>
+          {/* PROJETOS REAIS */}
+          <Field label="Projeto / Categoria">
+            {projectOptions.length === 0 ? (
+              <View style={styles.noProjectsCard}>
+                <Text style={styles.noProjectsText}>
+                  Nenhum projeto cadastrado.
+                </Text>
 
-        {/* Status */}
-        <Field label="Status">
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => navigation.navigate('CriarProjeto')}
+                >
+                  <Text style={styles.createProjectLink}>+ Criar projeto</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <TaskProjectSelector
+                projects={projectOptions}
+                selectedId={project}
+                onSelect={id => {
+                  setProject(id);
+                  markDirty();
+                }}
+              />
+            )}
+          </Field>
 
-          <View
-            style={
-              styles.statusWrap
-            }>
-
-            {STATUSES.map(
-              item => {
-
-                const active =
-                  status ===
-                  item.value;
+          {/* Status */}
+          <Field label="Status">
+            <View style={styles.statusWrap}>
+              {STATUSES.map(item => {
+                const active = status === item.value;
 
                 return (
                   <Pressable
-                    key={
-                      item.value
-                    }
+                    key={item.value}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{ selected: active }}
                     style={[
                       styles.statusButton,
 
                       active && {
-                        borderColor:
-                          item.color,
+                        borderColor: item.color,
 
-                        backgroundColor:
-                          item.background,
+                        backgroundColor: item.background,
                       },
                     ]}
                     onPress={() => {
-                      setStatus(
-                        item.value,
-                      );
+                      setStatus(item.value);
 
                       markDirty();
-                    }}>
-
+                    }}
+                  >
                     <Text
                       style={[
                         styles.statusText,
 
                         active && {
-                          color:
-                            item.color,
+                          color: item.color,
                         },
-                      ]}>
+                      ]}
+                    >
                       {item.label}
                     </Text>
-
                   </Pressable>
                 );
-              },
-            )}
+              })}
+            </View>
+          </Field>
 
-          </View>
-
-        </Field>
-
-        {/* Subtarefas */}
-        <Field label="Subtarefas">
-
-          <View
-            style={
-              styles.subtasksCard
-            }>
-
-            {subtasks.map(
-              (
-                subtask,
-                index,
-              ) => (
-
+          {/* Subtarefas */}
+          <Field label="Subtarefas">
+            <View style={styles.subtasksCard}>
+              {subtasks.map((subtask, index) => (
                 <View
-                  key={
-                    subtask.id
-                  }
+                  key={subtask.id}
                   style={[
                     styles.subtaskRow,
 
-                    index <
-                      subtasks.length -
-                        1 &&
-                      styles.subtaskBorder,
-                  ]}>
-
+                    index < subtasks.length - 1 && styles.subtaskBorder,
+                  ]}
+                >
                   <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={`Concluir subtarefa: ${subtask.title}`}
+                    accessibilityState={{
+                      checked: subtask.done,
+                      disabled: subtaskSaving === subtask.id || saving,
+                    }}
+                    hitSlop={10}
                     disabled={subtaskSaving === subtask.id || saving}
                     style={[
                       styles.checkbox,
-
-                      subtask.done &&
-                        styles.checkboxDone,
+                      subtask.done && styles.checkboxDone,
                     ]}
-                    onPress={() =>
-                      toggleSubtask(
-                        subtask.id,
-                      )
-                    }>
-
-                    {subtask.done && (
-                      <Text
-                        style={
-                          styles.checkboxText
-                        }>
-                        ✓
-                      </Text>
-                    )}
-
+                    onPress={() => toggleSubtask(subtask.id)}
+                  >
+                    {subtask.done && <Text style={styles.checkboxText}>✓</Text>}
                   </Pressable>
 
                   <Text
                     style={[
                       styles.subtaskTitle,
 
-                      subtask.done &&
-                        styles.subtaskTitleDone,
-                    ]}>
-                    {
-                      subtask.title
-                    }
+                      subtask.done && styles.subtaskTitleDone,
+                    ]}
+                  >
+                    {subtask.title}
                   </Text>
 
                   <View
                     style={[
                       styles.subtaskStatus,
 
-                      subtask.done &&
-                        styles.subtaskStatusDone,
-                    ]}>
-
+                      subtask.done && styles.subtaskStatusDone,
+                    ]}
+                  >
                     <Text
                       style={[
                         styles.subtaskStatusText,
 
-                        subtask.done &&
-                          styles.subtaskStatusTextDone,
-                      ]}>
-                      {
-                        subtask.done
-                          ? 'Feita'
-                          : 'Pendente'
-                      }
+                        subtask.done && styles.subtaskStatusTextDone,
+                      ]}
+                    >
+                      {subtask.done ? 'Feita' : 'Pendente'}
                     </Text>
-
                   </View>
 
                   <Pressable
+                    accessibilityRole="button"
                     disabled={subtaskSaving === subtask.id || saving}
-                    onPress={() =>
-                      removeSubtask(
-                        subtask.id,
-                      )
-                    }>
+                    onPress={() => removeSubtask(subtask.id)}
+                  >
+                    <Text style={styles.remove}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
 
-                    <Text
-                      style={
-                        styles.remove
-                      }>
-                      ✕
-                    </Text>
+              {addingSubtask ? (
+                <View style={styles.subtaskRow}>
+                  <View style={styles.checkbox} />
 
+                  <TextInput
+                    style={styles.inlineInput}
+                    value={newSubtask}
+                    onChangeText={setNewSubtask}
+                    accessibilityLabel="Nome da subtarefa"
+                    placeholder="Nome da subtarefa..."
+                    placeholderTextColor={COLORS.textSecondary}
+                    autoFocus
+                    onSubmitEditing={handleAddSubtask}
+                  />
+
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={subtaskSaving !== null || saving}
+                    style={styles.confirmSmall}
+                    onPress={handleAddSubtask}
+                  >
+                    <Text style={styles.confirmSmallText}>✓</Text>
                   </Pressable>
 
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setAddingSubtask(false);
+
+                      setNewSubtask('');
+                    }}
+                  >
+                    <Text style={styles.remove}>✕</Text>
+                  </Pressable>
                 </View>
-              ),
-            )}
-
-            {addingSubtask ? (
-
-              <View
-                style={
-                  styles.subtaskRow
-                }>
-
-                <View
-                  style={
-                    styles.checkbox
-                  }
-                />
-
-                <TextInput
-                  style={
-                    styles.inlineInput
-                  }
-                  value={
-                    newSubtask
-                  }
-                  onChangeText={
-                    setNewSubtask
-                  }
-                  placeholder="Nome da subtarefa..."
-                  placeholderTextColor="#94A3B8"
-                  autoFocus
-                  onSubmitEditing={
-                    handleAddSubtask
-                  }
-                />
-
+              ) : (
                 <Pressable
-                  disabled={subtaskSaving !== null || saving}
-                  style={
-                    styles.confirmSmall
-                  }
-                  onPress={
-                    handleAddSubtask
-                  }>
+                  accessibilityRole="button"
+                  style={styles.addSubtask}
+                  onPress={() => setAddingSubtask(true)}
+                >
+                  <Text style={styles.addIcon}>＋</Text>
 
-                  <Text
-                    style={
-                      styles.confirmSmallText
-                    }>
-                    ✓
-                  </Text>
-
+                  <Text style={styles.addText}>Adicionar subtarefa</Text>
                 </Pressable>
+              )}
+            </View>
+          </Field>
 
-                <Pressable
-                  onPress={() => {
-                    setAddingSubtask(
-                      false,
-                    );
+          {/* Excluir */}
+          <View style={styles.dangerZone}>
+            <Text style={styles.dangerLabel}>ZONA DE PERIGO</Text>
 
-                    setNewSubtask(
-                      '',
-                    );
-                  }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Excluir tarefa"
+              style={styles.dangerButton}
+              onPress={confirmDelete}
+            >
+              <View style={styles.flex}>
+                <Text style={styles.deleteTitle}>Excluir tarefa</Text>
 
-                  <Text
-                    style={
-                      styles.remove
-                    }>
-                    ✕
-                  </Text>
-
-                </Pressable>
-
+                <Text style={styles.deleteSubtitle}>
+                  Você poderá desfazer por 5 segundos
+                </Text>
               </View>
 
-            ) : (
-
-              <Pressable
-                style={
-                  styles.addSubtask
-                }
-                onPress={() =>
-                  setAddingSubtask(
-                    true,
-                  )
-                }>
-
-                <Text
-                  style={
-                    styles.addIcon
-                  }>
-                  ＋
-                </Text>
-
-                <Text
-                  style={
-                    styles.addText
-                  }>
-                  Adicionar subtarefa
-                </Text>
-
-              </Pressable>
-            )}
-
+              <Text style={styles.deleteArrow}>›</Text>
+            </Pressable>
           </View>
+        </ScrollView>
 
-        </Field>
-
-        {/* Excluir */}
-        <View
-          style={
-            styles.dangerZone
-          }>
-
-          <Text
-            style={
-              styles.dangerLabel
-            }>
-            ZONA DE PERIGO
-          </Text>
-
+        {/* Rodapé */}
+        <View style={styles.footer}>
           <Pressable
-            style={
-              styles.dangerButton
-            }
-            onPress={
-              confirmDelete
-            }>
-
-            <View
-              style={
-                styles.trashIcon
-              }>
-              <Text>
-                🗑
-              </Text>
-            </View>
-
-            <View
-              style={
-                styles.flex
-              }>
-
-              <Text
-                style={
-                  styles.deleteTitle
-                }>
-                Excluir tarefa
-              </Text>
-
-              <Text
-                style={
-                  styles.deleteSubtitle
-                }>
-                Você poderá desfazer por 5 segundos
-              </Text>
-
-            </View>
-
-            <Text
-              style={
-                styles.deleteArrow
-              }>
-              ›
-            </Text>
-
+            accessibilityRole="button"
+            style={styles.cancelButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.cancelText}>Cancelar</Text>
           </Pressable>
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: saving || subtaskSaving !== null }}
+            style={[
+              styles.saveButton,
+              (saving || subtaskSaving !== null) && styles.disabled,
+            ]}
+            disabled={saving || subtaskSaving !== null}
+            onPress={saveChanges}
+          >
+            <Text style={styles.saveText}>
+              {saving ? 'Salvando…' : '✓ Salvar alterações'}
+            </Text>
+          </Pressable>
         </View>
-
-      </ScrollView>
-
-      {/* Rodapé */}
-      <View style={styles.footer}>
-
-        <Pressable
-          style={
-            styles.cancelButton
-          }
-          onPress={() =>
-            navigation.goBack()
-          }>
-
-          <Text
-            style={
-              styles.cancelText
-            }>
-            Cancelar
-          </Text>
-
-        </Pressable>
-
-        <Pressable
-          style={
-            styles.saveButton
-          }
-          disabled={saving || subtaskSaving !== null}
-          onPress={
-            saveChanges
-          }>
-
-          <Text
-            style={
-              styles.saveText
-            }>
-            {saving ? 'Salvando…' : '✓ Salvar alterações'}
-          </Text>
-
-        </Pressable>
-
-      </View>
-
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -1191,514 +761,185 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <View
-      style={
-        styles.field
-      }>
-
-      <Text
-        style={
-          styles.label
-        }>
+    <View style={styles.field}>
+      <Text style={styles.label}>
         {label}
 
-        {required && (
-          <Text
-            style={
-              styles.required
-            }>
-            {' '}*
-          </Text>
-        )}
-
+        {required && <Text style={styles.required}> *</Text>}
       </Text>
 
       {children}
-
     </View>
   );
 }
 
-const styles =
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor:
-        '#F6F7FF',
-    },
-
-    scroll: {
-      flex: 1,
-    },
-
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor:
-        '#FAFAFA',
-      borderBottomWidth: 1,
-      borderBottomColor:
-        '#EEF0F5',
-    },
-
-    backButton: {
-      width: 38,
-      height: 38,
-      borderRadius: 12,
-      backgroundColor:
-        '#F1F5F9',
-      alignItems: 'center',
-      justifyContent:
-        'center',
-    },
-
-    backIcon: {
-      fontSize: 31,
-      color: '#1E1B3A',
-      marginTop: -4,
-    },
-
-    headerTitle: {
-      flex: 1,
-      marginLeft: 12,
-      fontSize: 19,
-      fontWeight: '700',
-      color: '#1E1B3A',
-    },
-
-    unsavedBadge: {
-      backgroundColor:
-        '#FEF3C7',
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-    },
-
-    unsavedText: {
-      color: '#D97706',
-      fontSize: 12,
-      fontWeight: '700',
-    },
-
-    content: {
-      padding: 16,
-      paddingBottom: 26,
-    },
-
-    field: {
-      marginBottom: 20,
-    },
-
-    label: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: '#94A3B8',
-      textTransform:
-        'uppercase',
-      letterSpacing: 0.8,
-      marginBottom: 8,
-    },
-
-    required: {
-      color: '#F43F5E',
-    },
-
-    subLabel: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: '#94A3B8',
-      marginBottom: 6,
-    },
-
-    input: {
-      backgroundColor:
-        '#FFFFFF',
-      borderWidth: 1.5,
-      borderColor:
-        '#E2E8F0',
-      borderRadius: 14,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
-      color: '#1E1B3A',
-      fontSize: 15,
-    },
-
-    accentInput: {
-      borderColor:
-        '#D8D4FF',
-    },
-
-    dateText: {
-      color: '#1E1B3A',
-      fontSize: 15,
-    },
-
-    textArea: {
-      minHeight: 100,
-    },
-
-    row: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-
-    flex: {
-      flex: 1,
-    },
-
-    wrap: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-
-    optionCard: {
-      flex: 1,
-      backgroundColor:
-        '#FFFFFF',
-      borderWidth: 1.5,
-      borderColor:
-        '#E2E8F0',
-      borderRadius: 14,
-      alignItems: 'center',
-      paddingVertical: 12,
-    },
-
-    optionSymbol: {
-      fontSize: 18,
-    },
-
-    optionLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#94A3B8',
-      marginTop: 4,
-    },
-
-    projectButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor:
-        '#FFFFFF',
-      borderWidth: 1.5,
-      borderColor:
-        '#E2E8F0',
-      borderRadius: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-    },
-
-    projectIcon: {
-      fontSize: 15,
-      marginRight: 7,
-    },
-
-    projectText: {
-      color: '#64748B',
-      fontSize: 13,
-      fontWeight: '500',
-    },
-
-    noProjectsCard: {
-      backgroundColor:
-        '#FFFFFF',
-      borderWidth: 1.5,
-      borderColor:
-        '#E2E8F0',
-      borderRadius: 14,
-      padding: 14,
-    },
-
-    noProjectsText: {
-      color: '#94A3B8',
-      fontSize: 13,
-      marginBottom: 8,
-    },
-
-    createProjectLink: {
-      color: '#5C4DFF',
-      fontSize: 13,
-      fontWeight: '700',
-    },
-
-    statusWrap: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-
-    statusButton: {
-      minWidth: '47%',
-      flexGrow: 1,
-      backgroundColor:
-        '#FFFFFF',
-      borderWidth: 1.5,
-      borderColor:
-        '#E2E8F0',
-      borderRadius: 12,
-      paddingVertical: 10,
-      paddingHorizontal: 8,
-    },
-
-    statusText: {
-      color: '#94A3B8',
-      fontSize: 12,
-      fontWeight: '600',
-      textAlign: 'center',
-    },
-
-    subtasksCard: {
-      backgroundColor:
-        '#FFFFFF',
-      borderRadius: 16,
-      borderWidth: 1.5,
-      borderColor:
-        '#E2E8F0',
-      overflow: 'hidden',
-    },
-
-    subtaskRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 15,
-      paddingVertical: 13,
-    },
-
-    subtaskBorder: {
-      borderBottomWidth: 1,
-      borderBottomColor:
-        '#F8FAFC',
-    },
-
-    checkbox: {
-      width: 24,
-      height: 24,
-      borderRadius: 7,
-      borderWidth: 2,
-      borderColor:
-        '#C7D2FE',
-      marginRight: 11,
-      alignItems: 'center',
-      justifyContent:
-        'center',
-    },
-
-    checkboxDone: {
-      backgroundColor:
-        '#22C55E',
-      borderColor:
-        '#22C55E',
-    },
-
-    checkboxText: {
-      color: '#FFFFFF',
-      fontWeight: '700',
-    },
-
-    subtaskTitle: {
-      flex: 1,
-      color: '#1E1B3A',
-      fontSize: 14,
-      fontWeight: '500',
-    },
-
-    subtaskTitleDone: {
-      color: '#94A3B8',
-      textDecorationLine:
-        'line-through',
-      fontWeight: '400',
-    },
-
-    subtaskStatus: {
-      backgroundColor:
-        '#F8FAFC',
-      borderRadius: 6,
-      paddingHorizontal: 7,
-      paddingVertical: 3,
-      marginRight: 8,
-    },
-
-    subtaskStatusDone: {
-      backgroundColor:
-        '#F0FDF4',
-    },
-
-    subtaskStatusText: {
-      color: '#94A3B8',
-      fontSize: 10,
-      fontWeight: '600',
-    },
-
-    subtaskStatusTextDone: {
-      color: '#15803D',
-    },
-
-    remove: {
-      color: '#CBD5E1',
-      fontSize: 15,
-    },
-
-    addSubtask: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 15,
-      paddingVertical: 13,
-    },
-
-    addIcon: {
-      color: '#A5B4FC',
-      fontSize: 20,
-      marginRight: 8,
-    },
-
-    addText: {
-      color: '#94A3B8',
-      fontSize: 14,
-    },
-
-    inlineInput: {
-      flex: 1,
-      color: '#1E1B3A',
-      fontSize: 14,
-    },
-
-    confirmSmall: {
-      width: 28,
-      height: 28,
-      borderRadius: 8,
-      backgroundColor:
-        '#5C4DFF',
-      alignItems: 'center',
-      justifyContent:
-        'center',
-      marginRight: 8,
-    },
-
-    confirmSmallText: {
-      color: '#FFFFFF',
-      fontWeight: '700',
-    },
-
-    dangerZone: {
-      backgroundColor:
-        '#FFF5F6',
-      borderRadius: 16,
-      padding: 15,
-      borderWidth: 1.5,
-      borderColor:
-        '#FFD0D8',
-    },
-
-    dangerLabel: {
-      color: '#94A3B8',
-      fontSize: 11,
-      fontWeight: '700',
-      letterSpacing: 0.7,
-      marginBottom: 10,
-    },
-
-    dangerButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-
-    trashIcon: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
-      backgroundColor:
-        '#FFE4E9',
-      alignItems: 'center',
-      justifyContent:
-        'center',
-      marginRight: 10,
-    },
-
-    deleteTitle: {
-      color: '#F43F5E',
-      fontSize: 13,
-      fontWeight: '700',
-    },
-
-    deleteSubtitle: {
-      color: '#94A3B8',
-      fontSize: 12,
-      marginTop: 2,
-    },
-
-    deleteArrow: {
-      color: '#F43F5E',
-      fontSize: 24,
-    },
-
-    footer: {
-      flexDirection: 'row',
-      gap: 10,
-      padding: 16,
-      backgroundColor:
-        '#FAFAFA',
-      borderTopWidth: 1,
-      borderTopColor:
-        '#EEF0F5',
-    },
-
-    cancelButton: {
-      flex: 1,
-      backgroundColor:
-        '#F1F5F9',
-      borderRadius: 16,
-      paddingVertical: 14,
-      alignItems: 'center',
-    },
-
-    cancelText: {
-      color: '#64748B',
-      fontSize: 15,
-      fontWeight: '600',
-    },
-
-    saveButton: {
-      flex: 2.2,
-      backgroundColor:
-        '#5C4DFF',
-      borderRadius: 16,
-      paddingVertical: 14,
-      alignItems: 'center',
-    },
-
-    saveText: {
-      color: '#FFFFFF',
-      fontSize: 15,
-      fontWeight: '700',
-    },
-
-    notFoundContainer: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent:
-        'center',
-      padding: 24,
-    },
-
-    notFoundTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: '#1E1B3A',
-      marginBottom: 16,
-    },
-
-    backHomeButton: {
-      backgroundColor:
-        '#5C4DFF',
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      borderRadius: 12,
-    },
-
-    backHomeText: {
-      color: '#FFFFFF',
-      fontWeight: '700',
-    },
-  });
+const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
+  unsavedBadge: {
+    backgroundColor: COLORS.warningSoft,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  unsavedText: {
+    color: COLORS.warning,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  required: {
+    color: COLORS.danger,
+  },
+  noProjectsText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  createProjectLink: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  subtaskBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceSecondary,
+  },
+  checkboxDone: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
+  checkboxText: {
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  subtaskTitle: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  subtaskTitleDone: {
+    color: COLORS.textSecondary,
+    textDecorationLine: 'line-through',
+    fontWeight: '400',
+  },
+  subtaskStatus: {
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginRight: 8,
+  },
+  subtaskStatusDone: {
+    backgroundColor: COLORS.successSoft,
+  },
+  subtaskStatusText: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  subtaskStatusTextDone: {
+    color: COLORS.success,
+  },
+  confirmSmallText: {
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  deleteArrow: {
+    color: COLORS.danger,
+    fontSize: 24,
+  },
+  notFoundContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  notFoundTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 16,
+  },
+  backHomeButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  backHomeText: {
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  ...taskFormStyles,
+  optionLabel: taskFormStyles.optionText,
+  saveButton: taskFormStyles.primaryButton,
+  saveText: taskFormStyles.primaryText,
+  addSubtask: taskFormStyles.addRow,
+  subtasksCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  subtaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  noProjectsCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+  },
+  dangerZone: {
+    borderWidth: 1,
+    borderColor: COLORS.dangerSoft,
+    backgroundColor: COLORS.dangerSoft,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.md,
+  },
+  dangerLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.danger,
+    marginBottom: SPACING.sm,
+  },
+  dangerButton: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  deleteTitle: { fontSize: 14, fontWeight: '600', color: COLORS.danger },
+  deleteSubtitle: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+  },
+  disabled: { opacity: 0.5 },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 1,
+    borderColor: COLORS.textSecondary,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  remove: { fontSize: 16, color: COLORS.textSecondary, padding: SPACING.md },
+  inlineInput: {
+    flex: 1,
+    minHeight: 44,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+  },
+});
