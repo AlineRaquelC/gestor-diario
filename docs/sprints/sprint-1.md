@@ -1,6 +1,127 @@
 # Sprint 1 — Gestor Diário
 
-## Status atual — 2026-10-04
+## Fechamento técnico pós-entrega — 2026-10-21
+
+**Sprint 1: 15 Issues planejadas, 15 concluídas, 0 abertas — 15/15 = 100%.**
+
+A Sprint já havia sido apresentada/entregue anteriormente. Após a entrega foram
+concluídos os gargalos técnicos que continuavam formalmente abertos no GitHub:
+#10, #21, #12 e #13. A data da apresentação anterior não é a data do fechamento
+técnico das Issues: o fechamento consolidado é de **21/10/2026**.
+
+Auditoria direta no GitHub realizada em 22/10/2026: milestone
+[Sprint 1](https://github.com/AlineRaquelC/gestor-diario/milestone/1) com 15 fechadas e nenhuma aberta;
+os 15 PRs abaixo integrados em `dev`, com vínculo `Closes` à Issue correspondente.
+Sem divergências em relação à rastreabilidade esperada.
+
+| Issue | Resultado | PR | Estado |
+|---|---|---|---|
+| [#1](https://github.com/AlineRaquelC/gestor-diario/issues/1) | Base técnica da mini API Node.js | [#14](https://github.com/AlineRaquelC/gestor-diario/pull/14) | Concluída |
+| [#2](https://github.com/AlineRaquelC/gestor-diario/issues/2) | Schema SQLite e migrations | [#15](https://github.com/AlineRaquelC/gestor-diario/pull/15) | Concluída |
+| [#3](https://github.com/AlineRaquelC/gestor-diario/issues/3) | CRUD de Projects | [#16](https://github.com/AlineRaquelC/gestor-diario/pull/16) | Concluída |
+| [#4](https://github.com/AlineRaquelC/gestor-diario/issues/4) | Criar e persistir Tasks | [#17](https://github.com/AlineRaquelC/gestor-diario/pull/17) | Concluída |
+| [#5](https://github.com/AlineRaquelC/gestor-diario/issues/5) | Consultar e visualizar Tasks | [#23](https://github.com/AlineRaquelC/gestor-diario/pull/23) | Concluída |
+| [#6](https://github.com/AlineRaquelC/gestor-diario/issues/6) | Editar Tasks | [#24](https://github.com/AlineRaquelC/gestor-diario/pull/24) | Concluída |
+| [#7](https://github.com/AlineRaquelC/gestor-diario/issues/7) | Status, conclusão/reabertura e histórico | [#25](https://github.com/AlineRaquelC/gestor-diario/pull/25) | Concluída |
+| [#8](https://github.com/AlineRaquelC/gestor-diario/issues/8) | Subtasks e progresso | [#26](https://github.com/AlineRaquelC/gestor-diario/pull/26) | Concluída |
+| [#9](https://github.com/AlineRaquelC/gestor-diario/issues/9) | Notes / múltiplas observações | [#27](https://github.com/AlineRaquelC/gestor-diario/pull/27) | Concluída |
+| [#10](https://github.com/AlineRaquelC/gestor-diario/issues/10) | Confirmação, soft delete e desfazer | [#31](https://github.com/AlineRaquelC/gestor-diario/pull/31) | Concluída |
+| [#11](https://github.com/AlineRaquelC/gestor-diario/issues/11) | Dashboard com dados reais | [#28](https://github.com/AlineRaquelC/gestor-diario/pull/28) | Concluída |
+| [#12](https://github.com/AlineRaquelC/gestor-diario/issues/12) | Sincronização manual Mobile ↔ API | [#33](https://github.com/AlineRaquelC/gestor-diario/pull/33) | Concluída |
+| [#13](https://github.com/AlineRaquelC/gestor-diario/issues/13) | Pipeline CI inicial | [#34](https://github.com/AlineRaquelC/gestor-diario/pull/34) | Concluída |
+| [#20](https://github.com/AlineRaquelC/gestor-diario/issues/20) | Calendário Dia/Semana/Mês | [#29](https://github.com/AlineRaquelC/gestor-diario/pull/29) | Concluída |
+| [#21](https://github.com/AlineRaquelC/gestor-diario/issues/21) | Filtros e ordenação do MVP | [#32](https://github.com/AlineRaquelC/gestor-diario/pull/32) | Concluída |
+
+### Resultados técnicos consolidados
+
+Mini API Node.js + TypeScript, Express, Zod, SQLite, Drizzle ORM e migrations;
+CRUD de Projects; Tasks create/read/update; soft delete + restore; status,
+conclusão/reabertura e histórico; Subtasks e progresso; Notes; Dashboard real;
+Calendário Dia/Semana/Mês; filtros e ordenação; sincronização manual; CI inicial.
+
+```text
+React Native
+    ↓
+Context / State
+    ↓
+Services HTTP
+    ↓
+API Node.js / Express
+    ↓
+Services / Repositories
+    ↓
+Drizzle ORM
+    ↓
+SQLite
+```
+
+AsyncStorage é cache/apoio local e preserva legado conforme RF20. A API é canônica
+para registros identificados após reconciliação confirmada.
+
+- **#10 / PR #31:** confirmação, soft delete, undo de 5s, restore do mesmo ID,
+  eventos DELETE/RESTORE no histórico, persistência e offline seguro: falha remota
+  mantém o último estado confirmado, sem sucesso falso.
+- **#21 / PR #32:** status, prioridade, projeto, período, combinação de filtros,
+  ordenação por prioridade/prazo e combinação, direção e estado sem resultado.
+  Recorte aprovado de RF48/RF50 preservado; não inclui etiquetas nem RF48 integral.
+- **#12 / PR #33:** sincronização manual com projetos antes de tarefas, IDs estáveis,
+  dados preservados, idempotência e offline validados. Três tarefas antigas sem
+  `projectId` continuam locais com pendências explícitas na UI, sem migração insegura;
+  filhos legados são preservados sem migração automática. Isso é limite do RF20
+  implementado, sem reabrir a Issue.
+
+Evidências: [exclusão](../arquitetura/integracao-exclusao-desfazer.md),
+[filtros](../arquitetura/filtros-ordenacao-mvp.md),
+[sync](../arquitetura/sincronizacao-manual.md) e [CI](../arquitetura/ci-inicial.md).
+
+Sprint 1 fechada não equivale a toda a Entrega 1 aceita: PBI-08 mantém cobertura
+parcial conservadora para projetos/etiquetas e PBI-10 está concluído no recorte
+planejado, sem comprovação de etiquetas de RF48 integral. Consulte o
+[backlog](../backlog/backlog-produto.md) e o [plano de entregas](../backlog/entregas.md).
+
+### Validação final conhecida e dívidas preservadas
+
+- Backend: migrations, typecheck e build aprovados; **278 testes em 11 suítes**.
+- Mobile: **322 testes em 20 suítes** no fluxo atual do CI.
+- Issue #13 concluída, PR #34 integrado. GitHub Actions executa em PR/push de
+  `dev`/`main`: **Mobile ✅ / Backend ✅** na
+  [execução real do PR #34](https://github.com/AlineRaquelC/gestor-diario/actions/runs/39618412835).
+- O CI bloqueia regressões novas em relação às dívidas explicitamente baselineadas:
+  11 diagnósticos TypeScript (9 identidades), 3 erros e 10 warnings ESLint históricos.
+  Backend permanece estrito. CI verde não significa ausência de erros no projeto.
+- A dívida específica de `App.test.tsx`/Jest (imports ESM não transformados,
+  AsyncStorage/React Navigation) permanece; o teste tem exclusão explícita no CI.
+- Alertas conhecidos de dependências permanecem, incluindo a cadeia Drizzle Kit.
+- Offline parcial; três Tasks legadas sem `projectId` preservadas localmente,
+  com pendências informadas pela UI. Filhos legados não são migrados automaticamente.
+- Sem sincronização automática, autenticação real ou recursos da Entrega 2.
+
+Esses limites não são Issues abertas dentre as 15 da Sprint 1. As evidências de
+execução são as já registradas nos PRs/documentos; esta atualização é documental,
+sem reexecutar testes funcionais ou declarar dívidas corrigidas.
+
+---
+
+## Revisão documental do fechamento
+
+As buscas por `11/15`, `12/15`, `13/15`, `14/15`, `73,3`, `80%`, `86,7`,
+`93,3`, `#13`, `#12`, `#21`, `#10`, `pendente`, `não iniciada` e `em andamento`
+foram revisadas por contexto, sem substituição mecânica.
+
+| Contexto das ocorrências | Classificação | Tratamento |
+|---|---|---|
+| Status vigente em README, identificação da Sprint, status das Issues, tabelas de PBIs/TECs | ESTADO ATUAL | Atualizado conforme GitHub e evidências, sem ampliar cobertura |
+| Retratos datados de 03/10 e 04/10, planejamento/refinamentos e auditoria inicial do Front | HISTÓRICA | Preservados, com seções históricas explícitas |
+| Registros de implementação anteriores ao merge, inclusive #10/#21/#12/#13 | HISTÓRICA | Preservados com nota de estado consolidado e link para este fechamento |
+| Requisitos oficiais, estados de tarefas, dependências de dados e limites ainda existentes | ESTADO ATUAL | Preservados: não expressam Issues abertas da Sprint |
+| Backlogs das Entregas 2/3 e assinatura de release | ESTADO ATUAL | Planejamento/limites mantidos, sem iniciar trabalho |
+
+O histórico 4/13 = 30,8%, 4/15 = 26,7%, 11/15 = 73,3%, o retrato de 12/15
+(80%) anterior aos filtros e 14/15 = 93,3% anterior ao merge do CI permanecem
+contextualizados. Nenhuma ocorrência de 13/15 = 86,7% existia nos documentos
+Markdown auditados; não foi criado um retrato retroativo sem registro anterior.
+
+## Status histórico — 2026-10-04
 
 **Sprint 1 EM ANDAMENTO: 15 Issues planejadas, 11 concluídas, 4 pendentes; 11/15 = 73,3%.**
 
@@ -78,7 +199,7 @@ Há tratamento de falhas/offline nos fluxos implementados, preservando dados dis
 
 - **Produto:** Gestor Diário
 - **Entrega associada:** Entrega 1 — MVP
-- **Status:** Em andamento
+- **Status:** Fechamento técnico concluído — 2026-10-21 (15/15 = 100%)
 - **Base documental:** `docs/requisitos/requisitos-oficiais.md`, `docs/backlog/backlog-produto.md` e `docs/backlog/entregas.md`
 - **Plataforma:** Android
 - **Mobile:** React Native + TypeScript
@@ -142,6 +263,11 @@ A **Issue #5 continua sendo a próxima implementação**, ainda não iniciada. O
 A tabela e as exclusões originais abaixo registram o planejamento inicial. **PBI-05 e PBI-10 passam a integrar formalmente o trabalho rastreado da Sprint 1 por #20/#21**, superando suas exclusões originais mediante este replanejamento explícito. PBI-07 continua com a rastreabilidade já existente na Issue #9; este refinamento não altera esse item.
 
 ---
+
+## Planejamento original preservado
+
+As seções 2 a 16 abaixo preservam objetivo, critérios e decisões do planejamento.
+Marcações e linguagem prospectiva não são o status operacional atual, registrado no topo.
 
 ## 2. Sprint Goal
 

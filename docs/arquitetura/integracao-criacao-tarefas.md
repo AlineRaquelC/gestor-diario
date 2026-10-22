@@ -1,5 +1,11 @@
 # Criação de tarefas — integração inicial (Issue #4)
 
+> **Atualização documental — 2026-10-21:** Issue #4 concluída, PR #17 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 Fluxo: NewTaskScreen → TaskContext → taskService → POST /tasks → Controller →
 Service → Repository → Drizzle/SQLite. A tela mantém seu layout e validações.
 Este registro descreve o estado da Issue #4; operações locais anteriores continuam
@@ -78,4 +84,4 @@ Teste realizado no **Android Emulator**, conforme resultados confirmados:
 
 **Resultado:** teste manual aprovado para o fluxo de criação da Issue #4.
 A reabertura valida o cache local; GET de Tasks e sincronização geral continuam pendentes.
-As [dívidas técnicas registradas na Sprint](../sprints/sprint-1.md#dívidas-técnicas-e-funcionalidades-pendentes) permanecem sem correção nesta tarefa.
+As [dívidas técnicas registradas na Sprint](../sprints/sprint-1.md#dívidas-técnicas-e-funcionalidades-pendentes-naquele-momento) permanecem sem correção nesta tarefa.

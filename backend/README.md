@@ -280,7 +280,8 @@ curl http://localhost:3000/tasks/ID_DA_TAREFA
 
 `GET /tasks` retorna HTTP 200 e array de tarefas com `deletedAt = null`.
 Banco vazio retorna `[]`. A ordem estável por criação/ID é interna à consulta;
-não implementa controles de ordenação do MVP (Issue #21).
+Os controles de filtros/ordenação do MVP são derivados no mobile (#21 / PR #32),
+sem modificar a ordem persistida ou este contrato de consulta.
 `GET /tasks/:id` retorna HTTP 200 e um objeto com os mesmos campos persistidos
 retornados pelo POST, acrescidos de `project` (projeto relacionado) e `subtasks`
 (subtarefas já existentes no SQLite). IDs string existentes são aceitos.
@@ -415,7 +416,8 @@ PATCH misto pode produzir um UPDATED (sem status em fields) e um evento semânti
 de transição. Não duplica STATUS_CHANGED com COMPLETED/REOPENED. Falha na gravação
 obrigatória de histórico desfaz a tarefa e os demais eventos da transação.
 Não há backfill de CREATED/UPDATED. PROJECT_CHANGED não é emitido: troca de projeto
-continua registrada em UPDATED; DELETED/RESTORED ficam em #10.
+continua registrada em UPDATED. A #10 / PR #31 concluiu exclusão/restauração com
+eventos DELETE/RESTORE; DELETED/RESTORED anteriores são preservados pela migration.
 
 ```bash
 curl -X PATCH http://localhost:3000/tasks/ID_DA_TAREFA \

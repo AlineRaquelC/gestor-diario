@@ -1,5 +1,11 @@
 # Integração de subtarefas e progresso — Issue #8
 
+> **Atualização documental — 2026-10-21:** Issue #8 concluída, PR #26 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 RF09/RF10, [Issue #8](https://github.com/AlineRaquelC/gestor-diario/issues/8).
 Branch feature/8-subtasks-progress, a partir de dev com #1–#7 integradas.
 Sprint: 15 Issues, 7 concluídas (46,7%). #8 permanece aberta até revisão/merge.

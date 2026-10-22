@@ -1,5 +1,11 @@
 # Dashboard com dados reais — Issue #11
 
+> **Atualização documental — 2026-10-21:** Issue #11 concluída, PR #28 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 ## Escopo e fonte de dados
 
 RF23 / PBI-09: resumo de tarefas pendentes, concluídas e atrasadas por período.

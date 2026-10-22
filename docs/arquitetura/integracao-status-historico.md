@@ -1,5 +1,11 @@
 # Integração de status e histórico — Issue #7
 
+> **Atualização documental — 2026-10-21:** Issue #7 concluída, PR #25 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 RF05/RF17, [Issue #7](https://github.com/AlineRaquelC/gestor-diario/issues/7).
 Implementação na branch feature/7-task-status-history, a partir de dev com #1–#6
 integradas. A Sprint possui 15 Issues, 6 concluídas (40%); #7 permanece aberta

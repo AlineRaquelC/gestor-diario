@@ -1,5 +1,11 @@
 # Integração de edição de tarefas — Issue #6
 
+> **Atualização documental — 2026-10-21:** Issue #6 concluída, PR #24 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 Requisito RF03, Issue [#6 — Editar tarefas](https://github.com/AlineRaquelC/gestor-diario/issues/6).
 Complementa a criação (#4) e a consulta (#5), sem mudar schema, dependências,
 layout, componentes, navegação ou decisões do calendário. A Issue continua aberta

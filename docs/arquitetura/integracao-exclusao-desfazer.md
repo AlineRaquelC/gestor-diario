@@ -1,5 +1,16 @@
 # Exclusão com confirmação e desfazer — Issue #10
 
+## Estado consolidado — 2026-10-21
+
+Issue #10 concluída; [PR #31](https://github.com/AlineRaquelC/gestor-diario/pull/31)
+integrado em `dev`. Sprint 1: **15/15 = 100%, 0 Issues abertas**.
+As seções seguintes preservam a auditoria e a execução anteriores ao merge;
+menções a Issue aberta, revisão pendente ou outras Issues não iniciadas são
+históricas e não representam o estado atual. Limites técnicos continuam válidos
+conforme o [fechamento consolidado](../sprints/sprint-1.md).
+
+## Registro histórico da implementação
+
 RF04, [Issue #10](https://github.com/AlineRaquelC/gestor-diario/issues/10),
 branch `feature/task-delete-undo`, PR para `dev`. A Issue permanece aberta até o
 merge. Progresso formal preservado: 11/15 (73,3%); #12, #13 e #21 não iniciadas.

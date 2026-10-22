@@ -47,21 +47,30 @@ Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à p
 
 # 4. Visão consolidada do Product Backlog
 
-Status operacionais conferidos em 2026-10-04 com as Issues e PRs do GitHub. #7 e #3 concluídas não significam, isoladamente, todos os critérios de seus PBIs concluídos: exclusão/restauração de tarefas depende de #10; gerenciamento geral de projetos no mobile/reconciliação permanece em #12. Requisitos, User Stories, prioridades e entregas foram preservados.
+Status operacionais conferidos no GitHub em 22/10/2026: fechamento técnico pós-entrega
+em 21/10/2026, **15/15 Issues da Sprint 1 concluídas, 100%, 0 abertas**.
+A Sprint havia sido apresentada/entregue antes do fechamento técnico. Entrega 1
+mantém cobertura parcial conforme os PBIs abaixo; não recebe aceite integral
+apenas porque o milestone fechou. Requisitos, User Stories, prioridades, IDs e
+entregas foram preservados. [Rastreabilidade completa](../sprints/sprint-1.md).
+
+Histórico em 2026-10-04: #7 e #3 concluídas não bastavam para completar seus PBIs;
+exclusão/restauração dependia de #10 e reconciliação de projetos dependia de #12.
+Ambas as Issues foram concluídas posteriormente.
 
 | PBI | User Story / Capacidade | Requisitos de origem | Área principal | Prioridade | Entrega | Status atual |
 |---|---|---|---|---|---|---|
 | **PBI-01** | Criar tarefa com dados obrigatórios e validação | RF01 | Front / Backend / Banco | Alta | 1 | Concluído |
 | **PBI-02** | Editar tarefa e registrar última modificação | RF03 | Front / Backend / Banco | Alta | 1 | Concluído — PR #24 |
-| **PBI-03** | Excluir tarefa com confirmação e desfazer | RF04 | Front / Backend / Banco | Alta | 1 | Parcial — Mobile |
-| **PBI-04** | Controlar status e histórico da tarefa | RF05, RF17 | Front / Backend / Banco | Alta | 1 | Parcial — Integrado; #7 concluída (PR #25), exclusão/restauração pendente (#10) |
-| **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | Concluído — PR #29 |
+| **PBI-03** | Excluir tarefa com confirmação e desfazer | RF04 | Front / Backend / Banco | Alta | 1 | Concluído — Issue #10 / PR #31 |
+| **PBI-04** | Controlar status e histórico da tarefa | RF05, RF17 | Front / Backend / Banco | Alta | 1 | Concluído — #7 / PR #25 + #10 / PR #31 |
+| **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | Concluído — #20 / PR #29 |
 | **PBI-06** | Criar subtarefas e calcular progresso | RF09, RF10 | Front / Backend / Banco | Alta | 1 | Concluído — PR #26 |
 | **PBI-07** | Registrar múltiplas observações por tarefa | RF11 | Front / Backend / Banco | Alta | 1 | Concluído — PR #27 |
-| **PBI-08** | Organizar tarefas em projetos/etiquetas | RF12 | Front / Backend / Banco | Alta | 1 | Parcial — Integrado |
+| **PBI-08** | Organizar tarefas em projetos/etiquetas | RF12 | Front / Backend / Banco | Alta | 1 | Parcial — Projects integrado (#3/#6/#12); etiquetas sem cobertura comprovada |
 | **PBI-09** | Exibir dashboard de produtividade | RF23 | Front / Backend | Alta | 1 | Concluído — PR #28 |
-| **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | Planejado — Issue #21 / Sprint 1 |
-| **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Em andamento |
+| **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | Concluído no recorte planejado da Sprint — #21 / PR #32; RF48 integral não atestado |
+| **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Concluído no escopo RF20 — #12 / PR #33; limites de legado preservados |
 | **PBI-12** | Priorização inteligente e prioridades personalizadas | RF02, RF24, RF63, RF64, RF65, REQ120–REQ122 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-13** | Tarefas recorrentes, lembretes e notificações | RF08, RF15, RF16, RF43, RF44, RF45, REQ114–REQ116 | Front / Backend / Banco / Android | Média | 2 | Planejado |
 | **PBI-14** | Busca, ordenação manual, filtros salvos e favoritos | RF13, RF14, RF49, RF51 | Front / Backend / Banco | Média | 2 | Planejado |
@@ -140,6 +149,8 @@ Como pessoa usuária, quero editar uma tarefa cadastrada para manter seus dados 
 
 **Situação inicial:** edição funcional no mobile; última modificação e persistência via API/Banco ainda precisam ser confirmadas/implementadas.
 
+**Status atual — 2026-10-21:** Concluído — Issue #6 / PR #24; edição persistida, projectId e updatedAt validados.
+
 ---
 
 ### PBI-03 — Excluir tarefa e desfazer
@@ -161,6 +172,8 @@ Como pessoa usuária, quero excluir uma tarefa com segurança para remover ativi
 
 **Situação inicial:** exclusão com confirmação existe no mobile; o recurso de desfazer ainda é um gap conhecido.
 
+**Status atual — 2026-10-21:** Concluído — Issue #10 / PR #31: confirmação, soft delete, undo de 5s, restore, histórico DELETE/RESTORE, persistência e offline seguro.
+
 ---
 
 ### PBI-04 — Status e histórico
@@ -180,6 +193,8 @@ Como pessoa usuária, quero controlar o estado de uma tarefa e consultar seu his
 - registrar criação, edição, conclusão e exclusão com data/hora.
 
 **Situação inicial:** o mobile possui controle de status, mas os estados oficiais e o histórico completo precisam ser alinhados ao requisito.
+
+**Status atual — 2026-10-21:** Concluído — #7 / PR #25 + #10 / PR #31; status, conclusão/reabertura e histórico, incluindo exclusão/restauração.
 
 ---
 
@@ -204,7 +219,9 @@ Como pessoa usuária, quero visualizar minhas tarefas por diferentes períodos p
 
 **Situação inicial:** deve ser validada no aplicativo atual antes de marcar como concluída.
 
-**Planejamento atual:** [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+**Planejamento histórico — refinamento de 2026-10-03:** [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+
+**Status atual — 2026-10-21:** Concluído — #20 / PR #29: Dia/Semana/Mês, dados reais e destaques no recorte documentado.
 
 ---
 
@@ -226,6 +243,8 @@ Como pessoa usuária, quero dividir uma tarefa em subtarefas e acompanhar seu pe
 
 **Situação inicial:** funcionalidade conhecida no mobile; integração e cálculo devem ser validados ponta a ponta.
 
+**Status atual — 2026-10-21:** Concluído — #8 / PR #26; subtarefas persistidas e progresso calculado.
+
 ---
 
 ### PBI-07 — Observações da tarefa
@@ -246,6 +265,8 @@ Como pessoa usuária, quero registrar múltiplas observações em uma tarefa par
 
 **Situação inicial:** a descrição simples da tarefa não substitui integralmente este requisito.
 
+**Status atual — 2026-10-21:** Concluído — #9 / PR #27; Notes múltiplas e datadas, independentes de description.
+
 ---
 
 ### PBI-08 — Projetos/etiquetas
@@ -265,7 +286,9 @@ Como pessoa usuária, quero categorizar tarefas em projetos ou etiquetas para or
 - preservar vínculo após edição;
 - persistir as relações.
 
-**Status atual:** parcialmente integrado. CRUD de projetos na API/SQLite concluído (Issue #3, PR #16), com vínculo remoto na criação de tarefas. Integração geral do gerenciamento mobile e demais critérios do PBI permanecem pendentes.
+**Status histórico — 2026-10-04:** parcialmente integrado. CRUD de projetos na API/SQLite concluído (Issue #3, PR #16), com vínculo remoto na criação de tarefas. Integração geral do gerenciamento mobile e demais critérios do PBI permanecem pendentes.
+
+**Status atual — 2026-10-21:** Parcial — Integrado. Projects com CRUD na API (#3 / PR #16), edição de vínculos por projectId (#6 / PR #24) e reconciliação manual/identidades estáveis (#12 / PR #33). RF12 admite projetos **ou** etiquetas; preserva-se essa alternativa oficial. O PBI contém critérios de projetos/etiquetas mais amplos: não há sistema de etiquetas comprovado e não se declara aceite integral. O recorte de Projects está concluído; legado e exclusão segura seguem a política RF20.
 
 ---
 
@@ -287,6 +310,8 @@ Como pessoa usuária, quero visualizar indicadores de produtividade para acompan
 - calcular os indicadores a partir dos dados reais.
 
 **Situação inicial:** dashboard existe no mobile; deve ser alinhado aos indicadores oficiais e à fonte de dados definitiva.
+
+**Status atual — 2026-10-21:** Concluído — #11 / PR #28; indicadores calculados com dados reais e recorte por período documentado.
 
 ---
 
@@ -311,7 +336,9 @@ Como pessoa usuária, quero filtrar e ordenar tarefas para localizar rapidamente
 
 **Situação inicial:** deve ser validada no código atual.
 
-**Planejamento atual:** [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+**Planejamento histórico — refinamento de 2026-10-03:** [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+
+**Status atual — 2026-10-21:** Concluído no recorte planejado da Sprint — #21 / PR #32: status, prioridade, projeto, período, combinações, prioridade/prazo, direção e vazio. RF48 integral inclui etiqueta: esse critério permanece sem cobertura comprovada. RF48/RF50 e os critérios originais não são reescritos.
 
 ---
 
@@ -333,7 +360,9 @@ Como pessoa usuária, quero sincronizar minhas tarefas com um servidor local par
 - tratar sucesso e falha de sincronização;
 - não perder os dados locais em caso de indisponibilidade do servidor.
 
-**Status atual — 2026-10-04:** em andamento. API, SQLite e Services HTTP disponíveis para os fluxos integrados de criação, consulta, edição, status, subtarefas e observações; sincronização manual geral e reconciliação de dados locais legados continuam pendentes na #12.
+**Status histórico — 2026-10-04:** em andamento. API, SQLite e Services HTTP disponíveis para os fluxos integrados de criação, consulta, edição, status, subtarefas e observações; sincronização manual geral e reconciliação de dados locais legados continuam pendentes na #12.
+
+**Status atual — 2026-10-21:** Concluído no escopo RF20 — #12 / PR #33. Projetos antes de Tasks, IDs estáveis, API canônica para registros identificados e AsyncStorage como cache/apoio. Idempotência, offline e reabertura validados. Três Tasks antigas sem projectId ficam locais com dados preservados e pendências informadas pela UI, sem migração insegura; filhos legados não são migrados automaticamente. Sem sincronização automática.
 
 ---
 
@@ -346,17 +375,27 @@ Os itens abaixo são **enablers técnicos de planejamento**. Eles não são apre
 | **TEC-01** | Estruturar a mini API Node.js do Gestor Diário | Backend | Alta | Concluído |
 | **TEC-02** | Definir e documentar o banco de dados do MVP | Banco / Arquitetura | Alta | Concluído |
 | **TEC-03** | Modelar Task, Project/Tag, Subtask, Note e History | Banco / Backend | Alta | Concluído |
-| **TEC-04** | Criar camada `services` no mobile para comunicação HTTP | Front / Arquitetura | Alta | Em andamento |
-| **TEC-05** | Definir estratégia entre AsyncStorage e servidor para evitar duas fontes de verdade conflitantes | Arquitetura | Alta | Em andamento |
-| **TEC-06** | Implementar validações de negócio também no backend | Backend | Alta | Em andamento |
-| **TEC-07** | Implementar tratamento padronizado de erros da API | Backend / Front | Alta | Em andamento |
-| **TEC-08** | Adicionar testes mínimos do CRUD e regras críticas | Testes | Alta | Em andamento |
-| **TEC-09** | Configurar CI inicial para TypeScript/lint/testes | DevOps | Alta | Planejado |
-| **TEC-10** | Manter documentação e rastreabilidade requisito → PBI → Issue → PR → teste | Documentação / DevOps | Alta | Em andamento |
+| **TEC-04** | Criar camada `services` no mobile para comunicação HTTP | Front / Arquitetura | Alta | Concluído — services HTTP / #12 / PR #33 |
+| **TEC-05** | Definir estratégia entre AsyncStorage e servidor para evitar duas fontes de verdade conflitantes | Arquitetura | Alta | Concluído/documentado no escopo #12 / PR #33 |
+| **TEC-06** | Implementar validações de negócio também no backend | Backend | Alta | Concluído no escopo técnico da Sprint — Zod/services e testes backend |
+| **TEC-07** | Implementar tratamento padronizado de erros da API | Backend / Front | Alta | Concluído no escopo dos fluxos integrados — erros API/HTTP e feedback validados |
+| **TEC-08** | Adicionar testes mínimos do CRUD e regras críticas | Testes | Alta | Concluído no escopo técnico da Sprint — 278 testes backend / 322 mobile |
+| **TEC-09** | Configurar CI inicial para TypeScript/lint/testes | DevOps | Alta | Concluído — #13 / PR #34 |
+| **TEC-10** | Manter documentação e rastreabilidade requisito → PBI → Issue → PR → teste | Documentação / DevOps | Alta | Atualizado no escopo da Sprint — 15 vínculos Issue → PR e evidências; aceite integral dos PBIs não presumido |
 
 ---
 
-TEC-04 a TEC-08 avançaram no fluxo de projetos/criação de tarefas; seus escopos gerais permanecem em andamento. A Entrega 1 continua em andamento; a Sprint 1 registra 4/15 Issues concluídas (26,7%) após refinamento. O planejamento inicial tinha 13 Issues e registrava 4/13 = 30,8%; a redução decorre da formalização de PBI-05/PBI-10, sem perda de trabalho ou criação de requisitos. Integridade de projetos será tratada em #6/#12, sem terceira Issue.
+**Histórico após refinamento de 2026-10-03:** TEC-04 a TEC-08 avançaram no fluxo de projetos/criação de tarefas; seus escopos gerais permanecem em andamento. A Entrega 1 continua em andamento; a Sprint 1 registra 4/15 Issues concluídas (26,7%) após refinamento. O planejamento inicial tinha 13 Issues e registrava 4/13 = 30,8%; a redução decorre da formalização de PBI-05/PBI-10, sem perda de trabalho ou criação de requisitos. Integridade de projetos será tratada em #6/#12, sem terceira Issue.
+
+Evidências técnicas finais: [sincronização manual](../arquitetura/sincronizacao-manual.md),
+[exclusão/desfazer](../arquitetura/integracao-exclusao-desfazer.md),
+[contratos e erros backend](../../backend/README.md) e [CI](../arquitetura/ci-inicial.md).
+TEC-06/07 se limitam às validações e erros dos fluxos implementados (Zod, datas,
+projeto ativo, recursos ausentes, conflitos, rede/cache); não atestam recursos futuros.
+TEC-03 usa Project, sem entidade Tag comprovada. TEC-10 possui rastreabilidade no
+recorte da Sprint, sem declarar uma matriz exaustiva de todos os requisitos oficiais.
+O CI bloqueia regressões novas em relação às dívidas explicitamente baselineadas;
+TypeScript, ESLint, App.test.tsx/Jest e alertas de dependências permanecem registrados.
 
 # 7. Entrega 2 — Produtividade, automação e sincronização avançada
 

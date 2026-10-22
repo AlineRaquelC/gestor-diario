@@ -1,5 +1,20 @@
 # CI inicial — Issue #13
 
+## Estado consolidado — 2026-10-21
+
+Issue #13 concluída; [PR #34](https://github.com/AlineRaquelC/gestor-diario/pull/34)
+integrado em `dev`. Sprint 1: **15/15 = 100%, 0 Issues abertas**.
+As seções seguintes preservam a auditoria e a execução anteriores ao merge;
+menções a Issue aberta, revisão pendente ou outras Issues não iniciadas são
+históricas e não representam o estado atual. Limites técnicos continuam válidos
+conforme o [fechamento consolidado](../sprints/sprint-1.md).
+
+Mobile ✅ / Backend ✅ na [execução real do PR #34](https://github.com/AlineRaquelC/gestor-diario/actions/runs/39618412835).
+GitHub Actions em PR/push de dev/main. O CI bloqueia regressões novas em relação
+às dívidas explicitamente baselineadas, sem declarar TypeScript/lint/Jest corrigidos.
+
+## Registro histórico da implementação
+
 ## Objetivo e escopo
 
 [Issue #13](https://github.com/AlineRaquelC/gestor-diario/issues/13), technical-task,

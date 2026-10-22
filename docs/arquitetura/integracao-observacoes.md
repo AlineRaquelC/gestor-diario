@@ -1,5 +1,11 @@
 # Integração de observações — Issue #9
 
+> **Atualização documental — 2026-10-21:** Issue #9 concluída, PR #27 integrado.
+> O registro abaixo preserva o contexto da implementação desta Issue. Referências
+> a #10/#12/#13/#21 pendentes ou a trabalhos futuros da Sprint são históricas;
+> todas as 15 Issues estão concluídas. Estado atual, evidências posteriores e
+> limites preservados no [fechamento da Sprint 1](../sprints/sprint-1.md).
+
 RF11, [Issue #9](https://github.com/AlineRaquelC/gestor-diario/issues/9).
 Branch `feature/9-task-notes`, criada de dev com #1–#8 integradas. Sprint: 15
 Issues planejadas, 8 concluídas (53,3%); #9 permanece aberta até revisão/merge.
