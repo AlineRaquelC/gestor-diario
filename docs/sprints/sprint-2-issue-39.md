@@ -207,8 +207,9 @@ feito pelo servidor.
 
 Fontes primárias consultadas em 23/10/2026; páginas `main` são mutáveis. Nenhum
 pacote foi instalado, nem houve build de compatibilidade ou notificação real.
+A seleção da biblioteca permanece pendente do gate T02 no projeto real.
 
-### Opção recomendada: `react-native-notify-kit`, condicionada ao gate nativo
+### Candidato técnico: `react-native-notify-kit`, sujeito ao gate T02
 
 O [repositório oficial do fork](https://github.com/marcocrupi/react-native-notify-kit)
 se apresenta como continuação mantida do Notifee, Apache-2.0. O
@@ -249,6 +250,10 @@ conforme o aceite, sem prometer recuperação apenas por existir receiver.
 | Timers JS / FCM | Timer depende do processo; FCM não é scheduler local autônomo e introduziria servidor/push. Não atendem este recorte. |
 
 ### Precisão e alarmes exatos
+
+A precisão necessária será determinada em T02 com evidências do projeto real.
+Alarmes exatos e sua permissão ainda não constituem decisão fechada; sua adoção
+depende de necessidade demonstrada. As opções abaixo são propostas para avaliação.
 
 A [orientação Android](https://developer.android.com/develop/background-work/services/alarms)
 explica que alarmes inexatos podem atrasar e que exatos devem atender necessidade
@@ -408,9 +413,9 @@ subordinadas à #39 e não alteram seus pontos automaticamente.
 
 | ID / categoria / título | Objetivo | Arquivos/camadas prováveis | Dependência | Critério de conclusão futuro |
 |---|---|---|---|---|
-| T01 [ARQ] Fechar contrato de domínio/tempo | Aprovar cardinalidade, IANA ancorado, precisão e algoritmo A–F | Este documento; tipos Task; helpers de domínio mobile/backend | Revisão deste refinamento e autorização de início | Decisões aceitas, fixtures temporais equivalentes e nenhuma ambiguidade sobre passado/sem horário. |
-| T02 [ANDROID] Gate de compatibilidade e permissões | Validar release fixada do fork no projeto, modo exato, manifest e reboot | package.json/lock, android/, adapter de prova na futura branch | T01; somente após autorização para instalar | Build debug/release, APIs de ID/cancelamento/enumeração, segundo plano e permissões/reboot comprovados; se falhar, reportar alternativa/prazo antes de prosseguir. |
-| T03 [BANCO] Schema e migration aditiva | Persistir coleção/fuso sem perder legado | backend/src/database/schema/, backend/drizzle/ | T01 e viabilidade T02 | Migration nova, constraints/upgrade/rollback testados; antigas inalteradas. |
+| T01 [ARQ] Fechar contrato de domínio/tempo | Fechar cardinalidade, IANA ancorado, expectativa de precisão e algoritmo A–F | Este documento; tipos Task; helpers de domínio mobile/backend | Revisão deste refinamento e autorização de início | Decisões aceitas, fixtures temporais equivalentes e nenhuma ambiguidade sobre passado/sem horário. |
+| T02 [ANDROID] Gate de compatibilidade e permissões | Determinar a precisão necessária e validar release candidata no projeto, manifest e reboot; modo exato somente com necessidade demonstrada | package.json/lock, android/, adapter de prova na futura branch | T01; aprovação de início e integração da biblioteca | RN 0.87.1/New Architecture, build debug/release, canal, agendamento, consulta/identidade, cancelamento/reagendamento, background, processo encerrado, permissões e reboot quando aplicável comprovados; falha exige registro e avaliação de alternativa antes de schema/backend. |
+| T03 [BANCO] Schema e migration aditiva | Persistir coleção/fuso sem perder legado | backend/src/database/schema/, backend/drizzle/ | T01 e T02 concluídos | Migration nova, constraints/upgrade/rollback testados; antigas inalteradas. |
 | T04 [BACK] Repositório/agregação | CRUD da coleção e respostas completas | repositories/tasks.ts, futuro repository de reminders | T03 | find/create/update/retry/lista/tombstones/restore devolvem mesmos IDs e coleção canônica. |
 | T05 [BACK] Contrato/validação/transação | Estender POST/PATCH e preservar lifecycle/history | schemas/tasks.ts, services/tasks.ts, controllers/tasks.ts, error-handler | T04 + helper T01 | Erros claros, diff atômico, retry idempotente e casos A–F; sem endpoints extras. |
 | T06 [MOBILE] Tipos, mapping e cache legado | Canonicalizar tipados sem destruir strings antigas | models/reminder.ts proposto, TaskContext.tsx, taskService.ts | T05 | GET/PATCH/POST corretos, [] autoritativo, dueDateKey/fuso íntegros, legacy separado. |
@@ -418,19 +423,31 @@ subordinadas à #39 e não alteram seus pontos automaticamente.
 | T08 [MOBILE] Integrar todos os lifecycles | Ligar persistência confirmada ao scheduler e compensações | TaskContext.tsx, useTaskDeletion.ts somente se necessário | T07 | Create/edit/delete/undo/status/subtasks/read/reopen corretos; janela da #10 preservada e sem POST repetido. |
 | T09 [MOBILE] Compatibilizar sync | Preservar identidade/snapshots e cancelar tombstones | syncService.ts, TaskContext.tsx, importLocalTask | T06 + T08 | Sync repetida não muda agenda; legado não vira configuração nem some; agenda só após consolidação. |
 | T10 [MOBILE] Reutilizar Nova/Editar | Seleção estruturada e feedback salvo/agendado | NewTaskScreen.tsx, EditTaskScreen.tsx, componente simples se útil | T08–T09 | Múltiplos visíveis/editáveis; controles atuais preservados; fuso/erros claros; sem redesenho. |
-| T11 [TEST] Automatizar matriz | Cobrir U01–U15 e B01–B08 com falhas/crash | __tests__/, backend/tests/ | Em paralelo a T01 e a cada camada | Fixtures determinísticas, mocks sem notificações reais, regressão e CI verdes. |
+| T11 [TEST] Automatizar matriz | Cobrir U01–U15 e B01–B08 com falhas/crash | __tests__/, backend/tests/ | T01 e T02 concluídos; cobertura incremental por camada, consolidada após T10 | Fixtures determinísticas, mocks sem notificações reais, regressão e CI verdes. |
 | T12 [TEST] Validar Android integrado | Executar A01–A10 e registrar limites reais | Pixel 7, build debug/release e evidências temporárias | T10–T11 | Fluxos, persistência, permissões, background, reboot e ausência de duplicação demonstrados; impedimentos não declarados aprovados. |
 | T13 [DOC] Contrato, evidências e PR da feature | Atualizar documentação e critérios somente do entregue | docs/arquitetura/, docs/sprints/ e Issue #39 | T12 | PR revisável para dev, testes/limites registrados, #39 só concluída após DoD e merge, branch removida quando seguro. |
 
-### Ordem recomendada
+### Ordem futura aprovada
 
-1. Aprovar modelo/regra temporal (T01); produzir fixtures junto ao teste de domínio.
-2. **Antecipar o gate Android T02 antes de investir em schema/backend**, pois é o maior risco do prazo. Esse gate é trabalho futuro, não executado neste refinamento.
-3. Schema/migration → repository → API/transações (T03–T05), com testes em cada passo.
-4. Tipos/TaskService/cache → adapter/journal (T06–T07).
-5. Lifecycles e sync (T08–T09), incluindo conclusão por subtarefa e undo.
-6. UI Nova/Editar (T10), regressão completa (T11) e Android integrado (T12).
-7. Documentação/evidências/PR revisado (T13). Sem merge automático.
+T01 e T02 precedem o desenvolvimento das demais camadas. O gate T02 é uma
+validação futura no projeto real, ainda pendente; a biblioteca permanece candidata.
+Falha no gate exige registro e avaliação de alternativa antes de schema/backend.
+
+1. **T01 — contrato de domínio e regras temporais:** fechamento do modelo e das regras A–F.
+2. **T02 — gate Android de compatibilidade:** precisão necessária, release candidata, RN 0.87.1/New Architecture, debug/release, canal, agendamento, consulta/identidade, cancelamento, reagendamento, background, processo encerrado, permissões e reboot quando aplicável.
+3. **T03 — schema/migration**, após conclusão de T01 e T02.
+4. **T04 — repository.**
+5. **T05 — API/backend.**
+6. **T06 — tipos/mapping/cache.**
+7. **T07 — scheduler/journal.**
+8. **T08 — lifecycle.**
+9. **T09 — sync.**
+10. **T10 — UI.**
+11. **T11 — testes automatizados:** cobertura incremental nas camadas após os gates, com consolidação da matriz U/B.
+12. **T12 — Android integrado:** validação da matriz A.
+13. **T13 — documentação/fechamento:** evidências e PR revisado, sem merge automático.
+
+Estado: todas as tasks permanecem planejadas, sem implementação iniciada.
 
 ## 14. Riscos, mitigação e avaliação dos 13 pontos
 
