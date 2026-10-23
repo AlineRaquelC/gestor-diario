@@ -9,81 +9,57 @@ import {
   StatusBar,
 } from 'react-native';
 
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 import BottomNavigation from '../components/BottomNavigation';
 
-import {useTasks} from '../context/TaskContext';
-import {useProjects} from '../context/ProjectContext';
+import { useTasks } from '../context/TaskContext';
+import { useProjects } from '../context/ProjectContext';
+
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
 
 export default function ProjectsScreen() {
-  const navigation =
-    useNavigation<any>();
+  const navigation = useNavigation<any>();
 
-  const {tasks} =
-    useTasks();
+  const { tasks } = useTasks();
 
-  const {projects} =
-    useProjects();
+  const { projects } = useProjects();
 
-  const totalTasks =
-    tasks.length;
+  const totalTasks = tasks.length;
 
-  const totalDone =
-    tasks.filter(
-      task => task.done,
-    ).length;
+  const totalDone = tasks.filter(task => task.done).length;
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top', 'bottom']}>
-
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F8F9FD"
-      />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <View style={styles.wrapper}>
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}>
-
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
-
-            <Text style={styles.title}>
-              Projetos
-            </Text>
+            <Text style={styles.title}>Projetos</Text>
 
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Novo projeto"
               style={styles.newButton}
-              onPress={() =>
-                navigation.navigate(
-                  'CriarProjeto',
-                )
-              }>
+              onPress={() => navigation.navigate('CriarProjeto')}
+            >
+              <Text style={styles.newButtonIcon}>+</Text>
 
-              <Text style={styles.newButtonIcon}>
-                +
-              </Text>
-
-              <Text style={styles.newButtonText}>
-                Novo
-              </Text>
-
+              <Text style={styles.newButtonText}>Novo</Text>
             </Pressable>
-
           </View>
 
           <View style={styles.overviewCard}>
-
             <OverviewStat
               value={projects.length}
               label="Projetos"
-              color="#5C4DFF"
+              color={COLORS.primary}
             />
 
             <View style={styles.divider} />
@@ -91,7 +67,7 @@ export default function ProjectsScreen() {
             <OverviewStat
               value={totalTasks}
               label="Total"
-              color="#64748B"
+              color={COLORS.textSecondary}
             />
 
             <View style={styles.divider} />
@@ -99,87 +75,64 @@ export default function ProjectsScreen() {
             <OverviewStat
               value={totalDone}
               label="Feitas"
-              color="#22C55E"
+              color={COLORS.success}
             />
 
             <View style={styles.divider} />
 
             <OverviewStat
-              value={
-                totalTasks - totalDone
-              }
+              value={totalTasks - totalDone}
               label="Restantes"
-              color="#F43F5E"
+              color={COLORS.danger}
             />
-
           </View>
 
           <View style={styles.projectGrid}>
-
             {projects.map(project => {
-              const tasksInProject =
-                tasks.filter(
-                  task =>
-                    task.projectId === project.id || (!!project.remoteId && task.projectId === project.remoteId),
-                );
+              const tasksInProject = tasks.filter(
+                task =>
+                  task.projectId === project.id ||
+                  (!!project.remoteId && task.projectId === project.remoteId),
+              );
 
-              const completed =
-                tasksInProject.filter(
-                  task => task.done,
-                ).length;
+              const completed = tasksInProject.filter(task => task.done).length;
 
-              const taskCount =
-                tasksInProject.length;
+              const taskCount = tasksInProject.length;
 
               const percentage =
-                taskCount > 0
-                  ? Math.round(
-                      (completed / taskCount) *
-                        100,
-                    )
-                  : 0;
+                taskCount > 0 ? Math.round((completed / taskCount) * 100) : 0;
 
               return (
                 <Pressable
                   key={project.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Abrir projeto: ${project.name}`}
                   style={styles.projectCard}
                   onPress={() =>
-                    navigation.navigate(
-                      'DetalheProjeto',
-                      {
-                        projectId:
-                          project.id,
-                      },
-                    )
-                  }>
-
+                    navigation.navigate('DetalheProjeto', {
+                      projectId: project.id,
+                    })
+                  }
+                >
                   <View
                     style={[
                       styles.projectIcon,
                       {
-                        backgroundColor:
-                          project.color + '22',
+                        backgroundColor: project.color + '22',
                       },
-                    ]}>
-
+                    ]}
+                  >
                     <Text style={styles.projectEmoji}>
-                      {project.icon ?? '📁'}
+                      {project.icon || ''}
                     </Text>
-
                   </View>
 
                   <View style={styles.projectTopRow}>
-
-                    <Text
-                      style={styles.projectName}
-                      numberOfLines={1}>
+                    <Text style={styles.projectName} numberOfLines={1}>
                       {project.name}
                     </Text>
 
-                    <Text style={styles.arrow}>
-                      ›
-                    </Text>
-
+                    <Text style={styles.arrow}>›</Text>
                   </View>
 
                   <Text style={styles.projectSubtitle}>
@@ -187,45 +140,27 @@ export default function ProjectsScreen() {
                   </Text>
 
                   <View style={styles.progressTrack}>
-
                     <View
                       style={[
                         styles.progressBar,
                         {
-                          width:
-                            `${percentage}%`,
+                          width: `${percentage}%`,
 
-                          backgroundColor:
-                            project.color,
+                          backgroundColor: project.color,
                         },
                       ]}
                     />
-
                   </View>
 
-                  <Text
-                    style={[
-                      styles.percentText,
-                      {
-                        color:
-                          project.color,
-                      },
-                    ]}>
-                    {percentage}%
-                  </Text>
-
+                  <Text style={styles.percentText}>{percentage}%</Text>
                 </Pressable>
               );
             })}
-
           </View>
-
         </ScrollView>
 
         <BottomNavigation active="Projetos" />
-
       </View>
-
     </SafeAreaView>
   );
 }
@@ -241,19 +176,9 @@ function OverviewStat({
 }) {
   return (
     <View style={styles.overviewStat}>
+      <Text style={[styles.overviewValue, { color }]}>{value}</Text>
 
-      <Text
-        style={[
-          styles.overviewValue,
-          {color},
-        ]}>
-        {value}
-      </Text>
-
-      <Text style={styles.overviewLabel}>
-        {label}
-      </Text>
-
+      <Text style={styles.overviewLabel}>{label}</Text>
     </View>
   );
 }
@@ -261,7 +186,7 @@ function OverviewStat({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FD',
+    backgroundColor: COLORS.background,
   },
 
   wrapper: {
@@ -273,53 +198,54 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xl,
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
 
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
   },
 
   newButton: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#5C4DFF',
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 11,
-    elevation: 3,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
   },
 
   newButtonIcon: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 18,
-    marginRight: 5,
+    marginRight: SPACING.xs,
   },
 
   newButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 12,
     fontWeight: '700',
   },
 
   overviewCard: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: 16,
-    marginBottom: 20,
-    elevation: 2,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
 
   overviewStat: {
@@ -328,43 +254,45 @@ const styles = StyleSheet.create({
   },
 
   overviewValue: {
-    fontSize: 21,
+    fontSize: 24,
     fontWeight: '700',
   },
 
   overviewLabel: {
-    color: '#94A3B8',
-    fontSize: 10,
-    marginTop: 2,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: SPACING.xs,
   },
 
   divider: {
     width: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: COLORS.surfaceSecondary,
   },
 
   projectGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: SPACING.sm,
   },
 
   projectCard: {
-    width: '48.5%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    elevation: 2,
+    minHeight: 184,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    width: '48%',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
   },
 
   projectIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
 
   projectEmoji: {
@@ -378,38 +306,39 @@ const styles = StyleSheet.create({
 
   projectName: {
     flex: 1,
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
 
   arrow: {
-    color: '#CBD5E1',
+    color: COLORS.border,
     fontSize: 22,
   },
 
   projectSubtitle: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 11,
-    marginTop: 4,
-    marginBottom: 9,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
 
   progressTrack: {
     height: 5,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 5,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.sm,
     overflow: 'hidden',
   },
 
   progressBar: {
     height: 5,
-    borderRadius: 5,
+    borderRadius: RADIUS.sm,
   },
 
   percentText: {
+    color: COLORS.textPrimary,
     fontSize: 11,
     fontWeight: '700',
-    marginTop: 7,
+    marginTop: SPACING.sm,
   },
 });

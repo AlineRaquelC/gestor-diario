@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 
 import {
   View,
@@ -11,17 +11,17 @@ import {
   StatusBar,
 } from 'react-native';
 
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
-import {useProjects} from '../context/ProjectContext';
-import {useTasks} from '../context/TaskContext';
+import { useProjects } from '../context/ProjectContext';
+import { useTasks } from '../context/TaskContext';
 
-const COLORS = [
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
+import { taskFormStyles } from '../styles/taskFormStyles';
+
+const PROJECT_COLORS = [
   '#5C4DFF',
   '#F43F5E',
   '#F59E0B',
@@ -54,115 +54,85 @@ export default function EditProjectScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const {projectId} = route.params;
+  const { projectId } = route.params;
 
-  const {
-    projects,
-    updateProject,
-    deleteProject,
-  } = useProjects();
+  const { projects, updateProject, deleteProject } = useProjects();
 
-  const {
-    tasks,
-    updateTaskLocal: updateTask,
-  } = useTasks();
+  const { tasks, updateTaskLocal: updateTask } = useTasks();
 
-  const project =
-    projects.find(
-      item => item.id === projectId,
-    );
+  const project = projects.find(item => item.id === projectId);
 
-  const originalProjectName =
-    project?.name ?? '';
+  const originalProjectName = project?.name ?? '';
 
-  const [name, setName] =
-    useState(project?.name ?? '');
+  const [name, setName] = useState(project?.name ?? '');
 
-  const [description, setDescription] =
-    useState(
-      project?.description ?? '',
-    );
+  const [description, setDescription] = useState(project?.description ?? '');
 
-  const [color, setColor] =
-    useState(project?.color ?? '#5C4DFF');
+  const [color, setColor] = useState(project?.color ?? '#5C4DFF');
 
-  const [icon, setIcon] =
-    useState(project?.icon ?? '📁');
+  const [icon, setIcon] = useState(project?.icon ?? '📁');
 
-  const [dirty, setDirty] =
-    useState(false);
-
+  const [dirty, setDirty] = useState(false);
 
   if (!project) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notFoundContainer}>
-          <Text style={styles.notFoundTitle}>
-            Projeto não encontrado
-          </Text>
+          <Text style={styles.notFoundTitle}>Projeto não encontrado</Text>
 
           <Pressable
             style={styles.backProjectsButton}
-            onPress={() =>
-              navigation.navigate('Projetos')
-            }>
-            <Text style={styles.backProjectsText}>
-              Voltar para Projetos
-            </Text>
+            onPress={() => navigation.navigate('Projetos')}
+          >
+            <Text style={styles.backProjectsText}>Voltar para Projetos</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  const canSave =
-    name.trim().length > 0;
+  const canSave = name.trim().length > 0;
 
   function markDirty() {
     setDirty(true);
   }
 
   function handleSave() {
-    if (!project) {return;}
+    if (!project) {
+      return;
+    }
     if (!canSave) {
       return;
     }
 
-    const newName =
-      name.trim();
+    const newName = name.trim();
 
     try {
-      updateProject(
-        projectId,
-        {
-          name: newName,
-          description:
-            description.trim(),
-          color,
-          icon,
-        },
-      );
-      if (
-        newName !==
-        originalProjectName
-      ) {
+      updateProject(projectId, {
+        name: newName,
+        description: description.trim(),
+        color,
+        icon,
+      });
+      if (newName !== originalProjectName) {
         tasks
           .filter(
             task =>
-              task.projectId === projectId || (!!project.remoteId && task.projectId === project.remoteId),
+              task.projectId === projectId ||
+              (!!project.remoteId && task.projectId === project.remoteId),
           )
           .forEach(task => {
-            updateTask(
-              task.id,
-              {
-                project: newName,
-              },
-            );
+            updateTask(task.id, {
+              project: newName,
+            });
           });
       }
-
     } catch (error) {
-      Alert.alert('Não foi possível salvar', error instanceof Error ? error.message : 'Tente novamente.'); return;
+      Alert.alert(
+        'Não foi possível salvar',
+        error instanceof Error ? error.message : 'Tente novamente.',
+      );
+      return;
     }
 
     setDirty(false);
@@ -173,59 +143,62 @@ export default function EditProjectScreen() {
       [
         {
           text: 'OK',
-          onPress: () =>
-            navigation.goBack(),
+          onPress: () => navigation.goBack(),
         },
       ],
     );
   }
 
   function handleDelete() {
-    if (!project) {return;}
-    Alert.alert('Excluir projeto', `Excluir "${project.name}"? Projetos com tarefas não podem ser excluídos.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: async () => {
-        try {
-          await deleteProject(projectId);
-          navigation.reset({ index: 0, routes: [{ name: 'Projetos' }] });
-        } catch (error) {Alert.alert('Não foi possível excluir', error instanceof Error ? error.message : 'Tente novamente.');}
-      } },
-    ]);
+    if (!project) {
+      return;
+    }
+    Alert.alert(
+      'Excluir projeto',
+      `Excluir "${project.name}"? Projetos com tarefas não podem ser excluídos.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteProject(projectId);
+              navigation.reset({ index: 0, routes: [{ name: 'Projetos' }] });
+            } catch (error) {
+              Alert.alert(
+                'Não foi possível excluir',
+                error instanceof Error ? error.message : 'Tente novamente.',
+              );
+            }
+          },
+        },
+      ],
+    );
   }
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top', 'bottom']}>
-
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F8F9FD"
-      />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <View style={styles.header}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
           style={styles.backButton}
-          onPress={() =>
-            navigation.goBack()
-          }>
-          <Text style={styles.backIcon}>
-            ‹
-          </Text>
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backIcon}>‹</Text>
         </Pressable>
 
-        <Text style={styles.headerTitle}>
-          Editar Projeto
-        </Text>
+        <Text style={styles.headerTitle}>Editar Projeto</Text>
 
         {dirty ? (
           <View style={styles.unsavedBadge}>
-            <Text style={styles.unsavedText}>
-              Não salvo
-            </Text>
+            <Text style={styles.unsavedText}>Não salvo</Text>
           </View>
         ) : (
-          <View style={{width: 75}} />
+          <View style={{ width: 75 }} />
         )}
       </View>
 
@@ -233,45 +206,40 @@ export default function EditProjectScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
-
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.field}>
           <Text style={styles.label}>
             Nome do projeto
-            <Text style={styles.required}>
-              {' '}*
-            </Text>
+            <Text style={styles.required}> *</Text>
           </Text>
 
           <TextInput
             style={styles.input}
+            accessibilityLabel="Nome do projeto"
             value={name}
             onChangeText={value => {
               setName(value);
               markDirty();
             }}
             placeholder="Nome do projeto"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={COLORS.textSecondary}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>
-            Descrição
-          </Text>
+          <Text style={styles.label}>Descrição</Text>
 
           <TextInput
-            style={[
-              styles.input,
-              styles.textArea,
-            ]}
+            style={[styles.input, styles.textArea]}
+            accessibilityLabel="Descrição"
             value={description}
             onChangeText={value => {
               setDescription(value);
               markDirty();
             }}
             placeholder="Descreva o objetivo do projeto..."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={COLORS.textSecondary}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -280,32 +248,26 @@ export default function EditProjectScreen() {
 
         {/* Ícone */}
         <View style={styles.field}>
-          <Text style={styles.label}>
-            Ícone do projeto
-          </Text>
+          <Text style={styles.label}>Ícone do projeto</Text>
 
           <View style={styles.iconGrid}>
             {ICONS.map(item => {
-              const active =
-                icon === item;
+              const active = icon === item;
 
               return (
                 <Pressable
                   key={item}
-                  style={[
-                    styles.iconOption,
-                    active &&
-                      styles.iconOptionActive,
-                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ícone ${item}`}
+                  accessibilityState={{ selected: active }}
+                  style={[styles.iconOption, active && styles.iconOptionActive]}
                   onPress={() => {
                     setIcon(item);
                     markDirty();
-                  }}>
-
-                  <Text style={styles.iconEmoji}>
-                    {item}
-                  </Text>
-
+                  }}
+                >
+                  <Text style={styles.iconEmoji}>{item}</Text>
+                  {active && <Text style={styles.iconCheck}>✓</Text>}
                 </Pressable>
               );
             })}
@@ -314,37 +276,31 @@ export default function EditProjectScreen() {
 
         {/* Cor */}
         <View style={styles.field}>
-          <Text style={styles.label}>
-            Cor do projeto
-          </Text>
+          <Text style={styles.label}>Cor do projeto</Text>
 
           <View style={styles.colorGrid}>
-            {COLORS.map(item => {
-              const active =
-                color === item;
+            {PROJECT_COLORS.map(item => {
+              const active = color === item;
 
               return (
                 <Pressable
                   key={item}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cor ${item}`}
+                  accessibilityState={{ selected: active }}
                   style={[
                     styles.colorOption,
                     {
                       backgroundColor: item,
                     },
-                    active &&
-                      styles.colorOptionActive,
+                    active && styles.colorOptionActive,
                   ]}
                   onPress={() => {
                     setColor(item);
                     markDirty();
-                  }}>
-
-                  {active && (
-                    <Text style={styles.colorCheck}>
-                      ✓
-                    </Text>
-                  )}
-
+                  }}
+                >
+                  {active && <Text style={styles.colorCheck}>✓</Text>}
                 </Pressable>
               );
             })}
@@ -353,37 +309,27 @@ export default function EditProjectScreen() {
 
         {/* Preview */}
         <View style={styles.previewCard}>
-          <Text style={styles.previewLabel}>
-            PRÉ-VISUALIZAÇÃO
-          </Text>
+          <Text style={styles.previewLabel}>PRÉ-VISUALIZAÇÃO</Text>
 
           <View style={styles.previewContent}>
             <View
               style={[
                 styles.previewIcon,
                 {
-                  backgroundColor:
-                    color + '22',
+                  backgroundColor: color + '22',
                 },
-              ]}>
-
-              <Text style={styles.previewEmoji}>
-                {icon}
-              </Text>
-
+              ]}
+            >
+              <Text style={styles.previewEmoji}>{icon}</Text>
             </View>
 
             <View style={styles.previewText}>
               <Text style={styles.previewName}>
-                {name.trim()
-                  ? name
-                  : 'Nome do projeto'}
+                {name.trim() ? name : 'Nome do projeto'}
               </Text>
 
               <Text style={styles.previewDescription}>
-                {description.trim()
-                  ? description
-                  : 'Sem descrição'}
+                {description.trim() ? description : 'Sem descrição'}
               </Text>
             </View>
           </View>
@@ -403,186 +349,122 @@ export default function EditProjectScreen() {
 
         {/* Excluir */}
         <View style={styles.dangerZone}>
-          <Text style={styles.dangerLabel}>
-            ZONA DE PERIGO
-          </Text>
+          <Text style={styles.dangerLabel}>ZONA DE PERIGO</Text>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Excluir projeto"
             style={styles.deleteProjectButton}
-            onPress={handleDelete}>
-
-            <View style={styles.deleteIconBox}>
-              <Text>🗑</Text>
-            </View>
-
+            onPress={handleDelete}
+          >
             <View style={styles.deleteContent}>
-              <Text style={styles.deleteTitle}>
-                Excluir projeto
-              </Text>
+              <Text style={styles.deleteTitle}>Excluir projeto</Text>
 
               <Text style={styles.deleteSubtitle}>
                 Esta ação não pode ser desfeita
               </Text>
             </View>
 
-            <Text style={styles.deleteArrow}>
-              ›
-            </Text>
-
+            <Text style={styles.deleteArrow}>›</Text>
           </Pressable>
         </View>
-
       </ScrollView>
 
       <View style={styles.footer}>
         <Pressable
+          accessibilityRole="button"
           style={styles.cancelButton}
-          onPress={() =>
-            navigation.goBack()
-          }>
-          <Text style={styles.cancelText}>
-            Cancelar
-          </Text>
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.cancelText}>Cancelar</Text>
         </Pressable>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canSave }}
           disabled={!canSave}
-          style={[
-            styles.saveButton,
-            !canSave &&
-              styles.saveButtonDisabled,
-          ]}
-          onPress={handleSave}>
-
-          <Text
-            style={[
-              styles.saveText,
-              !canSave &&
-                styles.saveTextDisabled,
-            ]}>
+          style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
+          onPress={handleSave}
+        >
+          <Text style={[styles.saveText, !canSave && styles.saveTextDisabled]}>
             ✓ Salvar alterações
           </Text>
-
         </Pressable>
       </View>
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FD',
-  },
+  container: taskFormStyles.container,
 
   scroll: {
     flex: 1,
   },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF0F5',
-  },
+  header: taskFormStyles.header,
 
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  backButton: taskFormStyles.backButton,
 
-  backIcon: {
-    fontSize: 31,
-    color: '#1E1B3A',
-    marginTop: -4,
-  },
+  backIcon: taskFormStyles.backIcon,
 
-  headerTitle: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1E1B3A',
-  },
+  headerTitle: taskFormStyles.headerTitle,
 
   unsavedBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    backgroundColor: COLORS.warningSoft,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
   },
 
   unsavedText: {
-    color: '#D97706',
+    color: COLORS.warning,
     fontSize: 11,
     fontWeight: '700',
   },
 
-  content: {
-    padding: 16,
-    paddingBottom: 30,
-  },
+  content: taskFormStyles.content,
 
-  field: {
-    marginBottom: 22,
-  },
+  field: taskFormStyles.field,
 
-  label: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    marginBottom: 8,
-  },
+  label: taskFormStyles.label,
 
   required: {
-    color: '#F43F5E',
+    color: COLORS.danger,
   },
 
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    color: '#1E1B3A',
-    fontSize: 15,
-  },
+  input: taskFormStyles.input,
 
-  textArea: {
-    minHeight: 105,
-  },
+  textArea: taskFormStyles.textArea,
 
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: SPACING.sm,
   },
 
   iconOption: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
+  iconCheck: {
+    position: 'absolute',
+    top: 1,
+    right: 2,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
   iconOptionActive: {
-    borderColor: '#5C4DFF',
-    backgroundColor: '#EEF0FF',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySoft,
   },
 
   iconEmoji: {
@@ -592,43 +474,40 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: SPACING.md,
   },
 
   colorOption: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   colorOptionActive: {
     borderWidth: 3,
-    borderColor: '#FFFFFF',
-    elevation: 5,
+    borderColor: COLORS.surface,
   },
 
   colorCheck: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 18,
     fontWeight: '700',
   },
 
   previewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 17,
-    elevation: 2,
-    marginBottom: 22,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
 
   previewLabel: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.7,
-    marginBottom: 14,
+    marginBottom: SPACING.lg,
   },
 
   previewContent: {
@@ -637,12 +516,12 @@ const styles = StyleSheet.create({
   },
 
   previewIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: SPACING.md,
   },
 
   previewEmoji: {
@@ -654,59 +533,49 @@ const styles = StyleSheet.create({
   },
 
   previewName: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
 
   previewDescription: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 12,
-    marginTop: 3,
+    marginTop: SPACING.xs,
   },
 
   previewProgressTrack: {
     height: 5,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 5,
-    marginTop: 16,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.sm,
+    marginTop: SPACING.lg,
     overflow: 'hidden',
   },
 
   previewProgress: {
     height: 5,
-    borderRadius: 5,
+    borderRadius: RADIUS.sm,
   },
 
   dangerZone: {
-    backgroundColor: '#FFF5F6',
-    borderRadius: 17,
-    padding: 15,
-    borderWidth: 1.5,
-    borderColor: '#FFD0D8',
+    backgroundColor: COLORS.dangerSoft,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.dangerSoft,
   },
 
   dangerLabel: {
-    color: '#94A3B8',
+    color: COLORS.danger,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.7,
-    marginBottom: 11,
+    marginBottom: SPACING.md,
   },
 
   deleteProjectButton: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-
-  deleteIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    backgroundColor: '#FFE4E9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 11,
   },
 
   deleteContent: {
@@ -714,90 +583,67 @@ const styles = StyleSheet.create({
   },
 
   deleteTitle: {
-    color: '#F43F5E',
+    color: COLORS.danger,
     fontSize: 14,
     fontWeight: '700',
   },
 
   deleteSubtitle: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 11,
-    marginTop: 2,
+    marginTop: SPACING.xs,
   },
 
   deleteArrow: {
-    color: '#F43F5E',
+    color: COLORS.danger,
     fontSize: 24,
   },
 
-  footer: {
-    flexDirection: 'row',
-    gap: 10,
-    padding: 16,
-    backgroundColor: '#FAFAFA',
-    borderTopWidth: 1,
-    borderTopColor: '#EEF0F5',
-  },
+  footer: taskFormStyles.footer,
 
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-  },
+  cancelButton: taskFormStyles.cancelButton,
 
-  cancelText: {
-    color: '#64748B',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  cancelText: taskFormStyles.cancelText,
 
-  saveButton: {
-    flex: 2,
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: 'center',
-    backgroundColor: '#5C4DFF',
-  },
+  saveButton: taskFormStyles.primaryButton,
 
   saveButtonDisabled: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: COLORS.border,
   },
 
   saveText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 14,
     fontWeight: '700',
   },
 
   saveTextDisabled: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
   },
 
   notFoundContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: SPACING.xl,
   },
 
   notFoundTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
 
   backProjectsButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#5C4DFF',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
   },
 
   backProjectsText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontWeight: '700',
   },
 });
