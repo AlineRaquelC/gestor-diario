@@ -2,13 +2,13 @@
 
 ## 1. Estado e limites
 
-**23/10/2026 — análise/proposta para revisão, não implementação.** Issue
-[#39](https://github.com/AlineRaquelC/gestor-diario/issues/39) OPEN, não iniciada,
-Planning Poker **13**, inalterado. Base: `dev` limpa/atualizada em
-`666ef496b364ffeecfcb9e1d6368b34ecbb334ae`. Este documento não autoriza iniciar
-feature branch, instalar bibliotecas, gerar/aplicar migration ou modificar código.
-As decisões abaixo são recomendações de refinamento; compatibilidade nativa e
-precisão não foram testadas em build/dispositivo nesta análise.
+**23/10/2026 — refinamento técnico concluído; proposta em revisão.** Issue
+[#39](https://github.com/AlineRaquelC/gestor-diario/issues/39) aberta, com implementação
+funcional ainda não iniciada e Planning Poker **13**, inalterado. Base: `dev`
+limpa/atualizada em `666ef496b364ffeecfcb9e1d6368b34ecbb334ae`. A auditoria não
+modificou código, bibliotecas ou migrations. As decisões abaixo são recomendações
+de refinamento; compatibilidade nativa e precisão ainda não foram validadas em
+build/dispositivo.
 
 Origem preservada: **PBI-13, RF15 e RF16**, conforme [Sprint 2](sprint-2.md),
 [Entregas](../backlog/entregas.md) e [Requisitos oficiais](../requisitos/requisitos-oficiais.md).
@@ -33,7 +33,7 @@ commit/push**; apresentação 08/11/2026 não estende o desenvolvimento.
 | `backend/src/services/tasks.ts` | Valida dias YYYY-MM-DD, início/prazo/projeto e estados; `TASK_TIMEZONE` padrão America/Sao_Paulo define o hoje do backend. Não combina dueDate/time para validar disparo. Criação/edição/histórico/delete/restore usam transações; retry por clientId é resolvido antes da validação de criação. |
 | `backend/src/repositories/tasks.ts` | Joins de projeto e consultas de subtarefas; transação SQLite síncrona `immediate`. `findAll(includeDeleted)` fornece tombstones para sync. Não há agregação de reminders. Alguns retornos de create/retry/tombstone são registros crus, importantes na futura padronização da resposta. |
 | `backend/src/database/schema/tasks.ts`, `index.ts` | Task tem startDate/dueDate textuais, time opcional, status/done/progress/deletedAt, sem reminders/fuso de lembrete. SQLite canônico fica no backend, não no mobile. Foreign keys são habilitadas em `database/index.ts`. |
-| `backend/drizzle/0000_*`, `0001_*`, `0002_*`, `meta/_journal.json` | Cinco tabelas funcionais iniciais; 0001 amplia ações do histórico, 0002 adiciona clientId único. Nenhuma tabela/coluna de reminders. Somente leitura nesta análise. |
+| `backend/drizzle/0000_*`, `0001_*`, `0002_*`, `meta/_journal.json` | Cinco tabelas funcionais iniciais; 0001 amplia ações do histórico, 0002 adiciona clientId único. Nenhuma tabela/coluna de reminders. Migrations preservadas durante a auditoria. |
 | `package.json`, `backend/package.json` | RN **0.87.1**, React 19.2.3, AsyncStorage 3.x; backend Express/Zod/Drizzle/better-sqlite3. **Sem biblioteca de notificações locais** e sem resolvedor de data/fuso dedicado. |
 | `android/` | minSdk 24, compileSdk 37, targetSdk 36, Kotlin 2.2.0, Gradle 9.4.1, New Architecture e Hermes habilitados. Plugin RN instalado declara AGP 9.2.1; conferir versão efetiva no futuro build. Manifest do app declara INTERNET; não há canais, permissionamento de notificação ou receivers próprios de agendamento. MainApplication/MainActivity são o bootstrap RN. |
 
@@ -106,7 +106,7 @@ autoridade; UI faz pré-validação equivalente com as mesmas fixtures. Isolar e
 helpers de domínio, sem React/HTTP/Android. Usar resolvedor IANA comprovado, sem
 implementar fusos por offset fixo; a escolha/compatibilidade do motor de fuso é um
 gate técnico antes de codificar. Node e Hermes devem concordar nas fixtures de
-DST. Não instalar polyfill ou nova dependência nesta análise.
+DST. A seleção e integração de um resolvedor IANA permanecem pendentes.
 
 ```text
 validar estrutura e resolver data/hora no IANA sem ambiguidade
@@ -197,7 +197,7 @@ feito pelo servidor.
 
 - POST sem reminders equivale a []; exigir fuso/horário para coleção não vazia. PATCH omitido conserva; [] remove; null/strings visuais falham. `reminderTimeZone` omitido usa o existente para edições; com primeira coleção precisa ser explícito. Não aceitar fuso ausente por fallback no timezone Node.
 - Request aceita somente offsets; servidor associa à Task do endpoint, gera IDs para novos offsets e preserva os demais. Não confiar em taskId/reminderId arbitrários enviados no corpo.
-- Zod valida forma, offsets inteiros/únicos e cardinalidade; service valida configuração temporal final, fuso, passado e estado; repository executa comandos. Datas/horário mantêm os contratos atuais. 400 `VALIDATION_ERROR` com mensagem de domínio compreensível, 404 `TASK_NOT_FOUND`, erros de projeto existentes e 500 em falha inesperada. Não criar erro de “permissão Android” na API.
+- Zod valida forma, offsets inteiros/únicos e cardinalidade; service valida configuração temporal final, fuso, passado e estado; repository executa comandos. Datas/horário mantêm os contratos atuais. 400 `VALIDATION_ERROR` com mensagem de domínio compreensível, 404 `TASK_NOT_FOUND`, erros de projeto existentes e 500 em falha inesperada. Erros de permissão Android pertencem ao dispositivo, fora do contrato de erros da API.
 - Transação `immediate`: Task + diff da coleção + fuso + histórico UPDATED/CREATED. Se qualquer gravação/histórico falhar, rollback total. Desestruturar a coleção antes de enviar campos a `tasks`: não espalhar array como coluna.
 - `findAll` agrega filhos em lote como subtasks; incluir reminders também nos tombstones. Padronizar create sem filhos, retry por clientId e restore para não retornarem uma forma sem a coleção. Remoção explícita deve voltar [] e prevalecer sobre cache.
 - Retry de criação por clientId já existente retorna o mesmo conjunto/IDs antes da validação temporal; não recriar reminder se agora expirou. Reutilizar a identidade/ledger existente também para recuperação de POST de Nova Tarefa com resposta perdida; hoje o POST comum não envia essa chave. Não reenviar POST cegamente nem criar um framework de filas offline.
@@ -243,7 +243,7 @@ conforme o aceite, sem prometer recuperação apenas por existir receiver.
 | Opção | Avaliação |
 |---|---|
 | Notifee original | API conhecida, porém arquivado; não recomendado para nova integração neste prazo. |
-| `expo-notifications` | Alternativa mantida, mas o [guia oficial](https://docs.expo.dev/bare/installing-expo-modules/) exige adicionar/configurar Expo modules em app RN existente. Maior mudança de infraestrutura que o projeto CLI atual; reavaliar se o fork falhar, sem converter o app nesta análise. |
+| `expo-notifications` | Alternativa mantida, mas o [guia oficial](https://docs.expo.dev/bare/installing-expo-modules/) exige adicionar/configurar Expo modules em app RN existente. Maior mudança de infraestrutura que o projeto CLI atual; reavaliar se o fork falhar, conversão do app fora do escopo do refinamento. |
 | TurboModule Kotlin + AlarmManager/NotificationManager | Controle direto sem biblioteca de alto nível; exige construir/testar bridge, armazenamento/receivers/reboot/permissões. Risco/custo alto até o freeze. Alternativa posterior, não implementação paralela antecipada. |
 | `react-native-push-notification` | [Repositório arquivado](https://github.com/zo0r/react-native-push-notification); evitar nova adoção. |
 | Timers JS / FCM | Timer depende do processo; FCM não é scheduler local autônomo e introduziria servidor/push. Não atendem este recorte. |
@@ -303,8 +303,8 @@ Reconciliação serial por Task, usando os locks existentes e uma fila do adapta
 
 Payload sugerido: “Gestor Diário” / “Você tem uma tarefa próxima do prazo”, com
 taskId em data. Assim título/descrição/projeto não exigem reagendar nem exibem
-conteúdo antigo/sensível. Abrir usa a rota existente e ID canônico quando a navegação
-estiver pronta; não criar rota nova. Agendamento confirmado não prova entrega.
+conteúdo antigo/sensível. Abrir usa o ID canônico pela rota existente quando a
+navegação estiver pronta. Agendamento confirmado não prova entrega.
 
 ## 9. Ciclo de vida: edição, soft delete, undo e status
 
@@ -359,7 +359,7 @@ conclusão/exclusão de uma ocorrência não cancela lembretes de outra.
 ## 12. Matriz de testes proposta
 
 Nenhuma notificação real em Jest/Vitest: relógio, resolvedor de fuso, HTTP, storage
-e adapter nativo injetados/mockados. “Planejado” não significa executado nesta análise.
+e adapter nativo injetados/mockados. A matriz descreve validações planejadas, ainda não executadas.
 
 | ID | Camada | Cenário / prova necessária |
 |---|---|---|
@@ -401,9 +401,9 @@ Além da matriz: quatro comandos CI mobile, checks backend, `git diff --check` e
 CI verde sem ampliar baselines; Android em massa isolada, sem apagar dados úteis.
 Capturas/logs somente temporários, não versionados.
 
-## 13. Decomposição técnica — não são novas Issues
+## 13. Decomposição técnica vinculada à Issue #39
 
-Arquivos abaixo são **prováveis e futuros**. Nenhuma task iniciada. Todas permanecem
+Arquivos abaixo são **prováveis e futuros**. As tasks estão planejadas e ainda não iniciadas; permanecem
 subordinadas à #39 e não alteram seus pontos automaticamente.
 
 | ID / categoria / título | Objetivo | Arquivos/camadas prováveis | Dependência | Critério de conclusão futuro |
@@ -453,16 +453,16 @@ subordinadas à #39 e não alteram seus pontos automaticamente.
 em domínio/fuso, banco, API, cache/sync, lifecycle e Android, não apenas conexão da
 UI a uma biblioteca. É uma estimativa **otimista/de alto risco**, plausível apenas
 se compatibilidade/precisão e motor temporal forem aprovados rapidamente. Não há
-prova para substituí-la por outro número nesta análise; se gates falharem, reportar
-e reestimar com autorização, sem reduzir cardinalidade, segurança, aceite ou DoD
-silenciosamente. Não marcar #39 Ready para desenvolvimento antes de revisar esses
-gates; implementação permanece não iniciada.
+evidência suficiente para substituí-la por outro número. Falhas nos gates exigem
+registro e reestimativa aprovada, preservando cardinalidade, segurança, aceite e
+DoD. A prontidão da #39 para desenvolvimento depende da revisão desses gates;
+a implementação permanece não iniciada.
 
-## 15. Resultado deste trabalho
+## 15. Resultado do refinamento
 
-Somente este documento é proposto para versionamento na branch
-`docs/refine-39-reminders`, commit `docs(sprint): refina arquitetura de lembretes`,
-PR para `dev`, sem merge automático. Requisitos oficiais/Sprint Goal/Planning
-Poker/estado da Issue não alterados. Nenhuma Task técnica nova criada no GitHub;
-nenhuma dependência instalada, migration criada ou arquivo funcional alterado.
-Parar após a formalização; não implementar #39.
+Resultado: refinamento técnico documentado na branch `docs/refine-39-reminders`,
+com registro em `docs(sprint): refina arquitetura de lembretes` e PR para `dev`,
+sem merge automático. Requisitos oficiais, Sprint Goal, Planning Poker e estado
+da Issue permanecem preservados. A decomposição técnica está registrada neste
+documento, sem novas Issues no GitHub. Dependências, migrations e arquivos
+funcionais permanecem inalterados. A implementação da Issue #39 continua pendente.
