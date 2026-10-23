@@ -1,16 +1,16 @@
-/** T02 probe only: no Task, persistence, navigation or production scheduling. */
+/** T02 probe only: no Task data, navigation or production scheduling. */
 import React, { useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text } from 'react-native';
-import notify, {
-  AlarmType,
-  AndroidImportance,
-  AuthorizationStatus,
-  TriggerType,
-} from 'react-native-notify-kit';
+import {
+  Button,
+  PermissionsAndroid,
+  ScrollView,
+  StyleSheet,
+  Text,
+} from 'react-native';
+import nativeGate from '../../specs/NativeReminderGate';
 import { resolveTaskInstant } from '../domain/reminders';
 
 const id = 'task-reminder:gate-task:gate-reminder';
-const channelId = 'reminder-compatibility-gate';
 
 export default function ReminderGate() {
   const [result, setResult] = useState('T02: isolated Android gate');
@@ -18,37 +18,22 @@ export default function ReminderGate() {
     try {
       let evidence: unknown;
       if (action === 'permission') {
-        evidence = await notify.requestPermission();
-      } else if (action === 'cancel') {
-        await notify.cancelNotification(id);
-        evidence = await notify.getTriggerNotificationIds();
-      } else if (action === 'schedule') {
-        const permission = await notify.getNotificationSettings();
-        if (permission.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
-          throw new Error(
-            'Notificações não autorizadas; nenhum agendamento confirmado.',
-          );
-        }
-        await notify.createChannel({
-          id: channelId,
-          name: 'Reminder compatibility gate',
-          importance: AndroidImportance.HIGH,
-        });
-        const timestamp = Date.now() + 60000;
-        await notify.createTriggerNotification(
-          {
-            id,
-            title: 'Gate de lembretes',
-            body: `Disparo solicitado: ${new Date(timestamp).toISOString()}`,
-            android: { channelId, pressAction: { id: 'default' } },
-          },
-          {
-            type: TriggerType.TIMESTAMP,
-            timestamp,
-            alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE },
-          },
+        evidence = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
         );
-        evidence = { timestamp, ids: await notify.getTriggerNotificationIds() };
+      } else if (action === 'cancel') {
+        evidence = await nativeGate.cancel(id);
+      } else if (action === 'scheduleOther') {
+        evidence = await nativeGate.schedule(
+          `${id}-other`,
+          Date.now() + 180000,
+        );
+      } else if (action === 'cancelOther') {
+        evidence = await nativeGate.cancel(`${id}-other`);
+      } else if (action === 'schedule' || action === 'schedule180') {
+        const timestamp =
+          Date.now() + (action === 'schedule180' ? 180000 : 60000);
+        evidence = await nativeGate.schedule(id, timestamp);
       } else if (action === 'timezone') {
         evidence = {
           saoPaulo: resolveTaskInstant(
@@ -77,11 +62,7 @@ export default function ReminderGate() {
           }
         }
       } else {
-        evidence = {
-          settings: await notify.getNotificationSettings(),
-          triggers: await notify.getTriggerNotifications(),
-          displayed: await notify.getDisplayedNotifications(),
-        };
+        evidence = await nativeGate.getScheduled();
       }
       const output = JSON.stringify({
         action,
@@ -104,9 +85,18 @@ export default function ReminderGate() {
         title="Schedule 60s / replace same ID"
         onPress={() => run('schedule')}
       />
+      <Button
+        title="Schedule 180s / replace same ID"
+        onPress={() => run('schedule180')}
+      />
       <Button title="Cancel gate ID" onPress={() => run('cancel')} />
       <Button title="Inspect" onPress={() => run('inspect')} />
       <Button title="Timezone fixtures" onPress={() => run('timezone')} />
+      <Button
+        title="Schedule other gate ID 180s"
+        onPress={() => run('scheduleOther')}
+      />
+      <Button title="Cancel other gate ID" onPress={() => run('cancelOther')} />
       <Text selectable>{result}</Text>
     </ScrollView>
   );
