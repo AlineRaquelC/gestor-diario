@@ -112,7 +112,11 @@ export default function EditTaskScreen() {
     ? projects.find(item => item.id === task.projectId) ??
       projects.find(item => item.remoteId === task.projectId)
     : undefined;
-  const projectOptions = projects;
+  // The task already confirms this remote relationship. Its name is only a label,
+  // never a way to associate it with a local project.
+  const projectOptions = task?.projectId && !linkedProject
+    ? [...projects, { id: task.projectId, name: task.project }]
+    : projects;
   const [title, setTitle] = useState(task?.title ?? '');
 
   const [description, setDescription] = useState(task?.description ?? '');
@@ -137,7 +141,7 @@ export default function EditTaskScreen() {
 
   // Resolve again when project hydration/sync replaces the available IDs.
   const [chosenProjectId, setProject] = useState<string | null>(null);
-  const project = chosenProjectId ?? linkedProject?.id ?? '';
+  const project = chosenProjectId ?? linkedProject?.id ?? task?.projectId ?? '';
 
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'todo');
 
@@ -520,7 +524,9 @@ export default function EditTaskScreen() {
                 projects={projectOptions}
                 selectedId={project}
                 onSelect={id => {
-                  setProject(id);
+                  setProject(
+                    id === linkedProject?.id || id === task.projectId ? null : id,
+                  );
                   markDirty();
                 }}
               />

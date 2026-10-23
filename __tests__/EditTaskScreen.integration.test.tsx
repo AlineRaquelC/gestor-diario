@@ -125,7 +125,8 @@ it('resolve remoteId após hidratação sem congelar seleção e mantém escolha
   expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ projectId: 'b' }));
 });
 
-it.each([undefined, 'inexistente'])('legado %s não recebe associação por nome', async projectId => {
+it('legado sem projectId não recebe associação por nome', async () => {
+  const projectId = undefined;
   await act(async () => renderer.unmount());
   jest.mocked(useTasks).mockReturnValue({ tasks: [{ ...task, projectId }], updateTask: patch } as unknown as ReturnType<typeof useTasks>);
   await act(async () => { renderer = ReactTestRenderer.create(<EditTaskScreen />); });
@@ -145,4 +146,65 @@ it('troca mostra nome e ícone novos imediatamente e envia o ID escolhido', asyn
   expect(JSON.stringify(renderer.toJSON())).toContain('📦');
   await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
   expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ projectId: 'b' }));
+});
+
+
+const marketingTask = { ...task, projectId: 'remote-marketing', project: 'Marketing' };
+const marketing = { id: 'p1', name: 'Marketing', color: '#fff', icon: '🚩' };
+const development = { id: 'p2', remoteId: 'remote-dev', name: 'Desenvolvimento', color: '#000', icon: '💻' };
+const projectButtons = (label: string) => renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === label);
+async function renderMarketing(options: Array<typeof marketing & { remoteId?: string }>) {
+  await act(async () => renderer.unmount());
+  jest.mocked(useTasks).mockReturnValue({ tasks: [marketingTask], updateTask: patch } as unknown as ReturnType<typeof useTasks>);
+  jest.mocked(useProjects).mockReturnValue({ projects: options } as ReturnType<typeof useProjects>);
+  await act(async () => { renderer = ReactTestRenderer.create(<EditTaskScreen />); });
+}
+
+it.each([
+  [marketing],
+  [marketing, { ...marketing, id: 'homonimo' }],
+  [],
+])('representa vínculo remoto confirmado sem associar aos homônimos locais: %j', async (...options) => {
+  await renderMarketing(options);
+  expect(projectButtons('Selecionar projeto: Marketing')).toHaveLength(1);
+  await act(async () => projectButtons('Selecionar projeto: Marketing')[0].props.onPress());
+  const choices = projectButtons('Projeto: Marketing');
+  expect(choices).toHaveLength(options.length + 1);
+  choices.slice(0, -1).forEach(choice => expect(choice.props.accessibilityState.selected).toBe(false));
+  expect(choices[choices.length - 1].props.accessibilityState.selected).toBe(true);
+  await act(async () => choices[choices.length - 1].props.onPress());
+  await act(async () => renderer.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === 'Descrição')!.props.onChangeText('Outra descrição'));
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ description: 'Outra descrição' }));
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('projectId');
+});
+
+it('usa projeto local por remoteId e substitui opção remota sem duplicata após hidratação', async () => {
+  await renderMarketing([marketing]);
+  await act(async () => projectButtons('Selecionar projeto: Marketing')[0].props.onPress());
+  await act(async () => projectButtons('Projeto: Marketing')[1].props.onPress());
+  jest.mocked(useProjects).mockReturnValue({ projects: [{ ...marketing, remoteId: 'remote-marketing', name: 'Marketing atualizado' }] } as ReturnType<typeof useProjects>);
+  await act(async () => renderer.update(<EditTaskScreen />));
+  expect(projectButtons('Selecionar projeto: Marketing atualizado')).toHaveLength(1);
+  await act(async () => projectButtons('Selecionar projeto: Marketing atualizado')[0].props.onPress());
+  expect(projectButtons('Projeto: Marketing atualizado')).toHaveLength(1);
+  expect(projectButtons('Projeto: Marketing')).toHaveLength(0);
+  expect(projectButtons('Projeto: Marketing atualizado')[0].props.accessibilityState.selected).toBe(true);
+});
+
+it('salva outro campo sem tocar no vínculo remoto não mapeado', async () => {
+  await renderMarketing([marketing]);
+  await act(async () => renderer.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === 'Descrição')!.props.onChangeText('Nova descrição'));
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ description: 'Nova descrição' }));
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('projectId');
+});
+
+it('troca vínculo remoto não mapeado por Desenvolvimento usando id local', async () => {
+  await renderMarketing([marketing, development]);
+  await act(async () => projectButtons('Selecionar projeto: Marketing')[0].props.onPress());
+  await act(async () => projectButtons('Projeto: Desenvolvimento')[0].props.onPress());
+  expect(projectButtons('Selecionar projeto: Desenvolvimento')).toHaveLength(1);
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ projectId: 'p2' }));
 });
