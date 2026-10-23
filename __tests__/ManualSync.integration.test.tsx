@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Text } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import { COLORS } from '../src/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ProjectProvider, useProjects } from '../src/context/ProjectContext';
 import { TaskProvider, useTasks } from '../src/context/TaskContext';
@@ -50,6 +51,7 @@ it('ação explícita publica Context somente após cache consolidado confirmado
   });
   await act(async () => {await button().props.onPress();});
   expect(screenText()).toContain('Sincronização concluída');
+  expect(StyleSheet.flatten(renderer.root.findAllByType(Text).find(node => node.props.accessibilityRole === 'alert')!.props.style).color).toBe(COLORS.success);
   expect(tasksContext.tasks).toEqual(result.tasks); expect(projectsContext.projects).toEqual(result.projects);
   expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(result.tasks);
   expect(JSON.parse(storage.get('@taskflow:projects')!)).toEqual(result.projects);
@@ -64,6 +66,7 @@ it('offline mostra falha compreensível, mantém Context/cache e permite retorno
   const before = new Map(storage); jest.mocked(synchronize).mockRejectedValueOnce(new Error('Verifique a conexão e o backend.'));
   await act(async () => {await button().props.onPress();});
   expect(screenText()).toContain('Falha na sincronização'); expect(screenText()).not.toContain('Sincronização concluída');
+  expect(StyleSheet.flatten(renderer.root.findAllByType(Text).find(node => node.props.accessibilityRole === 'alert')!.props.style).color).toBe(COLORS.danger);
   expect(storage).toEqual(before); expect(tasksContext.tasks[0].id).toBe('lt');
   await act(async () => {await button().props.onPress();}); expect(screenText()).toContain('Sincronização concluída');
 });
@@ -89,9 +92,10 @@ it('trava imediata bloqueia cliques simultâneos e mutações durante sync', asy
   expect(synchronize).toHaveBeenCalledTimes(1); expect(tasksContext.syncing).toBe(false);
 });
 it('pendências são informadas sem anunciar conclusão completa', async () => {
-  jest.mocked(synchronize).mockResolvedValueOnce({ ...result, pending: 2 });
+  jest.mocked(synchronize).mockResolvedValueOnce({ ...result, pending: 3 });
   await act(async () => {await button().props.onPress();});
-  expect(screenText()).toContain('2 pendência(s)'); expect(screenText()).not.toContain('Sincronização concluída');
+  expect(StyleSheet.flatten(renderer.root.findAllByType(Text).find(node => node.props.accessibilityRole === 'alert')!.props.style).color).toBe(COLORS.warning);
+  expect(screenText()).toContain('3 pendência(s)'); expect(screenText()).not.toContain('Sincronização concluída');
 });
 it.each(['@taskflow:projects', '@taskflow:tasks'])('cache inválido em %s bloqueia sync e preserva original', async key => {
   await act(async () => renderer.unmount()); storage.set(key, 'INVALID'); await mount();

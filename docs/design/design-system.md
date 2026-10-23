@@ -1,8 +1,9 @@
 # Base visual — Gestor Diário
 
 Tokens em `src/styles/theme.ts`, adotados pela Home, seus controles e pelas
-telas de Nova/Editar/Detalhes da Tarefa. As demais telas e a BottomNavigation
-conservam sua implementação.
+telas de Nova/Editar/Detalhes da Tarefa. Na Fase 3, também cobrem Projetos,
+Detalhes/Criar/Editar Projeto, Calendário, Configurações e Login. A BottomNavigation
+conserva sua implementação.
 
 - Roxo principal `#5C4DFF`, apoio `#EEECFF`; fundo `#F8F9FD`, cards brancos.
 - Texto principal `#242139`, secundário `#616779`, borda `#DDE0EA`.
@@ -29,3 +30,12 @@ visível. A zona de perigo usa fundo suave, texto danger e mantém confirmação
 Detalhes agrupa informações em grid sobre uma superfície única, sem sombras por
 célula; progresso, subtarefas, Notes e atividade usam seções simples e os tokens
 existentes. Histórico usa marcadores geométricos, sem emojis decorativos.
+
+Na Fase 3, Projetos conserva o grid de duas colunas e as métricas existentes, com
+superfícies simples, labels legíveis e cores/ícones reais dos projetos. Formulários
+de projeto reutilizam os estilos da Fase 2; ícone/cor têm estado selecionado
+acessível e cores mantêm o check. A zona de perigo usa dangerSoft/danger.
+Calendário mantém sua estrutura: hoje com contorno, seleção preenchida, indicadores
+pequenos e alerta compacto. Configurações apresenta somente a sincronização real,
+com feedback success/warning/danger e pendências explícitas. Login adota inputs e
+CTA consistentes, sem implementar autenticação ou ações novas nos links.

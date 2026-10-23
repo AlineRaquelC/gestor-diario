@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,15 @@ import {
   StatusBar,
 } from 'react-native';
 
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
-import {useProjects} from '../context/ProjectContext';
+import { useProjects } from '../context/ProjectContext';
 
-const COLORS = [
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
+import { taskFormStyles } from '../styles/taskFormStyles';
+
+const PROJECT_COLORS = [
   '#5C4DFF',
   '#F43F5E',
   '#F59E0B',
@@ -46,109 +49,95 @@ const ICONS = [
 
 export default function CreateProjectScreen() {
   const navigation = useNavigation<any>();
-  const {addProject} = useProjects();
+  const { addProject } = useProjects();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#5C4DFF');
   const [icon, setIcon] = useState('📁');
 
-  const canSubmit =
-    name.trim().length > 0;
+  const canSubmit = name.trim().length > 0;
 
   function handleCreate() {
     if (!canSubmit) {
       return;
     }
 
-    try {addProject({
-      id: Date.now().toString(),
-      name: name.trim(),
-      description: description.trim(),
-      color,
-      icon,
-    });} catch (error) {
-      Alert.alert('Não foi possível criar', error instanceof Error ? error.message : 'Tente novamente.'); return;
+    try {
+      addProject({
+        id: Date.now().toString(),
+        name: name.trim(),
+        description: description.trim(),
+        color,
+        icon,
+      });
+    } catch (error) {
+      Alert.alert(
+        'Não foi possível criar',
+        error instanceof Error ? error.message : 'Tente novamente.',
+      );
+      return;
     }
 
-    Alert.alert(
-      'Projeto criado',
-      'O projeto foi criado com sucesso.',
-      [
-        {
-          text: 'OK',
-          onPress: () =>
-            navigation.goBack(),
-        },
-      ],
-    );
+    Alert.alert('Projeto criado', 'O projeto foi criado com sucesso.', [
+      {
+        text: 'OK',
+        onPress: () => navigation.goBack(),
+      },
+    ]);
   }
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top', 'bottom']}>
-
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F8F9FD"
-      />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <View style={styles.header}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
           style={styles.backButton}
-          onPress={() =>
-            navigation.goBack()
-          }>
-          <Text style={styles.backIcon}>
-            ‹
-          </Text>
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backIcon}>‹</Text>
         </Pressable>
 
-        <Text style={styles.headerTitle}>
-          Novo Projeto
-        </Text>
+        <Text style={styles.headerTitle}>Novo Projeto</Text>
 
-        <View style={{width: 38}} />
+        <View style={{ width: 38 }} />
       </View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
-
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.field}>
           <Text style={styles.label}>
             Nome do projeto
-            <Text style={styles.required}>
-              {' '}*
-            </Text>
+            <Text style={styles.required}> *</Text>
           </Text>
 
           <TextInput
             style={styles.input}
+            accessibilityLabel="Nome do projeto"
             value={name}
             onChangeText={setName}
             placeholder="Ex.: Faculdade"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={COLORS.textSecondary}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>
-            Descrição
-          </Text>
+          <Text style={styles.label}>Descrição</Text>
 
           <TextInput
-            style={[
-              styles.input,
-              styles.textArea,
-            ]}
+            style={[styles.input, styles.textArea]}
+            accessibilityLabel="Descrição"
             value={description}
             onChangeText={setDescription}
             placeholder="Descreva o objetivo do projeto..."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={COLORS.textSecondary}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -157,31 +146,23 @@ export default function CreateProjectScreen() {
 
         {/* Ícone */}
         <View style={styles.field}>
-          <Text style={styles.label}>
-            Ícone do projeto
-          </Text>
+          <Text style={styles.label}>Ícone do projeto</Text>
 
           <View style={styles.iconGrid}>
             {ICONS.map(item => {
-              const active =
-                icon === item;
+              const active = icon === item;
 
               return (
                 <Pressable
                   key={item}
-                  style={[
-                    styles.iconOption,
-                    active &&
-                      styles.iconOptionActive,
-                  ]}
-                  onPress={() =>
-                    setIcon(item)
-                  }>
-
-                  <Text style={styles.iconEmoji}>
-                    {item}
-                  </Text>
-
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ícone ${item}`}
+                  accessibilityState={{ selected: active }}
+                  style={[styles.iconOption, active && styles.iconOptionActive]}
+                  onPress={() => setIcon(item)}
+                >
+                  <Text style={styles.iconEmoji}>{item}</Text>
+                  {active && <Text style={styles.iconCheck}>✓</Text>}
                 </Pressable>
               );
             })}
@@ -190,36 +171,28 @@ export default function CreateProjectScreen() {
 
         {/* Cor */}
         <View style={styles.field}>
-          <Text style={styles.label}>
-            Cor do projeto
-          </Text>
+          <Text style={styles.label}>Cor do projeto</Text>
 
           <View style={styles.colorGrid}>
-            {COLORS.map(item => {
-              const active =
-                color === item;
+            {PROJECT_COLORS.map(item => {
+              const active = color === item;
 
               return (
                 <Pressable
                   key={item}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cor ${item}`}
+                  accessibilityState={{ selected: active }}
                   style={[
                     styles.colorOption,
                     {
                       backgroundColor: item,
                     },
-                    active &&
-                      styles.colorOptionActive,
+                    active && styles.colorOptionActive,
                   ]}
-                  onPress={() =>
-                    setColor(item)
-                  }>
-
-                  {active && (
-                    <Text style={styles.colorCheck}>
-                      ✓
-                    </Text>
-                  )}
-
+                  onPress={() => setColor(item)}
+                >
+                  {active && <Text style={styles.colorCheck}>✓</Text>}
                 </Pressable>
               );
             })}
@@ -228,37 +201,27 @@ export default function CreateProjectScreen() {
 
         {/* Preview */}
         <View style={styles.previewCard}>
-          <Text style={styles.previewLabel}>
-            PRÉ-VISUALIZAÇÃO
-          </Text>
+          <Text style={styles.previewLabel}>PRÉ-VISUALIZAÇÃO</Text>
 
           <View style={styles.previewContent}>
             <View
               style={[
                 styles.previewIcon,
                 {
-                  backgroundColor:
-                    color + '22',
+                  backgroundColor: color + '22',
                 },
-              ]}>
-
-              <Text style={styles.previewEmoji}>
-                {icon}
-              </Text>
-
+              ]}
+            >
+              <Text style={styles.previewEmoji}>{icon}</Text>
             </View>
 
             <View style={styles.previewTextArea}>
               <Text style={styles.previewName}>
-                {name.trim()
-                  ? name
-                  : 'Nome do projeto'}
+                {name.trim() ? name : 'Nome do projeto'}
               </Text>
 
               <Text style={styles.previewDescription}>
-                {description.trim()
-                  ? description
-                  : 'Descrição do projeto'}
+                {description.trim() ? description : 'Descrição do projeto'}
               </Text>
             </View>
           </View>
@@ -275,145 +238,95 @@ export default function CreateProjectScreen() {
             />
           </View>
         </View>
-
       </ScrollView>
 
       <View style={styles.footer}>
         <Pressable
+          accessibilityRole="button"
           style={styles.cancelButton}
-          onPress={() =>
-            navigation.goBack()
-          }>
-          <Text style={styles.cancelText}>
-            Cancelar
-          </Text>
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.cancelText}>Cancelar</Text>
         </Pressable>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canSubmit }}
           disabled={!canSubmit}
           style={[
             styles.createButton,
-            !canSubmit &&
-              styles.createButtonDisabled,
+            !canSubmit && styles.createButtonDisabled,
           ]}
-          onPress={handleCreate}>
-
+          onPress={handleCreate}
+        >
           <Text
-            style={[
-              styles.createText,
-              !canSubmit &&
-                styles.createTextDisabled,
-            ]}>
+            style={[styles.createText, !canSubmit && styles.createTextDisabled]}
+          >
             Criar projeto
           </Text>
-
         </Pressable>
       </View>
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FD',
-  },
+  container: taskFormStyles.container,
 
   scroll: {
     flex: 1,
   },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF0F5',
-  },
+  header: taskFormStyles.header,
 
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  backButton: taskFormStyles.backButton,
 
-  backIcon: {
-    fontSize: 31,
-    color: '#1E1B3A',
-    marginTop: -4,
-  },
+  backIcon: taskFormStyles.backIcon,
 
-  headerTitle: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1E1B3A',
-  },
+  headerTitle: taskFormStyles.headerTitle,
 
-  content: {
-    padding: 16,
-    paddingBottom: 30,
-  },
+  content: taskFormStyles.content,
 
-  field: {
-    marginBottom: 22,
-  },
+  field: taskFormStyles.field,
 
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
+  label: taskFormStyles.label,
 
   required: {
-    color: '#F43F5E',
+    color: COLORS.danger,
   },
 
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    color: '#1E1B3A',
-    fontSize: 15,
-  },
+  input: taskFormStyles.input,
 
-  textArea: {
-    minHeight: 105,
-  },
+  textArea: taskFormStyles.textArea,
 
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: SPACING.sm,
   },
 
   iconOption: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
+  iconCheck: {
+    position: 'absolute',
+    top: 1,
+    right: 2,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
   iconOptionActive: {
-    borderColor: '#5C4DFF',
-    backgroundColor: '#EEF0FF',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySoft,
   },
 
   iconEmoji: {
@@ -423,42 +336,39 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: SPACING.md,
   },
 
   colorOption: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   colorOptionActive: {
     borderWidth: 3,
-    borderColor: '#FFFFFF',
-    elevation: 4,
+    borderColor: COLORS.surface,
   },
 
   colorCheck: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 18,
     fontWeight: '700',
   },
 
   previewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    elevation: 2,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
   },
 
   previewLabel: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.7,
-    marginBottom: 14,
+    marginBottom: SPACING.lg,
   },
 
   previewContent: {
@@ -469,10 +379,10 @@ const styles = StyleSheet.create({
   previewIcon: {
     width: 44,
     height: 44,
-    borderRadius: 13,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: SPACING.md,
   },
 
   previewEmoji: {
@@ -484,72 +394,49 @@ const styles = StyleSheet.create({
   },
 
   previewName: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
 
   previewDescription: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 12,
-    marginTop: 3,
+    marginTop: SPACING.xs,
   },
 
   progressTrack: {
     height: 5,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 5,
-    marginTop: 16,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.sm,
+    marginTop: SPACING.lg,
     overflow: 'hidden',
   },
 
   progressBar: {
     height: 5,
-    borderRadius: 5,
+    borderRadius: RADIUS.sm,
   },
 
-  footer: {
-    flexDirection: 'row',
-    gap: 10,
-    padding: 16,
-    backgroundColor: '#FAFAFA',
-    borderTopWidth: 1,
-    borderTopColor: '#EEF0F5',
-  },
+  footer: taskFormStyles.footer,
 
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
+  cancelButton: taskFormStyles.cancelButton,
 
-  cancelText: {
-    color: '#64748B',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  cancelText: taskFormStyles.cancelText,
 
-  createButton: {
-    flex: 2,
-    backgroundColor: '#5C4DFF',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
+  createButton: taskFormStyles.primaryButton,
 
   createButtonDisabled: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: COLORS.border,
   },
 
   createText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 15,
     fontWeight: '700',
   },
 
   createTextDisabled: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
   },
 });

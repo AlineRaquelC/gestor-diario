@@ -10,83 +10,60 @@ import {
   Alert,
 } from 'react-native';
 
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
-import {useProjects} from '../context/ProjectContext';
-import {useTasks} from '../context/TaskContext';
+import { useProjects } from '../context/ProjectContext';
+import { useTasks } from '../context/TaskContext';
+
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
 
 export default function ProjectDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const {projectId} = route.params;
+  const { projectId } = route.params;
 
-  const {
-    projects,
-    deleteProject,
-  } = useProjects();
+  const { projects, deleteProject } = useProjects();
 
-  const {tasks} = useTasks();
+  const { tasks } = useTasks();
 
-  const project =
-    projects.find(
-      item => item.id === projectId,
-    );
+  const project = projects.find(item => item.id === projectId);
 
   if (!project) {
     return (
       <SafeAreaView style={styles.container}>
-
         <View style={styles.notFound}>
-          <Text style={styles.notFoundTitle}>
-            Projeto não encontrado
-          </Text>
+          <Text style={styles.notFoundTitle}>Projeto não encontrado</Text>
 
           <Pressable
             style={styles.homeButton}
-            onPress={() =>
-              navigation.navigate('Projetos')
-            }>
-
-            <Text style={styles.homeButtonText}>
-              Voltar para Projetos
-            </Text>
-
+            onPress={() => navigation.navigate('Projetos')}
+          >
+            <Text style={styles.homeButtonText}>Voltar para Projetos</Text>
           </Pressable>
         </View>
-
       </SafeAreaView>
     );
   }
 
-  const projectTasks =
-    tasks.filter(
-      task =>
-        task.projectId === project.id || (!!project.remoteId && task.projectId === project.remoteId),
-    );
+  const projectTasks = tasks.filter(
+    task =>
+      task.projectId === project.id ||
+      (!!project.remoteId && task.projectId === project.remoteId),
+  );
 
-  const completed =
-    projectTasks.filter(
-      task => task.done,
-    ).length;
+  const completed = projectTasks.filter(task => task.done).length;
 
-  const total =
-    projectTasks.length;
+  const total = projectTasks.length;
 
-  const percentage =
-    total > 0
-      ? Math.round(
-          (completed / total) * 100,
-        )
-      : 0;
+  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   function confirmDelete() {
-    if (!project) {return;}
+    if (!project) {
+      return;
+    }
     Alert.alert(
       'Excluir projeto',
       `Tem certeza que deseja excluir "${project.name}"?`,
@@ -100,8 +77,15 @@ export default function ProjectDetailsScreen() {
           style: 'destructive',
 
           onPress: async () => {
-            try {await deleteProject(project.id); navigation.goBack();}
-            catch (error) {Alert.alert('Não foi possível excluir', error instanceof Error ? error.message : 'Tente novamente.');}
+            try {
+              await deleteProject(project.id);
+              navigation.goBack();
+            } catch (error) {
+              Alert.alert(
+                'Não foi possível excluir',
+                error instanceof Error ? error.message : 'Tente novamente.',
+              );
+            }
           },
         },
       ],
@@ -109,240 +93,161 @@ export default function ProjectDetailsScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top', 'bottom']}>
-
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F8F9FD"
-      />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       {/* Header */}
       <View style={styles.header}>
-
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
           style={styles.backButton}
-          onPress={() =>
-            navigation.goBack()
-          }>
-
-          <Text style={styles.backIcon}>
-            ‹
-          </Text>
-
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backIcon}>‹</Text>
         </Pressable>
 
-        <Text style={styles.headerTitle}>
-          Detalhes do Projeto
-        </Text>
+        <Text style={styles.headerTitle}>Detalhes do Projeto</Text>
 
-        <View style={{width: 38}} />
-
+        <View style={{ width: 38 }} />
       </View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-
+        showsVerticalScrollIndicator={false}
+      >
         {/* Projeto */}
         <View style={styles.heroCard}>
-
           <View
             style={[
               styles.projectIcon,
               {
-                backgroundColor:
-                  project.color + '22',
+                backgroundColor: project.color + '22',
               },
-            ]}>
-
-            <Text style={styles.projectEmoji}>
-             {project.icon ?? '📁'}
-            </Text>
-
+            ]}
+          >
+            <Text style={styles.projectEmoji}>{project.icon || ''}</Text>
           </View>
 
-          <Text style={styles.projectName}>
-            {project.name}
-          </Text>
+          <Text style={styles.projectName}>{project.name}</Text>
 
           <Text style={styles.description}>
-            {project.description ||
-              'Sem descrição.'}
+            {project.description || 'Sem descrição.'}
           </Text>
-
         </View>
 
         {/* Progresso */}
         <View style={styles.progressCard}>
-
           <View style={styles.progressHeader}>
-
             <View>
-              <Text style={styles.sectionLabel}>
-                PROGRESSO
-              </Text>
+              <Text style={styles.sectionLabel}>PROGRESSO</Text>
 
               <Text style={styles.progressTitle}>
                 {completed} de {total} tarefas
               </Text>
             </View>
 
-            <Text
-              style={[
-                styles.percentage,
-                {
-                  color: project.color,
-                },
-              ]}>
-              {percentage}%
-            </Text>
-
+            <Text style={styles.percentage}>{percentage}%</Text>
           </View>
 
           <View style={styles.progressTrack}>
-
             <View
               style={[
                 styles.progressBar,
                 {
                   width: `${percentage}%`,
-                  backgroundColor:
-                    project.color,
+                  backgroundColor: project.color,
                 },
               ]}
             />
-
           </View>
-
         </View>
 
         {/* Tarefas */}
-        <Text style={styles.sectionTitle}>
-          Tarefas
-        </Text>
+        <Text style={styles.sectionTitle}>Tarefas</Text>
 
         {projectTasks.length === 0 ? (
-
           <View style={styles.emptyCard}>
-
-            <Text style={styles.emptyIcon}>
-              📋
-            </Text>
-
-            <Text style={styles.emptyTitle}>
-              Nenhuma tarefa
-            </Text>
+            <Text style={styles.emptyTitle}>Nenhuma tarefa</Text>
 
             <Text style={styles.emptyText}>
               Este projeto ainda não possui tarefas.
             </Text>
-
           </View>
-
         ) : (
-
           projectTasks.map(task => (
-
             <Pressable
               key={task.id}
-              style={styles.taskCard}
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir tarefa: ${task.title}`}
+              style={[styles.taskCard, task.done && styles.completedCard]}
               onPress={() =>
-                navigation.navigate(
-                  'DetalheTarefa',
-                  {
-                    taskId: task.id,
-                  },
-                )
-              }>
-
+                navigation.navigate('DetalheTarefa', {
+                  taskId: task.id,
+                })
+              }
+            >
               <View
                 style={[
                   styles.priorityLine,
                   {
                     backgroundColor:
                       task.priority === 'high'
-                        ? '#F43F5E'
+                        ? COLORS.danger
                         : task.priority === 'medium'
-                        ? '#F59E0B'
-                        : '#5C4DFF',
+                        ? COLORS.warning
+                        : COLORS.primary,
                   },
                 ]}
               />
 
               <View style={styles.taskContent}>
-
-                <Text
-                  style={[
-                    styles.taskTitle,
-                    task.done &&
-                      styles.taskDone,
-                  ]}>
+                <Text style={[styles.taskTitle, task.done && styles.taskDone]}>
                   {task.title}
                 </Text>
 
                 <Text style={styles.taskTime}>
-                  🕒 {task.time ?? 'Sem horário'}
+                  {task.time ?? 'Sem horário'}
                 </Text>
-
               </View>
 
-              <Text style={styles.taskArrow}>
-                ›
-              </Text>
-
+              <Text style={styles.taskArrow}>›</Text>
             </Pressable>
-
           ))
-
         )}
-
       </ScrollView>
 
       {/* Ações */}
       <View style={styles.footer}>
-
         <Pressable
+          accessibilityRole="button"
           style={styles.editButton}
           onPress={() =>
-            navigation.navigate(
-              'EditarProjeto',
-              {
-                projectId:
-                  project.id,
-              },
-            )
-          }>
-
-          <Text style={styles.editText}>
-            ✎ Editar projeto
-          </Text>
-
+            navigation.navigate('EditarProjeto', {
+              projectId: project.id,
+            })
+          }
+        >
+          <Text style={styles.editText}>Editar projeto</Text>
         </Pressable>
 
         <Pressable
+          accessibilityRole="button"
           style={styles.deleteButton}
-          onPress={confirmDelete}>
-
-          <Text style={styles.deleteText}>
-            🗑 Excluir
-          </Text>
-
+          onPress={confirmDelete}
+        >
+          <Text style={styles.deleteText}>Excluir</Text>
         </Pressable>
-
       </View>
-
     </SafeAreaView>
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FD',
+    backgroundColor: COLORS.background,
   },
 
   scroll: {
@@ -352,56 +257,55 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEF0F5',
+    borderBottomColor: COLORS.border,
   },
 
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   backIcon: {
     fontSize: 31,
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     marginTop: -4,
   },
 
   headerTitle: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACING.md,
     fontSize: 19,
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
   },
 
   content: {
-    padding: 16,
-    paddingBottom: 24,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xl,
   },
 
   heroCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 14,
-    elevation: 2,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
 
   projectIcon: {
     width: 52,
     height: 52,
-    borderRadius: 16,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 13,
+    marginBottom: SPACING.md,
   },
 
   projectEmoji: {
@@ -409,84 +313,85 @@ const styles = StyleSheet.create({
   },
 
   projectName: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 23,
     fontWeight: '700',
   },
 
   description: {
-    color: '#64748B',
+    color: COLORS.textSecondary,
     fontSize: 14,
     lineHeight: 21,
-    marginTop: 7,
+    marginTop: SPACING.sm,
   },
 
   progressCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 17,
-    marginBottom: 22,
-    elevation: 2,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
 
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 13,
+    marginBottom: SPACING.md,
   },
 
   sectionLabel: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 10,
     fontWeight: '700',
   },
 
   progressTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 3,
+    marginTop: SPACING.xs,
   },
 
   percentage: {
+    color: COLORS.textPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
 
   progressTrack: {
     height: 8,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.sm,
     overflow: 'hidden',
   },
 
   progressBar: {
     height: 8,
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
   },
 
   sectionTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 17,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
 
+  completedCard: { backgroundColor: COLORS.surfaceSecondary },
   taskCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 13,
-    marginBottom: 9,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   priorityLine: {
     width: 4,
-    height: 38,
-    borderRadius: 4,
-    marginRight: 11,
+    height: 44,
+    borderRadius: RADIUS.sm,
+    marginRight: SPACING.md,
   },
 
   taskContent: {
@@ -494,85 +399,85 @@ const styles = StyleSheet.create({
   },
 
   taskTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
 
   taskDone: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
 
   taskTime: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 11,
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
 
   taskArrow: {
-    color: '#CBD5E1',
+    color: COLORS.border,
     fontSize: 22,
   },
 
   emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 24,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
     alignItems: 'center',
   },
 
-  emptyIcon: {
-    fontSize: 28,
-  },
-
   emptyTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: '700',
-    marginTop: 7,
+    marginTop: SPACING.sm,
   },
 
   emptyText: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: SPACING.xs,
     textAlign: 'center',
   },
 
   footer: {
     flexDirection: 'row',
-    gap: 9,
-    padding: 14,
-    backgroundColor: '#FAFAFA',
+    gap: SPACING.sm,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.background,
     borderTopWidth: 1,
-    borderTopColor: '#EEF0F5',
+    borderTopColor: COLORS.border,
   },
 
   editButton: {
+    minHeight: 48,
+    justifyContent: 'center',
     flex: 2,
-    paddingVertical: 14,
-    borderRadius: 15,
+    paddingVertical: SPACING.lg,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
-    backgroundColor: '#5C4DFF',
+    backgroundColor: COLORS.primary,
   },
 
   editText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 14,
     fontWeight: '700',
   },
 
   deleteButton: {
+    minHeight: 48,
+    justifyContent: 'center',
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 15,
+    paddingVertical: SPACING.lg,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
-    backgroundColor: '#FFF1F3',
+    backgroundColor: COLORS.dangerSoft,
   },
 
   deleteText: {
-    color: '#F43F5E',
+    color: COLORS.danger,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -581,25 +486,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: SPACING.xl,
   },
 
   notFoundTitle: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 15,
+    marginBottom: SPACING.lg,
   },
 
   homeButton: {
-    backgroundColor: '#5C4DFF',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
   },
 
   homeButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontWeight: '700',
   },
 });
