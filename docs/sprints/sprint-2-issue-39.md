@@ -1,5 +1,8 @@
 # Refinamento técnico — Issue #39: lembretes e notificações locais confiáveis
 
+Execução de T01/T02: [contrato temporal e gate Android](sprint-2-issue-39-gate.md).
+O registro de refinamento abaixo preserva o contexto e as decisões anteriores à execução.
+
 ## 1. Estado e limites
 
 **23/10/2026 — refinamento técnico concluído; proposta em revisão.** Issue
