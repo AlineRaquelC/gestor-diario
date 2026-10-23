@@ -85,7 +85,10 @@ afterEach(async () => { await act(async () => renderer.unmount()); jest.restoreA
 
 async function createThroughUI() {
   await act(async () => input('Nome da tarefa...').props.onChangeText('Nova com quatro filhos'));
-  await act(async () => button('Projeto').props.onPress());
+  const selector = renderer.root.findAll(node => typeof node.props.onPress === 'function').find(node => /^Selecionar projeto:/.test(node.props.accessibilityLabel ?? ''))!;
+  await act(async () => selector.props.onPress());
+  const project = renderer.root.findAll(node => typeof node.props.onPress === 'function').find(node => node.props.accessibilityLabel === 'Projeto: Projeto')!;
+  await act(async () => project.props.onPress());
   for (let index = 1; index <= 4; index++) {
     await act(async () => button('Adicionar subtarefa').props.onPress());
     await act(async () => input('Nome da subtarefa...').props.onChangeText('Filho ' + index));

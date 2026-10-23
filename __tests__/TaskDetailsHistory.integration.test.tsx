@@ -7,7 +7,8 @@ const mockNavigation = { navigate: jest.fn(), goBack: jest.fn(), reset: jest.fn(
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => mockNavigation, useRoute: () => ({ params: { taskId: 'task' } }) }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
 jest.mock('../src/context/TaskContext', () => ({ useTasks: jest.fn() }));
-const task = { id: 'task', title: 'Tarefa real', project: 'Projeto real', priority: 'low', status: 'todo', done: false, progress: 0, updatedAt: '2026-10-04T12:00:00Z' };
+jest.mock('../src/context/ProjectContext', () => ({ useProjects: () => ({projects: [{id: 'project-local', remoteId: 'project-remote', name: 'Projeto real', icon: '💻'}]}) }));
+const task = { id: 'task', title: 'Tarefa real', project: 'Projeto real', projectId: 'project-remote', description: 'Contexto da tarefa', startDate: '2026-10-22T12:00:00Z', dueDate: '2026-10-25T12:00:00Z', time: '09:00', priority: 'low', status: 'todo', done: false, progress: 0, updatedAt: '2026-10-04T12:00:00Z' };
 const load = jest.fn();
 const toggle = jest.fn();
 let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -79,4 +80,18 @@ it('toque no filho usa operação remota, aguarda confirmação e informa falha'
   await act(async () => { await row().props.onPress(); });
   expect(alert).toHaveBeenCalledWith('Não foi possível alterar a subtarefa', 'offline');
   expect(text()).toContain('Filha real'); expect(row().props.disabled).toBe(false);
+});
+
+it('mantém informações, ícone real por ID, progresso e editar no layout simplificado', async () => {
+  await mount();
+  const labels = renderer.root.findAll(node => String(node.type) === 'Text').map(node => [node.props.children].flat().join(''));
+  expect(labels).toEqual(expect.arrayContaining(['Tarefa real', 'Contexto da tarefa', 'Baixa prioridade', '💻 Projeto real', 'Informações', 'Início', 'Prazo', 'Horário', '09:00', 'Status', 'A fazer', 'Nenhuma subtarefa cadastrada.']));
+  expect(labels).toContain(new Date(task.startDate).toLocaleDateString('pt-BR'));
+  expect(labels).toContain(new Date(task.dueDate).toLocaleDateString('pt-BR'));
+  const progress = renderer.root.findAll(node => node.props.accessibilityRole === 'progressbar')[0];
+  expect(progress.props.accessibilityValue).toEqual({min: 0, max: 100, now: 0});
+  expect(labels.join('')).not.toMatch(/[📅🕒🗑🆕⭐★]/u);
+  const edit = renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Editar tarefa')[0];
+  await act(async () => edit.props.onPress());
+  expect(mockNavigation.navigate).toHaveBeenCalledWith('EditarTarefa', {taskId: 'task'});
 });

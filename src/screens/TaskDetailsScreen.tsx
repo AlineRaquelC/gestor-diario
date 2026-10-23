@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,25 +7,27 @@ import {
   Pressable,
   Alert,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
-import {useTaskDeletion} from '../hooks/useTaskDeletion';
+import { useTaskDeletion } from '../hooks/useTaskDeletion';
 
-import {useTasks} from '../context/TaskContext';
-import {presentTaskHistory} from '../models/taskHistory';
+import { useTasks } from '../context/TaskContext';
+import { presentTaskHistory } from '../models/taskHistory';
 import TaskNotesSection from '../components/TaskNotesSection';
+import { useProjects } from '../context/ProjectContext';
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
 
 export default function TaskDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
   const taskId = route.params?.taskId;
+  const { projects } = useProjects();
 
   const {
     tasks,
@@ -41,10 +43,14 @@ export default function TaskDetailsScreen() {
     navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
   });
 
-  const task = tasks.find(
-    item => item.id === taskId,
-  );
+  const task = tasks.find(item => item.id === taskId);
 
+  const selectedProject = task?.projectId
+    ? projects.find(
+        project =>
+          project.id === task.projectId || project.remoteId === task.projectId,
+      )
+    : undefined;
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState<string | null>(null);
   const hasTask = Boolean(task);
@@ -54,17 +60,31 @@ export default function TaskDetailsScreen() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const updatedAt = task?.updatedAt;
   useEffect(() => {
-    if (!hasTask || loading) {return;}
+    if (!hasTask || loading) {
+      return;
+    }
     let active = true;
     setHistoryLoading(true);
     setHistoryError(null);
     loadTaskHistory(taskId)
-      .catch(() => { if (active) {setHistoryError('Não foi possível carregar a atividade.');} })
-      .finally(() => { if (active) {setHistoryLoading(false);} });
-    return () => { active = false; };
+      .catch(() => {
+        if (active) {
+          setHistoryError('Não foi possível carregar a atividade.');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setHistoryLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [taskId, hasTask, loading, updatedAt, loadTaskHistory]);
   useEffect(() => {
-    if (loading) {return;}
+    if (loading) {
+      return;
+    }
     setDetailError(null);
     if (hasTask || typeof taskId !== 'string' || !taskId.trim()) {
       setDetailLoading(false);
@@ -74,10 +94,22 @@ export default function TaskDetailsScreen() {
     setDetailLoading(true);
     loadTaskById(taskId)
       .catch(error => {
-        if (active) {setDetailError(error instanceof Error ? error.message : 'Erro ao consultar tarefa.');}
+        if (active) {
+          setDetailError(
+            error instanceof Error
+              ? error.message
+              : 'Erro ao consultar tarefa.',
+          );
+        }
       })
-      .finally(() => { if (active) {setDetailLoading(false);} });
-    return () => { active = false; };
+      .finally(() => {
+        if (active) {
+          setDetailLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [taskId, hasTask, loading, loadTaskById]);
 
   if (!task) {
@@ -85,60 +117,45 @@ export default function TaskDetailsScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.notFoundContainer}>
           <Text style={styles.notFoundTitle}>
-            {loading || detailLoading ? 'Carregando tarefa…' : detailError ?? 'Tarefa não encontrada'}
+            {loading || detailLoading
+              ? 'Carregando tarefa…'
+              : detailError ?? 'Tarefa não encontrada'}
           </Text>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.backHomeButton}
-            onPress={() =>
-              navigation.navigate('Home')
-            }>
-            <Text style={styles.backHomeText}>
-              Voltar para Home
-            </Text>
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.backHomeText}>Voltar para Home</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  const subtasks =
-    task.subtasks ?? [];
+  const subtasks = task.subtasks ?? [];
 
-  const doneCount =
-    subtasks.filter(
-      subtask => subtask.done,
-    ).length;
+  const doneCount = subtasks.filter(subtask => subtask.done).length;
 
   const progress =
-    task.progress ?? (subtasks.length > 0
-      ? Math.round(
-          (doneCount / subtasks.length) * 100,
-        )
-      : 0);
+    task.progress ??
+    (subtasks.length > 0 ? Math.round((doneCount / subtasks.length) * 100) : 0);
 
-  function formatDateBR(
-    date?: string,
-  ) {
+  function formatDateBR(date?: string) {
     if (!date) {
       return 'Não definida';
     }
 
-    return new Date(
-      date,
-    ).toLocaleDateString('pt-BR');
+    return new Date(date).toLocaleDateString('pt-BR');
   }
 
   function getPriorityLabel() {
-    if (
-      task.priority === 'high'
-    ) {
+    if (task.priority === 'high') {
       return 'Alta prioridade';
     }
 
-    if (
-      task.priority === 'medium'
-    ) {
+    if (task.priority === 'medium') {
       return 'Média prioridade';
     }
 
@@ -159,426 +176,376 @@ export default function TaskDetailsScreen() {
   }
 
   async function toggleSubtask(id: string) {
-    if (subtaskSaving || statusSaving) {return;}
+    if (subtaskSaving || statusSaving) {
+      return;
+    }
     setSubtaskSaving(id);
     try {
       const result = await toggleChild(taskId, id);
-      if (!result.cacheSaved) {Alert.alert('Subtarefa salva no servidor', 'Não foi possível atualizar o cache local.');}
+      if (!result.cacheSaved) {
+        Alert.alert(
+          'Subtarefa salva no servidor',
+          'Não foi possível atualizar o cache local.',
+        );
+      }
     } catch (error) {
-      Alert.alert('Não foi possível alterar a subtarefa', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
-    } finally { setSubtaskSaving(null); }
+      Alert.alert(
+        'Não foi possível alterar a subtarefa',
+        error instanceof Error
+          ? error.message
+          : 'Verifique a conexão e tente novamente.',
+      );
+    } finally {
+      setSubtaskSaving(null);
+    }
   }
 
   async function handleToggleCompleted() {
-    if (statusSaving || subtaskSaving) {return;}
+    if (statusSaving || subtaskSaving) {
+      return;
+    }
     setStatusSaving(true);
     try {
       const result = await toggleTask(taskId);
-      if (!result.cacheSaved) {Alert.alert('Status salvo no servidor', 'Não foi possível atualizar o cache local.');}
+      if (!result.cacheSaved) {
+        Alert.alert(
+          'Status salvo no servidor',
+          'Não foi possível atualizar o cache local.',
+        );
+      }
     } catch (error) {
-      Alert.alert('Não foi possível alterar o status', error instanceof Error ? error.message : 'Verifique a conexão e tente novamente.');
+      Alert.alert(
+        'Não foi possível alterar o status',
+        error instanceof Error
+          ? error.message
+          : 'Verifique a conexão e tente novamente.',
+      );
     } finally {
       setStatusSaving(false);
     }
   }
 
-
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F6F7FF"
-      />
-
-      {/* Cabeçalho */}
-      <View style={styles.header}>
-
-        <Pressable
-          style={styles.headerButton}
-          onPress={() =>
-            navigation.goBack()
-          }>
-
-          <Text style={styles.backIcon}>
-            ‹
-          </Text>
-
-        </Pressable>
-
-        <Text style={styles.headerTitle}>
-          Detalhes da Tarefa
-        </Text>
-
-        <View style={styles.headerButton}>
-          <Text style={styles.menuIcon}>
-            ⋮
-          </Text>
-        </View>
-
-      </View>
-
-      <ScrollView
+      <KeyboardAvoidingView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Cabeçalho */}
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+            style={styles.headerButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </Pressable>
 
-        {/* Card principal */}
-        <View style={styles.heroCard}>
+          <Text style={styles.headerTitle}>Detalhes da Tarefa</Text>
 
-          <View style={styles.badgesRow}>
-
-            <View style={styles.priorityBadge}>
-              <Text style={styles.priorityText}>
-                ★ {getPriorityLabel()}
-              </Text>
-            </View>
-
-            <View style={styles.projectBadge}>
-              <Text style={styles.projectText}>
-                📁 {task.project}
-              </Text>
-            </View>
-
+          <View style={styles.headerButton}>
+            <Text style={styles.menuIcon}>⋮</Text>
           </View>
-
-          <Text
-            style={[
-              styles.taskTitle,
-              task.done &&
-                styles.taskTitleCompleted,
-            ]}>
-            {task.title}
-          </Text>
-
-          <Text style={styles.description}>
-            {task.description?.trim()
-              ? task.description
-              : 'Sem descrição.'}
-          </Text>
-
-          {task.done && (
-            <View style={styles.completedMessage}>
-
-              <Text style={styles.completedMessageIcon}>
-                ✓
-              </Text>
-
-              <Text style={styles.completedMessageText}>
-                Tarefa concluída!
-              </Text>
-
-            </View>
-          )}
-
         </View>
 
-        {/* Informações */}
-        <View style={styles.infoGrid}>
-
-          <InfoCard
-            icon="📅"
-            label="Início"
-            value={
-              formatDateBR(
-                task.startDate,
-              )
-            }
-          />
-
-          <InfoCard
-            icon="📅"
-            label="Prazo"
-            value={
-              formatDateBR(
-                task.dueDate,
-              )
-            }
-            accent
-            accentColor="#F43F5E"
-            background="#FFF5F6"
-          />
-
-          <InfoCard
-            icon="🕒"
-            label="Horário"
-            value={
-              task.time ??
-              'Não definido'
-            }
-          />
-
-          <InfoCard
-            icon="✓"
-            label="Status"
-            value={
-              getStatusLabel()
-            }
-            accent
-            accentColor={
-              task.status ===
-              'completed'
-                ? '#15803D'
-                : '#5C4DFF'
-            }
-            background={
-              task.status ===
-              'completed'
-                ? '#EEF8F2'
-                : '#EEF0FF'
-            }
-          />
-
-        </View>
-
-        {/* Progresso */}
-        <View style={styles.card}>
-
-          <View style={styles.progressHeader}>
-
-            <Text style={styles.cardTitle}>
-              Progresso
-            </Text>
-
-            <Text style={styles.progressPercent}>
-              {progress}%
-            </Text>
-
-          </View>
-
-          <View style={styles.progressTrack}>
-
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  width:
-                    `${progress}%`,
-                },
-              ]}
-            />
-
-          </View>
-
-          <View style={styles.progressFooter}>
-
-            <Text style={styles.progressDescription}>
-              {doneCount} de {subtasks.length} subtarefas concluídas
-            </Text>
-
-            <View
-              style={[
-                styles.progressStatus,
-                progress === 100 &&
-                  styles.progressStatusDone,
-              ]}>
-
-              <Text
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Card principal */}
+          <View style={styles.heroCard}>
+            <View style={styles.badgesRow}>
+              <View
                 style={[
-                  styles.progressStatusText,
-                  progress === 100 &&
-                    styles.progressStatusTextDone,
-                ]}>
-                {progress === 100
-                  ? 'Concluído'
-                  : 'Em progresso'}
-              </Text>
+                  styles.priorityBadge,
+                  task.priority === 'high'
+                    ? styles.priorityHigh
+                    : task.priority === 'medium'
+                    ? styles.priorityMedium
+                    : styles.priorityLow,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.priorityText,
+                    task.priority === 'high'
+                      ? styles.priorityHighText
+                      : task.priority === 'medium'
+                      ? styles.priorityMediumText
+                      : styles.priorityLowText,
+                  ]}
+                >
+                  {getPriorityLabel()}
+                </Text>
+              </View>
 
+              <View style={styles.projectBadge}>
+                <Text style={styles.projectText}>
+                  {selectedProject?.icon ? `${selectedProject.icon} ` : ''}
+                  {task.project}
+                </Text>
+              </View>
             </View>
 
+            <Text
+              style={[styles.taskTitle, task.done && styles.taskTitleCompleted]}
+            >
+              {task.title}
+            </Text>
+
+            <Text style={styles.description}>
+              {task.description?.trim() ? task.description : 'Sem descrição.'}
+            </Text>
+
+            {task.done && (
+              <View style={styles.completedMessage}>
+                <Text style={styles.completedMessageIcon}>✓</Text>
+
+                <Text style={styles.completedMessageText}>
+                  Tarefa concluída!
+                </Text>
+              </View>
+            )}
           </View>
 
-        </View>
+          {/* Informações */}
+          <View style={styles.infoSection}>
+            <Text style={styles.cardTitle}>Informações</Text>
+            <View style={styles.infoGrid}>
+              <InfoCard label="Início" value={formatDateBR(task.startDate)} />
 
-        {/* Subtarefas */}
-        <View style={styles.sectionHeader}>
+              <InfoCard
+                label="Prazo"
+                value={formatDateBR(task.dueDate)}
+                accent
+                accentColor={COLORS.danger}
+                background={COLORS.dangerSoft}
+              />
 
-          <Text style={styles.cardTitle}>
-            Subtarefas
-          </Text>
+              <InfoCard label="Horário" value={task.time ?? 'Não definido'} />
 
-          <Text style={styles.subtaskCounter}>
-            {doneCount}/{subtasks.length}
-          </Text>
-
-        </View>
-
-        <View style={styles.cardNoPadding}>
-
-          {subtasks.length === 0 ? (
-            <View style={styles.emptySubtasks}>
-              <Text style={styles.emptySubtasksText}>
-                Nenhuma subtarefa cadastrada.
-              </Text>
+              <InfoCard
+                label="Status"
+                value={getStatusLabel()}
+                accent
+                accentColor={
+                  task.status === 'completed' ? COLORS.success : COLORS.primary
+                }
+                background={
+                  task.status === 'completed'
+                    ? COLORS.successSoft
+                    : COLORS.primarySoft
+                }
+              />
             </View>
-          ) : (
-            subtasks.map(
-              (subtask, index) => (
+          </View>
+          {/* Progresso */}
+          <View style={styles.card}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.cardTitle}>Progresso</Text>
 
+              <Text style={styles.progressPercent}>{progress}%</Text>
+            </View>
+
+            <View
+              style={styles.progressTrack}
+              accessibilityRole="progressbar"
+              accessibilityLabel="Progresso das subtarefas"
+              accessibilityValue={{ min: 0, max: 100, now: progress }}
+            >
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${progress}%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.progressFooter}>
+              <Text style={styles.progressDescription}>
+                {doneCount} de {subtasks.length} subtarefas concluídas
+              </Text>
+
+              <View
+                style={[
+                  styles.progressStatus,
+                  progress === 100 && styles.progressStatusDone,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.progressStatusText,
+                    progress === 100 && styles.progressStatusTextDone,
+                  ]}
+                >
+                  {progress === 100 ? 'Concluído' : 'Em progresso'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Subtarefas */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.cardTitle}>Subtarefas</Text>
+
+            <Text style={styles.subtaskCounter}>
+              {doneCount}/{subtasks.length}
+            </Text>
+          </View>
+
+          <View style={styles.cardNoPadding}>
+            {subtasks.length === 0 ? (
+              <View style={styles.emptySubtasks}>
+                <Text style={styles.emptySubtasksText}>
+                  Nenhuma subtarefa cadastrada.
+                </Text>
+              </View>
+            ) : (
+              subtasks.map((subtask, index) => (
                 <Pressable
                   key={subtask.id}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={subtask.title}
+                  accessibilityState={{
+                    checked: subtask.done,
+                    disabled: subtaskSaving === subtask.id || statusSaving,
+                  }}
                   disabled={subtaskSaving === subtask.id || statusSaving}
                   style={[
                     styles.subtaskRow,
-                    index <
-                      subtasks.length - 1 &&
-                      styles.subtaskBorder,
+                    index < subtasks.length - 1 && styles.subtaskBorder,
                   ]}
-                  onPress={() =>
-                    toggleSubtask(
-                      subtask.id,
-                    )
-                  }>
-
+                  onPress={() => toggleSubtask(subtask.id)}
+                >
                   <View
                     style={[
                       styles.checkbox,
-                      subtask.done &&
-                        styles.checkboxDone,
-                    ]}>
-
-                    {subtask.done && (
-                      <Text style={styles.checkboxText}>
-                        ✓
-                      </Text>
-                    )}
-
+                      subtask.done && styles.checkboxDone,
+                    ]}
+                  >
+                    {subtask.done && <Text style={styles.checkboxText}>✓</Text>}
                   </View>
 
                   <Text
                     style={[
                       styles.subtaskTitle,
-                      subtask.done &&
-                        styles.subtaskTitleDone,
-                    ]}>
+                      subtask.done && styles.subtaskTitleDone,
+                    ]}
+                  >
                     {subtask.title}
                   </Text>
 
                   <View
                     style={[
                       styles.statusPill,
-                      subtask.done &&
-                        styles.statusPillDone,
-                    ]}>
-
+                      subtask.done && styles.statusPillDone,
+                    ]}
+                  >
                     <Text
                       style={[
                         styles.statusPillText,
-                        subtask.done &&
-                          styles.statusPillTextDone,
-                      ]}>
-                      {subtask.done
-                        ? 'Feita'
-                        : 'Pendente'}
+                        subtask.done && styles.statusPillTextDone,
+                      ]}
+                    >
+                      {subtask.done ? 'Feita' : 'Pendente'}
                     </Text>
-
                   </View>
-
                 </Pressable>
-              )
-            )
-          )}
+              ))
+            )}
+          </View>
 
-        </View>
+          <TaskNotesSection key={taskId} taskId={taskId} />
 
-        <TaskNotesSection key={taskId} taskId={taskId} />
+          {/* Atividade */}
+          <View style={styles.card}>
+            <Text style={styles.activityTitle}>Atividade</Text>
 
-        {/* Atividade */}
-        <View style={styles.card}>
+            {historyLoading && (
+              <Text style={styles.activityText}>Carregando atividade…</Text>
+            )}
+            {historyError && (
+              <Text style={styles.errorText} accessibilityRole="alert">
+                {historyError}
+              </Text>
+            )}
+            {!historyLoading &&
+              !historyError &&
+              !taskHistory[taskId]?.length && (
+                <Text style={styles.activityText}>
+                  Nenhuma atividade registrada.
+                </Text>
+              )}
+            {(taskHistory[taskId] ?? []).map(event => (
+              <ActivityRow key={event.id} {...presentTaskHistory(event)} />
+            ))}
+          </View>
+        </ScrollView>
 
-          <Text style={styles.activityTitle}>
-            Atividade
-          </Text>
-
-          {historyLoading && <Text style={styles.activityText}>Carregando atividade…</Text>}
-          {historyError && <Text style={styles.activityText}>{historyError}</Text>}
-          {!historyLoading && !historyError && !(taskHistory[taskId]?.length) && (
-            <Text style={styles.activityText}>Nenhuma atividade registrada.</Text>
-          )}
-          {(taskHistory[taskId] ?? []).map(event => (
-            <ActivityRow key={event.id} {...presentTaskHistory(event)} />
-          ))}
-
-        </View>
-
-      </ScrollView>
-
-      {/* Rodapé */}
-      <View style={styles.footer}>
-
-        <Pressable
-          style={styles.editButton}
-          onPress={() =>
-            navigation.navigate(
-              'EditarTarefa',
-              {
+        {/* Rodapé */}
+        <View style={styles.footer}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Editar tarefa"
+            style={styles.editButton}
+            onPress={() =>
+              navigation.navigate('EditarTarefa', {
                 taskId,
-              },
-            )
-          }>
+              })
+            }
+          >
+            <Text style={styles.editText}>Editar</Text>
+          </Pressable>
 
-          <Text style={styles.editIcon}>
-            ✎
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: statusSaving || subtaskSaving !== null,
+            }}
+            style={[
+              styles.completeButton,
+              (statusSaving || subtaskSaving !== null) && styles.disabled,
+              task.done && styles.completeButtonDone,
+            ]}
+            onPress={handleToggleCompleted}
+            disabled={statusSaving || subtaskSaving !== null}
+          >
+            <Text style={styles.completeButtonText}>
+              {statusSaving
+                ? 'Salvando…'
+                : task.done
+                ? '↩ Reabrir tarefa'
+                : '✓ Concluir tarefa'}
+            </Text>
+          </Pressable>
 
-          <Text style={styles.editText}>
-            Editar
-          </Text>
-
-        </Pressable>
-
-        <Pressable
-          style={[
-            styles.completeButton,
-            task.done &&
-              styles.completeButtonDone,
-          ]}
-          onPress={
-            handleToggleCompleted
-          }
-          disabled={statusSaving || subtaskSaving !== null}>
-
-          <Text style={styles.completeButtonText}>
-            {statusSaving ? 'Salvando…' : task.done
-              ? '↩ Reabrir tarefa'
-              : '✓ Concluir tarefa'}
-          </Text>
-
-        </Pressable>
-
-        <Pressable
-          style={styles.deleteButton}
-          onPress={
-            handleDeleteTask
-          }>
-
-          <Text style={styles.deleteIcon}>
-            🗑
-          </Text>
-
-          <Text style={styles.deleteText}>
-            Excluir
-          </Text>
-
-        </Pressable>
-
-      </View>
-
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Excluir tarefa"
+            style={styles.deleteButton}
+            onPress={handleDeleteTask}
+          >
+            <Text style={styles.deleteText}>Excluir</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 function InfoCard({
-  icon,
   label,
   value,
   accent = false,
-  accentColor = '#5C4DFF',
-  background = '#FFFFFF',
+  accentColor = COLORS.primary,
 }: {
-  icon: string;
   label: string;
   value: string;
   accent?: boolean;
@@ -586,47 +553,16 @@ function InfoCard({
   background?: string;
 }) {
   return (
-    <View
-      style={[
-        styles.infoCard,
-        {
-          backgroundColor:
-            background,
-          borderColor:
-            accent
-              ? `${accentColor}33`
-              : '#F1F5F9',
-        },
-      ]}>
-
-      <View style={styles.infoLabelRow}>
-
-        <Text style={styles.infoIcon}>
-          {icon}
-        </Text>
-
-        <Text style={styles.infoLabel}>
-          {label}
-        </Text>
-
-      </View>
-
-      <Text
-        style={[
-          styles.infoValue,
-          accent && {
-            color: accentColor,
-          },
-        ]}>
+    <View style={styles.infoCard}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={[styles.infoValue, accent && { color: accentColor }]}>
         {value}
       </Text>
-
     </View>
   );
 }
 
 function ActivityRow({
-  emoji,
   title,
   description,
   time,
@@ -638,28 +574,15 @@ function ActivityRow({
 }) {
   return (
     <View style={styles.activityRow}>
-
-      <View style={styles.activityIcon}>
-        <Text>
-          {emoji}
-        </Text>
-      </View>
+      <View style={styles.activityMarker} />
 
       <View style={styles.activityContent}>
-
         <Text style={styles.activityText}>
-          <Text style={styles.activityStrong}>
-            {title}
-          </Text>{' '}
-          {description}
+          <Text style={styles.activityStrong}>{title}</Text> {description}
         </Text>
 
-        <Text style={styles.activityTime}>
-          {time}
-        </Text>
-
+        <Text style={styles.activityTime}>{time}</Text>
       </View>
-
     </View>
   );
 }
@@ -667,487 +590,376 @@ function ActivityRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7FF',
+    backgroundColor: COLORS.background,
   },
-
   notFoundContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
-
   notFoundTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     marginBottom: 16,
   },
-
   backHomeButton: {
-    backgroundColor: '#5C4DFF',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
   },
-
   backHomeText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontWeight: '700',
   },
-
-  header: {
-    backgroundColor: '#FAFAFA',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF0F5',
-  },
-
-  headerButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   backIcon: {
     fontSize: 31,
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     marginTop: -4,
   },
-
   menuIcon: {
-    color: '#64748B',
+    color: COLORS.textSecondary,
     fontSize: 24,
   },
-
   headerTitle: {
     flex: 1,
     marginHorizontal: 12,
     fontSize: 19,
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
   },
-
   scroll: {
     flex: 1,
   },
-
-  content: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-
-  heroCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    elevation: 2,
-  },
-
   badgesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 12,
   },
-
-  priorityBadge: {
-    backgroundColor: '#FFE4E9',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-
-  priorityText: {
-    color: '#F43F5E',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
   projectBadge: {
-    backgroundColor: '#EEF0FF',
+    backgroundColor: COLORS.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
   },
-
   projectText: {
-    color: '#5C4DFF',
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: '600',
   },
-
-  taskTitle: {
-    fontSize: 21,
-    fontWeight: '700',
-    color: '#1E1B3A',
-    marginBottom: 7,
-  },
-
   taskTitleCompleted: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
-
-  description: {
-    fontSize: 14,
-    color: '#64748B',
-    lineHeight: 22,
-  },
-
   completedMessage: {
     marginTop: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: COLORS.successSoft,
     flexDirection: 'row',
     alignItems: 'center',
   },
-
   completedMessageIcon: {
     width: 22,
     height: 22,
     borderRadius: 11,
     textAlign: 'center',
     textAlignVertical: 'center',
-    backgroundColor: '#22C55E',
-    color: '#FFFFFF',
+    backgroundColor: COLORS.success,
+    color: COLORS.surface,
     fontWeight: '700',
     marginRight: 8,
   },
-
   completedMessageText: {
-    color: '#15803D',
+    color: COLORS.success,
     fontSize: 13,
     fontWeight: '600',
   },
-
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 14,
-  },
-
-  infoCard: {
-    width: '48.5%',
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 13,
-    elevation: 1,
-  },
-
-  infoLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-
-  infoIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-
-  infoLabel: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-
-  infoValue: {
-    color: '#1E1B3A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 17,
-    marginBottom: 14,
-    elevation: 2,
-  },
-
-  cardNoPadding: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 14,
-    elevation: 2,
-  },
-
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
   },
-
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 13,
   },
-
-  progressPercent: {
-    color: '#5C4DFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  progressTrack: {
-    height: 10,
-    backgroundColor: '#EEF0FF',
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-
-  progressBar: {
-    height: 10,
-    borderRadius: 8,
-    backgroundColor: '#5C4DFF',
-  },
-
   progressFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-
-  progressDescription: {
-    flex: 1,
-    color: '#94A3B8',
-    fontSize: 11,
-    marginRight: 8,
-  },
-
   progressStatus: {
-    backgroundColor: '#EEF0FF',
+    backgroundColor: COLORS.primarySoft,
     borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-
   progressStatusDone: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: COLORS.successSoft,
   },
-
   progressStatusText: {
-    color: '#5C4DFF',
+    color: COLORS.primary,
     fontSize: 10,
     fontWeight: '700',
   },
-
   progressStatusTextDone: {
-    color: '#22C55E',
+    color: COLORS.success,
   },
-
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-
   subtaskCounter: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },
-
   emptySubtasks: {
     padding: 18,
     alignItems: 'center',
   },
-
   emptySubtasksText: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 13,
   },
-
   subtaskRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 17,
     paddingVertical: 14,
   },
-
   subtaskBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: COLORS.surfaceSecondary,
   },
-
   checkbox: {
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: '#C7D2FE',
+    borderColor: COLORS.border,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-
   checkboxDone: {
-    backgroundColor: '#22C55E',
-    borderColor: '#22C55E',
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
   },
-
   checkboxText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontWeight: '700',
   },
-
   subtaskTitle: {
     flex: 1,
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
-
   subtaskTitleDone: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
     fontWeight: '400',
   },
-
   statusPill: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.surfaceSecondary,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-
   statusPillDone: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: COLORS.successSoft,
   },
-
   statusPillText: {
-    color: '#94A3B8',
+    color: COLORS.textSecondary,
     fontSize: 10,
     fontWeight: '600',
   },
-
   statusPillTextDone: {
-    color: '#15803D',
+    color: COLORS.success,
   },
-
   activityTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     marginBottom: 12,
   },
-
-  activityRow: {
-    flexDirection: 'row',
-    marginBottom: 13,
-  },
-
-  activityIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-
   activityContent: {
     flex: 1,
   },
-
   activityText: {
-    color: '#64748B',
+    color: COLORS.textSecondary,
     fontSize: 13,
     lineHeight: 19,
   },
-
   activityStrong: {
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
   },
-
+  header: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: { padding: SPACING.lg, paddingBottom: SPACING.xl },
+  heroCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  taskTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+  },
+  description: { fontSize: 14, lineHeight: 21, color: COLORS.textSecondary },
+  priorityBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+  },
+  priorityText: { fontSize: 12, fontWeight: '600' },
+  priorityHigh: { backgroundColor: COLORS.dangerSoft },
+  priorityHighText: { color: COLORS.danger },
+  priorityMedium: { backgroundColor: COLORS.warningSoft },
+  priorityMediumText: { color: COLORS.warning },
+  priorityLow: { backgroundColor: COLORS.primarySoft },
+  priorityLowText: { color: COLORS.primary },
+  infoSection: {
+    backgroundColor: COLORS.surface,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.md,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.lg,
+    paddingTop: SPACING.md,
+  },
+  infoCard: { width: '46%', paddingVertical: SPACING.xs },
+  infoLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  infoValue: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  cardNoPadding: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    marginBottom: SPACING.md,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: RADIUS.sm,
+    overflow: 'hidden',
+    backgroundColor: COLORS.primarySoft,
+    marginBottom: SPACING.sm,
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primary,
+  },
+  progressPercent: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
+  progressDescription: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginRight: SPACING.sm,
+  },
+  activityMarker: {
+    width: 6,
+    height: 6,
+    marginTop: SPACING.sm,
+    marginRight: SPACING.md,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primary,
+  },
   activityTime: {
-    color: '#B0BAC9',
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
   },
-
+  activityRow: { flexDirection: 'row', paddingVertical: SPACING.sm },
   footer: {
     flexDirection: 'row',
-    gap: 8,
-    padding: 14,
-    backgroundColor: '#FAFAFA',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
     borderTopWidth: 1,
-    borderTopColor: '#EEF0F5',
+    borderTopColor: COLORS.border,
   },
-
   editButton: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 15,
+    minHeight: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    padding: SPACING.sm,
   },
-
-  editIcon: {
-    color: '#5C4DFF',
-    fontSize: 17,
-  },
-
-  editText: {
-    color: '#5C4DFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
+  editText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
   completeButton: {
-    flex: 2.4,
-    backgroundColor: '#5C4DFF',
-    borderRadius: 15,
+    flex: 2.2,
+    minHeight: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    padding: SPACING.sm,
   },
-
-  completeButtonDone: {
-    backgroundColor: '#22C55E',
-  },
-
   completeButtonText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+    color: COLORS.surface,
+    textAlign: 'center',
   },
-
+  completeButtonDone: { backgroundColor: COLORS.primary },
   deleteButton: {
     flex: 1,
-    backgroundColor: '#FFF5F6',
-    borderRadius: 15,
+    minHeight: 48,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    padding: SPACING.sm,
   },
-
-  deleteIcon: {
-    fontSize: 15,
-  },
-
-  deleteText: {
-    color: '#F43F5E',
-    fontSize: 11,
-    fontWeight: '700',
+  deleteText: { fontSize: 13, color: COLORS.danger, fontWeight: '600' },
+  disabled: { opacity: 0.5 },
+  errorText: {
+    fontSize: 13,
+    color: COLORS.danger,
+    backgroundColor: COLORS.dangerSoft,
+    padding: SPACING.md,
+    borderRadius: RADIUS.sm,
   },
 });
