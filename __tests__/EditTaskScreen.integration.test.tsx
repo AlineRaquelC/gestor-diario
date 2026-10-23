@@ -95,3 +95,54 @@ it('remover e marcar filho usam Context remoto; erro mantém lista', async () =>
   const checkbox = renderer.root.findAll(node => typeof node.props.onPress === 'function').find(node => !node.findAll(child => String(child.type) === 'Text').length)!;
   await act(async () => { await checkbox.props.onPress(); }); expect(toggle).toHaveBeenCalledWith('task', 's');
 });
+
+
+it.each(['a', 'remote-a'])('mostra projeto atual resolvido por ID %s e preserva vínculo sem troca', async projectId => {
+  await act(async () => renderer.unmount());
+  jest.mocked(useTasks).mockReturnValue({ tasks: [{ ...task, projectId, project: 'Nome antigo' }], updateTask: patch } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => { renderer = ReactTestRenderer.create(<EditTaskScreen />); });
+  expect(renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Selecionar projeto: Mesmo nome')).toHaveLength(1);
+  expect(JSON.stringify(renderer.toJSON())).toContain('P');
+  await act(async () => renderer.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === 'Título')!.props.onChangeText('Outro título'));
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ title: 'Outro título' }));
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('projectId');
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('remoteId');
+});
+
+it('resolve remoteId após hidratação sem congelar seleção e mantém escolha explícita', async () => {
+  await act(async () => renderer.unmount());
+  jest.mocked(useProjects).mockReturnValue({ projects: [] } as unknown as ReturnType<typeof useProjects>);
+  await act(async () => { renderer = ReactTestRenderer.create(<EditTaskScreen />); });
+  jest.mocked(useProjects).mockReturnValue({ projects } as ReturnType<typeof useProjects>);
+  await act(async () => renderer.update(<EditTaskScreen />));
+  await act(async () => renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Selecionar projeto: Mesmo nome')[0].props.onPress());
+  const choices = renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Projeto: Mesmo nome');
+  expect(choices[0].props.accessibilityState.selected).toBe(true);
+  await act(async () => choices[1].props.onPress());
+  await act(async () => renderer.update(<EditTaskScreen />));
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ projectId: 'b' }));
+});
+
+it.each([undefined, 'inexistente'])('legado %s não recebe associação por nome', async projectId => {
+  await act(async () => renderer.unmount());
+  jest.mocked(useTasks).mockReturnValue({ tasks: [{ ...task, projectId }], updateTask: patch } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => { renderer = ReactTestRenderer.create(<EditTaskScreen />); });
+  expect(renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Selecionar projeto: Selecionar projeto')).toHaveLength(1);
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('projectId');
+});
+
+
+it('troca mostra nome e ícone novos imediatamente e envia o ID escolhido', async () => {
+  jest.mocked(useProjects).mockReturnValue({ projects: [projects[0], { ...projects[1], name: 'Produto', icon: '📦' }] } as ReturnType<typeof useProjects>);
+  await act(async () => renderer.update(<EditTaskScreen />));
+  await act(async () => renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Selecionar projeto: Mesmo nome')[0].props.onPress());
+  await act(async () => renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Projeto: Produto')[0].props.onPress());
+  expect(renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Selecionar projeto: Produto')).toHaveLength(1);
+  expect(JSON.stringify(renderer.toJSON())).toContain('📦');
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).toHaveBeenCalledWith('task', expect.objectContaining({ projectId: 'b' }));
+});

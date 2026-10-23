@@ -108,23 +108,11 @@ export default function EditTaskScreen() {
   const subtaskRequest = useRef(false);
 
   const originalStartDate = task?.startDate;
-  const linkedProject = projects.find(
-    item => item.id === task?.projectId || item.remoteId === task?.projectId,
-  );
-  // Retain a real remote relationship even before general project sync (#12).
-  const projectOptions =
-    task?.projectId && !linkedProject
-      ? [
-          ...projects,
-          {
-            id: task.projectId,
-            remoteId: task.projectId,
-            name: task.project,
-            color: COLORS.primary,
-            icon: '',
-          },
-        ]
-      : projects;
+  const linkedProject = task?.projectId
+    ? projects.find(item => item.id === task.projectId) ??
+      projects.find(item => item.remoteId === task.projectId)
+    : undefined;
+  const projectOptions = projects;
   const [title, setTitle] = useState(task?.title ?? '');
 
   const [description, setDescription] = useState(task?.description ?? '');
@@ -147,9 +135,9 @@ export default function EditTaskScreen() {
     task?.priority ?? 'medium',
   );
 
-  const [project, setProject] = useState(
-    linkedProject?.id ?? task?.projectId ?? '',
-  );
+  // Resolve again when project hydration/sync replaces the available IDs.
+  const [chosenProjectId, setProject] = useState<string | null>(null);
+  const project = chosenProjectId ?? linkedProject?.id ?? '';
 
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'todo');
 
@@ -245,7 +233,7 @@ export default function EditTaskScreen() {
       return;
     }
     const selectedProject = projectOptions.find(item => item.id === project);
-    if (!selectedProject) {
+    if (chosenProjectId !== null && !selectedProject) {
       Alert.alert('Projeto obrigatório', 'Selecione um projeto ou categoria.');
       return;
     }
@@ -279,7 +267,9 @@ export default function EditTaskScreen() {
       const result = await updateTask(taskId, {
         title: title.trim(),
         description: description.trim(),
-        projectId: selectedProject.id,
+        ...(chosenProjectId !== null && selectedProject
+          ? { projectId: selectedProject.id }
+          : {}),
         time,
         priority,
         status,
