@@ -9,9 +9,10 @@
 - **Apresentação:** **08/11/2026**; não é data de desenvolvimento nem prorroga o freeze.
 - **Branch desta documentação:** `docs/plan-sprint-2`; PR exclusivamente para `dev`, sem merge automático.
 
-Este trabalho formaliza planejamento, documentação e Issues no GitHub. Não implementa
-funcionalidades, não altera aplicativo/backend/banco, não instala dependências,
-não executa migrations e não autoriza iniciar a Issue #39 ou promover `dev → main`.
+Esta documentação registra o planejamento da Sprint 2 e suas Issues no GitHub.
+No momento da formalização, as Issues estavam planejadas e a implementação
+funcional ainda não havia sido iniciada. Aplicativo, backend, banco, dependências
+e migrations permaneceram inalterados; a promoção `dev → main` ficou fora do escopo.
 
 ## Sprint Goal
 
@@ -41,7 +42,7 @@ compatíveis com um incremento demonstrável dentro do prazo.
 Somente trabalho pronto/refinado e compatível com a capacidade pode iniciar.
 As Issues registram requisitos, aceite e limites; a decomposição técnica será feita
 **uma Issue por vez, antes de sua implementação**, sem Tasks técnicas detalhadas
-nesta formalização. O planejamento não declara automaticamente todos os recortes
+no planejamento inicial. O planejamento não declara automaticamente todos os recortes
 Ready nem todos os PBIs de origem integralmente cobertos.
 
 ## Escopo, ordem e Planning Poker
@@ -74,7 +75,7 @@ agendamento; horário menos antecedência não pode resultar em disparo passado.
 Apresentar erro compreensível e validar na camada adequada ao fluxo persistido,
 não somente no formulário. Não declarar agendamento bem-sucedido se falhar.
 
-É a **primeira implementação**, quando autorizada. Fora: escalonamento avançado,
+É a **primeira implementação prevista**, após aprovação de início. Fora: escalonamento avançado,
 silêncio complexo, políticas por prioridade e REQ114–REQ116 completos; não declarar
 RF43–RF45 ou PBI-13 integralmente entregues por este recorte.
 
@@ -146,8 +147,8 @@ requisitos nem do PBI-19. Compartilhamento avançado fica fora.
 - **Login atual é visual/placeholder:** Entrar navega para Home. Não transformar o fluxo em autenticação online nesta Sprint.
 - Sem login online, e-mail/senha, JWT, sessão, backend auth, conta em servidor, cadastro ou recuperação de senha.
 - **RF79:** autenticação simples e segura da API pertence ao **PBI-16**, fora do escopo desta Sprint.
-- **REQ175–REQ180:** pertencem à **Entrega 3 / PBI-30**: impressão digital, reconhecimento facial, íris, voz, assinatura e localização + biometria. Não implementar nesta Sprint.
-- Perfis locais não são autenticação online e não autorizam inclusão de biometria.
+- **REQ175–REQ180:** pertencem à **Entrega 3 / PBI-30**: impressão digital, reconhecimento facial, íris, voz, assinatura e localização + biometria. Implementação fora do escopo desta Sprint.
+- Perfis locais são distintos de autenticação online; biometria permanece fora do escopo.
 
 ## Fora do compromisso da Sprint 2
 
@@ -191,32 +192,32 @@ avançado ou isolamento inseguro.
 - **#40:** todas as frequências/edição, limites de dia/semana/mês e fim de mês, geração determinística, reabertura/sync idempotentes, calendário e compatibilidade com lembretes.
 - **#41:** título/descrição/observações, digitação e combinação com filtros, vazios, favoritos persistidos, salvar/aplicar/excluir filtros, IDs estáveis e homônimos; regressão de filtros/ordenação.
 - **#42:** metas e reabertura, dados reais/vazios, concluídas/pendentes/atrasadas, limites dos períodos, texto/barras/progresso coerentes e conclusão/reabertura refletidas.
-- **#43, somente se autorizada pelo gate:** criação/seleção/alternância/reinício e prova de isolamento/preservação dos dados. Não aceitar uma demonstração que mascare vazamento.
+- **#43, condicionada ao atendimento do gate:** criação/seleção/alternância/reinício e prova de isolamento/preservação dos dados. A validação exige isolamento efetivo, sem vazamento de dados.
 - Validar manualmente no Android cada recorte implementado; persistência e API/SQLite quando necessários. Usar massa isolada, sem limpar tarefas/projetos existentes.
 - Executar `npm run test:ci-scripts`, `npm run lint:ci`, `npm run typecheck:ci`, `npm run test:ci` e `git diff --check`; backend estrito e suas verificações quando afetado. Manter CI Mobile/Backend verdes, sem ampliar baselines ou alterar exclusões para ocultar regressões.
-- Esta formalização apenas consulta o CI verde da base; não executa testes de funcionalidades ainda não implementadas e não produz evidência fictícia de aceite.
+- A validação do planejamento se baseia no CI verde do MVP. Os testes das funcionalidades propostas permanecem pendentes de implementação e execução; não há evidência de aceite dessas funcionalidades.
 
 ## Plano diário operacional
 
 | Data de 2026 | Foco planejado |
 |---|---|
-| 23/10 | Formalizar plano, milestone e cinco Issues; revisar dependências/capacidade. Nenhuma implementação neste trabalho. |
-| 24/10 | Após autorização, refinar #39 e iniciar o desenvolvimento principal; validar cedo viabilidade Android e regras temporais. |
+| 23/10 | Planejamento, milestone e cinco Issues; revisão de dependências/capacidade. Implementação funcional ainda não iniciada. |
+| 24/10 | Após aprovação de início, refinar #39 e iniciar o desenvolvimento principal; validar cedo viabilidade Android e regras temporais. |
 | 25/10 | Prosseguir #39, persistência, reagendamento, erros e testes. |
 | 26/10 | Estabilizar/concluir #39 conforme DoD; refinar #40 somente com dependência temporal atendida. |
 | 27/10 | Desenvolvimento de #40 e validação de idempotência/calendário. |
 | 28/10 | #41 na ordem planejada, preservando filtros/IDs. |
 | 29/10 | #42 e integração do core; rever capacidade e riscos. #43 apenas se o gate estiver comprovadamente atendido. |
 | 30/10 | Regressão integrada Android, persistência, API/banco quando necessários e CI. |
-| 31/10 | Documentação, fechamento e promoção final planejada, sujeita a autorização própria/revisão; milestone operacional vence nesta data. Esta formalização não faz `dev → main`. |
+| 31/10 | Documentação, fechamento e promoção final planejada, sujeita a aprovação específica/revisão; milestone operacional vence nesta data. Promoção `dev → main` fora do escopo da formalização. |
 | 01/11 | Buffer/freeze; evitar desenvolvimento normal. Data máxima para commit/push; depois disso nenhuma alteração no repositório. |
 | 02–07/11 | Preparação/ensaio da demonstração sem alterar o repositório. |
 | 08/11 | Apresentação do incremento efetivamente validado; não é prazo de desenvolvimento. |
 
-A distribuição diária é uma previsão, não autorização para iniciar nem promessa de
-concluir sem DoD. Ajustar explicitamente o recorte ao risco/capacidade, sem mover o
-freeze. Qualquer promoção futura exige autorização específica e deve respeitar o
-mesmo limite; nenhuma promoção é executada nesta formalização.
+A distribuição diária é uma previsão condicionada à aprovação de início e ao
+cumprimento da DoD. Ajustes de recorte devem refletir explicitamente risco e
+capacidade, preservando o freeze. Uma promoção futura depende de aprovação
+específica e do mesmo limite de prazo; permanece fora do escopo da formalização.
 
 ## Definition of Done da Sprint
 
@@ -239,11 +240,10 @@ resultado rastreável do Goal/core, ou replanejamento explícito de itens não
 concluídos, preservando riscos e pendências. Stretch não é condição para cumprir
 os 37 pontos planejados do core.
 
-## Regras de execução e repositório
+## Estado do planejamento e práticas do repositório
 
-- As cinco Issues permanecem abertas e **não iniciadas**. Não criar feature branch da #39 nesta formalização; não instalar dependências ou iniciar migrations.
-- Em trabalho futuro autorizado, partir de `dev` limpa/atualizada; branch por Issue conforme Git Flow; PR para `dev`, Conventional Commits, referência à Issue, critérios e evidências. Sem merge automático ou desenvolvimento direto em `dev`/`main`.
-- Reutilizar labels existentes; milestone nº 2 identifica a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Não criar coleção de labels novas.
-- **Não limpar tarefas/projetos de teste agora.** A limpeza para apresentação só será tratada depois da Sprint 2, com autorização própria e respeitando o freeze; não agendar alteração posterior ao freeze.
-- Não criar/versionar `docs/prompts/`, prompts de IA, transcrições, material pessoal, temporários, screenshots, bancos/dumps ou secrets.
-- Após documentação, Issues e PR documental, parar. Nenhuma implementação ou promoção `dev → main` faz parte deste trabalho.
+- As cinco Issues permanecem abertas e **não iniciadas**. A formalização é documental, sem feature branch, instalação de dependências ou execução de migrations.
+- O desenvolvimento futuro segue o Git Flow: base `dev` limpa/atualizada, branch por Issue, Conventional Commits e PR para `dev` com referência à Issue, critérios e evidências. Integração por revisão, sem merge automático ou desenvolvimento direto em `dev`/`main`.
+- As labels existentes e o milestone nº 2 identificam a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Nenhuma label nova foi criada.
+- **Dados de teste preservados.** A limpeza para apresentação fica para depois da Sprint 2, mediante aprovação específica e respeitando a data limite do freeze; alterações posteriores ao freeze estão excluídas.
+- Resultado da formalização: planejamento documentado e Issues registradas; implementação funcional e promoção `dev → main` permanecem fora do escopo.
