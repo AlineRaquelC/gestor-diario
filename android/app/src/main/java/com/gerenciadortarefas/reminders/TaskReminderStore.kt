@@ -1,4 +1,4 @@
-package com.gerenciadortarefas.remindergate
+package com.gerenciadortarefas.reminders
 
 import android.annotation.SuppressLint
 import android.os.Build
@@ -14,16 +14,16 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import org.json.JSONObject
 
-/** Isolated gate storage; no Task data or production scheduler. */
-@SuppressLint("ApplySharedPref") // Durable gate writes must complete before confirming native operations.
-object ReminderGateStore {
-  const val CHANNEL = "project-reminder-gate"
-  private const val PREFS = "project_reminder_gate"
+/** Native trigger records contain only technical identity and UTC time. */
+@SuppressLint("ApplySharedPref") // Durable writes must complete before confirming native operations.
+object TaskReminderStore {
+  const val CHANNEL = "project-task-reminders"
+  private const val PREFS = "task_reminders"
   private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
   private fun alarms(c: Context) = c.getSystemService(AlarmManager::class.java)
-  private fun intent(c: Context, id: String) = Intent(c, ReminderAlarmReceiver::class.java)
-    .setAction("com.gerenciadortarefas.REMINDER_GATE_ALARM")
-    .setData(Uri.parse("reminder-gate:" + Uri.encode(id)))
+  private fun intent(c: Context, id: String) = Intent(c, TaskReminderAlarmReceiver::class.java)
+    .setAction("com.gerenciadortarefas.TASK_REMINDER_ALARM")
+    .setData(Uri.parse("task-reminders:" + Uri.encode(id)))
     .putExtra("notificationId", id)
   private fun pending(c: Context, id: String, flags: Int) = PendingIntent.getBroadcast(
     c, 0, intent(c, id), flags or PendingIntent.FLAG_IMMUTABLE)
@@ -31,7 +31,7 @@ object ReminderGateStore {
   private fun channel(c: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       c.getSystemService(NotificationManager::class.java).createNotificationChannel(
-        NotificationChannel(CHANNEL, "Project reminder gate", NotificationManager.IMPORTANCE_HIGH))
+        NotificationChannel(CHANNEL, "Lembretes de tarefas", NotificationManager.IMPORTANCE_HIGH))
     }
   }
 
@@ -48,26 +48,25 @@ object ReminderGateStore {
   }
 
   @Synchronized fun schedule(c: Context, id: String, at: Double): String {
-    require(id.startsWith("task-reminder:gate-")) { "Gate IDs only" }
+    require(Regex("^task-reminder:[^:]+:[^:]+$").matches(id)) { "Canonical Task/Reminder identity required" }
     require(at.isFinite() && at > System.currentTimeMillis() && at <= Long.MAX_VALUE.toDouble()) { "Future trigger required" }
     check(usable(c)) { "Notifications unavailable; schedule refused" }
     val record = JSONObject().put("notificationId", id).put("triggerAt", at.toLong())
-      .put("payload", "Gate de lembretes")
-    check(prefs(c).edit().putString(id, record.toString()).commit()) { "Could not persist gate record" }
+    check(prefs(c).edit().putString(id, record.toString()).commit()) { "Could not persist reminder record" }
     try { arm(c, id, at.toLong()) } catch (e: Exception) {
       prefs(c).edit().remove(id).commit()
       pending(c, id, PendingIntent.FLAG_NO_CREATE)?.let { alarms(c).cancel(it); it.cancel() }
       throw e
     }
-    Log.i("ProjectReminderGate", "scheduled $record")
+    Log.i("TaskReminders", "scheduled $record")
     return record.toString()
   }
 
   @Synchronized fun cancel(c: Context, id: String): String {
     pending(c, id, PendingIntent.FLAG_NO_CREATE)?.let { alarms(c).cancel(it); it.cancel() }
-    check(prefs(c).edit().remove(id).commit()) { "Could not remove gate record" }
+    check(prefs(c).edit().remove(id).commit()) { "Could not remove reminder record" }
     c.getSystemService(NotificationManager::class.java).cancel(id, 0)
-    Log.i("ProjectReminderGate", "cancelled $id")
+    Log.i("TaskReminders", "cancelled $id")
     return scheduled(c)
   }
 
@@ -85,10 +84,10 @@ object ReminderGateStore {
       val at = record.getLong("triggerAt")
       if (at <= now || !usable(c)) {
         cancel(c, id)
-        Log.i("ProjectReminderGate", "recovery discarded id=$id triggerAt=$at now=$now reason=$reason")
+        Log.i("TaskReminders", "recovery discarded id=$id triggerAt=$at now=$now reason=$reason")
       } else {
         arm(c, id, at)
-        Log.i("ProjectReminderGate", "recovery rearmed id=$id triggerAt=$at now=$now reason=$reason")
+        Log.i("TaskReminders", "recovery rearmed id=$id triggerAt=$at now=$now reason=$reason")
       }
     }
   }
@@ -101,21 +100,21 @@ object ReminderGateStore {
     val at = record.getLong("triggerAt")
     val now = System.currentTimeMillis()
     if (now < at) { arm(c, id, at); return }
-    check(prefs(c).edit().remove(id).commit()) { "Could not consume gate record" }
+    check(prefs(c).edit().remove(id).commit()) { "Could not consume reminder record" }
     if (!usable(c)) {
-      Log.i("ProjectReminderGate", "delivery denied id=$id triggerAt=$at now=$now")
+      Log.i("TaskReminders", "delivery denied id=$id triggerAt=$at now=$now")
       return
     }
     val notification = NotificationCompat.Builder(c, CHANNEL)
       .setSmallIcon(android.R.drawable.ic_dialog_info)
-      .setContentTitle(record.getString("payload"))
-      .setContentText("triggerAt=$at deliveredAt=$now delayMs=${now - at}")
+      .setContentTitle("Gestor Diário")
+      .setContentText("Você tem uma tarefa próxima do prazo.")
       .setAutoCancel(true).build()
     try {
       c.getSystemService(NotificationManager::class.java).notify(id, 0, notification)
-      Log.i("ProjectReminderGate", "delivered id=$id triggerAt=$at deliveredAt=$now delayMs=${now - at}")
+      Log.i("TaskReminders", "delivered id=$id triggerAt=$at deliveredAt=$now delayMs=${now - at}")
     } catch (e: SecurityException) {
-      Log.i("ProjectReminderGate", "delivery permission revoked id=$id")
+      Log.i("TaskReminders", "delivery permission revoked id=$id")
     }
   }
 }

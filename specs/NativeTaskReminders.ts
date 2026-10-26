@@ -7,4 +7,4 @@ export interface Spec extends TurboModule {
   getScheduled(): Promise<string>;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>('NativeReminderGate');
+export default TurboModuleRegistry.get<Spec>('NativeTaskReminders');

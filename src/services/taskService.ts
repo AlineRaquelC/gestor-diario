@@ -1,10 +1,13 @@
+import { canonicalReminders, reminderInputs, validateReminderTimeZone } from '../models/reminder';
+import { validateReminderChange } from '../domain/reminders';
+import type { ApiReminder, ReminderInput, VisualReminderDraft } from '../models/reminder';
 import type { Task, Priority, TaskStatus, Subtask } from '../context/TaskContext';
 import type { Project } from '../context/ProjectContext';
 import { apiRequest, ApiError } from './api';
 import type { LegacyTaskStatus } from '../models/taskStatus';
 
-export type NewTask = Omit<Task, 'id' | 'status'> & { status: LegacyTaskStatus; projectId: string; startDate: string; dueDate: string };
-export type TaskUpdate = Omit<Partial<Task>, 'status'> & { status?: LegacyTaskStatus };
+export type NewTask = Omit<Task, 'id' | 'status' | 'reminders'> & { status: LegacyTaskStatus; reminders?: ReminderInput[] | VisualReminderDraft; projectId: string; startDate: string; dueDate: string };
+export type TaskUpdate = Omit<Partial<Task>, 'status' | 'reminders'> & { status?: LegacyTaskStatus; reminders?: ReminderInput[] };
 export type TaskHistoryEvent = {
   id: string; taskId: string;
   action: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'COMPLETED' | 'REOPENED' | 'DELETE' | 'RESTORE' | 'DELETED' | 'RESTORED';
@@ -18,6 +21,8 @@ export type ApiTask = {
   done: boolean; progress: number; favorite: boolean;
   createdAt: string; updatedAt: string; deletedAt: string | null; undoUntil: string | null;
   project?: { id: string; name: string; color: string; icon: string } | null;
+  reminderTimeZone?: string | null;
+  reminders?: ApiReminder[];
   subtasks?: Subtask[];
 };
 const priorities = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH' } as const;
@@ -38,16 +43,28 @@ function mobileDate(value: string) {
   return new Date(year, month - 1, day).toISOString();
 }
 
+type CachedTask = Pick<Partial<Task>, 'project' | 'subtasks' | 'legacyReminders' | 'dueDate' | 'dueDateKey' | 'time' | 'reminderTimeZone'> & { reminders?: unknown };
+
+function reminderPayload(input: { reminders?: ReminderInput[] | VisualReminderDraft; reminderTimeZone?: string | null }) {
+  if (input.reminderTimeZone != null) {validateReminderTimeZone(input.reminderTimeZone);}
+  const reminders = input.reminders === undefined ? undefined : reminderInputs(input.reminders);
+  return { ...(reminders !== undefined ? { reminders } : {}),
+    ...(input.reminderTimeZone !== undefined && !(input.reminders?.length && reminders === undefined)
+      ? { reminderTimeZone: input.reminderTimeZone } : {}) };
+}
+
 export function toApiTask(input: NewTask, projectId: string) {
   return {
     title: input.title, description: input.description, projectId,
-    startDate: calendarDate(input.startDate), dueDate: calendarDate(input.dueDate),
+    startDate: input.startDateKey ?? calendarDate(input.startDate), dueDate: input.dueDateKey ?? calendarDate(input.dueDate),
     time: input.time || undefined, priority: priorities[input.priority], status: statuses[input.status],
+    ...reminderPayload(input),
+    ...(input.clientId ? { clientId: input.clientId } : {}),
     ...(input.subtasks?.length ? { subtasks: input.subtasks.map(child => ({ title: child.title })) } : {}),
   };
 }
 
-export function fromApiTask(task: ApiTask, draft?: Pick<Task, 'project' | 'subtasks' | 'reminders'>): Task {
+export function fromApiTask(task: ApiTask, draft?: CachedTask): Task {
   return {
     id: task.id, remoteId: task.id, clientId: task.clientId ?? undefined, deletedAt: task.deletedAt, title: task.title, description: task.description ?? undefined,
     project: task.project?.name ?? draft?.project ?? 'Projeto indisponível',
@@ -57,7 +74,11 @@ export function fromApiTask(task: ApiTask, draft?: Pick<Task, 'project' | 'subta
     createdAt: task.createdAt, updatedAt: task.updatedAt,
     progress: task.progress,
     subtasks: mergeSubtasks(task.subtasks?.map(({ id, title, done }) => ({ id, title, done, remote: true })), draft?.subtasks),
-    reminders: draft?.reminders,
+    dueDateKey: task.dueDate, startDateKey: task.startDate,
+    reminderTimeZone: task.reminderTimeZone ?? null,
+    reminders: canonicalReminders(task.reminders ?? [], task.id),
+    remindersConfirmed: true,
+    ...(draft ? { legacyReminders: [...new Set([...(draft.legacyReminders ?? []), ...(Array.isArray(draft.reminders) && draft.reminders.every(item => typeof item === 'string') ? draft.reminders as string[] : [])])] } : {}),
   };
 }
 
@@ -89,19 +110,30 @@ export async function getTaskById(id: string): Promise<Task> {
 
 export function toApiTaskUpdate(input: TaskUpdate) {
   return {
+    ...reminderPayload(input),
     ...(input.title !== undefined ? { title: input.title } : {}),
     ...(input.description !== undefined ? { description: input.description } : {}),
     ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
-    ...(input.startDate !== undefined ? { startDate: calendarDate(input.startDate) } : {}),
-    ...(input.dueDate !== undefined ? { dueDate: calendarDate(input.dueDate) } : {}),
+    ...(input.startDate !== undefined ? { startDate: input.startDateKey ?? calendarDate(input.startDate) } : {}),
+    ...(input.dueDate !== undefined ? { dueDate: input.dueDateKey ?? calendarDate(input.dueDate) } : {}),
     ...(input.time !== undefined ? { time: input.time || null } : {}),
     ...(input.priority !== undefined ? { priority: priorities[input.priority] } : {}),
     ...(input.status !== undefined ? { status: statuses[input.status] } : {}),
   };
 }
 
-export async function updateTask(id: string, input: TaskUpdate, local?: Pick<Task, 'project' | 'subtasks' | 'reminders'>): Promise<Task> {
-  const response = await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}`, 'PATCH', toApiTaskUpdate(input));
+export async function updateTask(id: string, input: TaskUpdate, local?: CachedTask): Promise<Task> {
+  const payload = toApiTaskUpdate(input);
+  if (local?.dueDateKey) {
+    const previous = Array.isArray(local.reminders) && local.reminders.every(item => typeof item === 'object')
+      ? canonicalReminders(local.reminders, id) : [];
+    validateReminderChange({ dueDate: payload.dueDate ?? local.dueDateKey, time: input.time ?? local.time ?? '',
+      timeZone: input.reminderTimeZone === undefined ? local.reminderTimeZone ?? '' : input.reminderTimeZone ?? '',
+      offsets: (input.reminders ?? previous).map(item => item.offsetMinutes) },
+      { dueDate: local.dueDateKey, time: local.time ?? '', timeZone: local.reminderTimeZone ?? '',
+        offsets: previous.map(item => item.offsetMinutes) }, Date.now);
+  }
+  const response = await apiRequest<ApiTask>(`/tasks/${encodeURIComponent(id)}`, 'PATCH', payload);
   return fromApiTask(response, local);
 }
 
@@ -125,7 +157,14 @@ export async function resolveProject(project: Project): Promise<string> {
 }
 
 export async function createTask(input: NewTask, projectId: string): Promise<Task> {
-  const response = await apiRequest<ApiTask>('/tasks', 'POST', toApiTask(input, projectId));
+  const payload = toApiTask(input, projectId);
+  // A keyed retry may refer to a persisted configuration that has now expired.
+  // Only the backend can distinguish that retry from a new keyed creation.
+  if (!input.clientId) {
+    validateReminderChange({ dueDate: payload.dueDate, time: payload.time ?? '', timeZone: payload.reminderTimeZone ?? '',
+      offsets: (payload.reminders ?? []).map(item => item.offsetMinutes) }, undefined, Date.now);
+  }
+  const response = await apiRequest<ApiTask>('/tasks', 'POST', payload);
   // Draft IDs are temporary. Their confirmed replacements come from SQLite;
   // merging them as local children would duplicate the submitted subtasks.
   return fromApiTask(response, { ...input, subtasks: undefined });

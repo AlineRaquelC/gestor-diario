@@ -8,11 +8,16 @@ import React, {
   ReactNode,
 } from 'react';
 
+import type { Reminder } from '../models/reminder';
+import { normalizeReminderCache } from '../models/reminder';
+import { AppState } from 'react-native';
+import { reminderScheduler, schedulingFingerprint } from '../services/reminderScheduler';
+import type { SchedulingResult } from '../services/reminderScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProjects } from './ProjectContext';
 import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask } from '../services/taskService';
 import { getTaskHistory, createSubtask, updateSubtask, deleteSubtask, mergeSubtasks } from '../services/taskService';
-import type { NewTask, TaskHistoryEvent } from '../services/taskService';
+import type { NewTask, TaskHistoryEvent, TaskUpdate } from '../services/taskService';
 import { deleteTask as remoteDeleteTask, restoreTask as remoteRestoreTask } from '../services/taskService';
 import { normalizeTaskStatus } from '../models/taskStatus';
 import type { TaskStatus } from '../models/taskStatus';
@@ -69,12 +74,18 @@ export type Task = {
 
   subtasks?: Subtask[];
 
-  reminders?: string[];
+  reminders?: Reminder[];
+  reminderTimeZone?: string | null;
+  dueDateKey?: string;
+  startDateKey?: string;
+  remindersConfirmed?: boolean;
+  legacyReminders?: string[];
 };
 
 type TaskContextType = {
   tasks: Task[];
   loading: boolean;
+  reminderScheduling: Record<string, SchedulingResult>;
   syncing: boolean;
   synchronizeManually: () => Promise<import('../services/syncService').SyncResult>;
   readError: string | null;
@@ -89,25 +100,25 @@ type TaskContextType = {
 
   toggleTask: (
     id: string,
-  ) => Promise<{ task: Task; cacheSaved: boolean }>;
+  ) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
 
-  deleteTask: (id: string) => Promise<{ cacheSaved: boolean }>;
-  restoreTask: (id: string) => Promise<{ task: Task; cacheSaved: boolean }>;
+  deleteTask: (id: string) => Promise<{ cacheSaved: boolean; scheduling: SchedulingResult }>;
+  restoreTask: (id: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
   undo: { id: string; expiresAt: number } | null;
 
   addTask: (
     task: NewTask,
-  ) => Promise<{ task: Task; cacheSaved: boolean }>;
+  ) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
 
   updateTask: (
     id: string,
-    updatedTask: Partial<Task>,
-  ) => Promise<{ task: Task; cacheSaved: boolean }>;
+    updatedTask: TaskUpdate,
+  ) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
 
   updateTaskLocal: (id: string, changes: Partial<Task>) => void;
-  addSubtask: (taskId: string, title: string) => Promise<{ task: Task; cacheSaved: boolean }>;
-  toggleSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean }>;
-  removeSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean }>;
+  addSubtask: (taskId: string, title: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
+  toggleSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
+  removeSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
 
   getTaskById: (
     id: string,
@@ -132,7 +143,7 @@ function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
     byId.set(task.id, normalize({
       ...preserveTask(task, cached),
       subtasks: mergeSubtasks(task.subtasks, cached?.subtasks),
-      reminders: task.reminders ?? cached?.reminders,
+      reminders: task.reminders ?? [],
     }));
   }
   return [...byId.values()].filter(task => !task.deletedAt);
@@ -159,6 +170,13 @@ export function TaskProvider({
   const [syncing, setSyncing] = useState(false);
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+  const mutationRevision = useRef(0);
+  const [reminderScheduling, setReminderScheduling] = useState<Record<string, SchedulingResult>>({});
+  const schedulingRef = useRef<Record<string, SchedulingResult>>({});
+  const reportScheduling = useCallback((results: Record<string, SchedulingResult>) => {
+    schedulingRef.current = { ...schedulingRef.current, ...results };
+    setReminderScheduling(schedulingRef.current);
+  }, []);
   const deletedIds = useRef(new Set<string>());
   const deletionBusy = useRef(false);
   const [undo, setUndo] = useState<{ id: string; expiresAt: number } | null>(null);
@@ -202,6 +220,40 @@ export function TaskProvider({
     return write;
   }, []);
 
+  const persistConfirmed = useCallback(async (next: Task[], task: Task, previous?: Task) => {
+    let cacheSaved = true;
+    try {await persistTasks(next);} catch {cacheSaved = false;}
+    const timingChanged = !previous || schedulingFingerprint(previous) !== schedulingFingerprint(task);
+    let scheduling: SchedulingResult;
+    if (!cacheSaved) {
+      // A new schedule needs durable confirmed cache. Still suppress obsolete triggers.
+      const cancellation = timingChanged && task.remindersConfirmed ? await reminderScheduler.suspend(task) : undefined;
+      scheduling = { state: cancellation?.state === 'error' || cancellation?.state === 'unavailable' ? cancellation.state : 'pending',
+        message: `Tarefa salva; cache e reconciliação local pendentes.${cancellation?.message ? ' ' + cancellation.message : ''}` };
+    } else {
+      scheduling = timingChanged ? await reminderScheduler.reconcile([task]) :
+        schedulingRef.current[task.id] ?? { state: 'pending', message: 'Reconciliação local ainda não confirmada.' };
+    }
+    reportScheduling({ [task.id]: scheduling });
+    return { task, cacheSaved, scheduling };
+  }, [persistTasks, reportScheduling]);
+
+  async function prepareSuppression(task: Task): Promise<SchedulingResult> {
+    if (!task.remindersConfirmed) {return { state: 'not_required' };}
+    const result = await reminderScheduler.suspend(task);
+    reportScheduling({ [task.id]: result });
+    if (result.state === 'error' || result.state === 'unavailable' || result.state === 'pending') {
+      throw new Error(result.message ?? 'Não foi possível cancelar os lembretes neste aparelho.');
+    }
+    return result;
+  }
+
+  async function compensate(task: Task, error: unknown): Promise<never> {
+    const scheduling = await reminderScheduler.reconcile([task]);
+    reportScheduling({ [task.id]: scheduling });
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), { scheduling });
+  }
+
   /*
    * Evita salvar os dados iniciais
    * antes de terminar de carregar
@@ -222,7 +274,8 @@ export function TaskProvider({
       let cacheError: string | null = null;
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
-        const cached: Task[] = stored ? JSON.parse(stored) : [];
+        const raw: Task[] = stored ? JSON.parse(stored) : [];
+        const cached = Array.isArray(raw) ? raw.map(task => normalizeReminderCache(task)) : raw;
         if (!Array.isArray(cached) || cached.some(task => !task || typeof task.id !== 'string')) {
           throw new Error('Cache inválido.');
         }
@@ -237,11 +290,20 @@ export function TaskProvider({
       setHydrated(true);
       setReadError(cacheError);
       try {
+        const revision = mutationRevision.current;
         const remote = await getTasks();
         if (!active) {return;}
         tasksRef.current = mergeReadTasks(tasksRef.current, remote.filter(task => !deletedIds.current.has(task.id)));
         setTasks(tasksRef.current);
+        if (cacheWritable.current) {
+          await persistTasks(tasksRef.current);
+          if (dataGuard.activeTasks || dataGuard.syncing) {return;}
+          const snapshot = tasksRef.current.filter(task => remote.some(item => item.id === task.id));
+          const scheduling = await reminderScheduler.reconcile(snapshot, revision === mutationRevision.current);
+          if (active) {reportScheduling(Object.fromEntries(snapshot.map(task => [task.id, scheduling])));}
+        }
       } catch (error) {
+        if (cacheWritable.current) {await reminderScheduler.retry();}
         if (active) {setReadError([cacheError, error instanceof Error ? error.message : 'Erro ao consultar tarefas.'].filter(Boolean).join(' '));}
       } finally {
         if (active) {setLoading(false);}
@@ -249,7 +311,30 @@ export function TaskProvider({
     }
     loadTasks();
     return () => { active = false; };
-  }, []);
+  }, [persistTasks, reportScheduling]);
+
+  useEffect(() => {
+    if (!hydrated || loading || !cacheWritable.current) {return;}
+    let active = true;
+    const subscription = AppState.addEventListener('change', state => {
+      if (state !== 'active' || dataGuard.syncing || dataGuard.activeTasks || undoRef.current) {return;}
+      const revision = mutationRevision.current;
+      (async () => {
+        try {
+          const remote = await getTasks();
+          if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {return;}
+          const next = mergeReadTasks(tasksRef.current, remote);
+          await persistTasks(next);
+          if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {return;}
+          tasksRef.current = next; setTasks(next);
+          const snapshot = next.filter(task => remote.some(item => item.id === task.id));
+          const result = await reminderScheduler.reconcile(snapshot, true);
+          if (active) {reportScheduling(Object.fromEntries(snapshot.map(task => [task.id, result])));}
+        } catch {if (active && !dataGuard.syncing && !dataGuard.activeTasks) {await reminderScheduler.retry();}}
+      })();
+    });
+    return () => {active = false; subscription.remove();};
+  }, [hydrated, loading, persistTasks, reportScheduling]);
 
   const loadTaskById = useCallback(async (id: string) => {
     if (dataGuard.syncing) {throw new Error('Sincronização em andamento.');}
@@ -259,8 +344,10 @@ export function TaskProvider({
     const next = mergeReadTasks(tasksRef.current, [remote]);
     tasksRef.current = next;
     setTasks(next);
-    return next.find(task => task.id === remote.id)!;
-  }, []);
+    const task = next.find(item => item.id === remote.id)!;
+    if (!updating.current.has(id)) {await persistConfirmed(next, task);}
+    return task;
+  }, [persistConfirmed]);
 
   /*
    * Sempre que a lista mudar,
@@ -310,7 +397,9 @@ export function TaskProvider({
       tasksRef.current = result.tasks;
       setTasks(result.tasks);
       setReadError(null);
-      return result;
+      const scheduling = await reminderScheduler.reconcile(result.reminderSnapshot ?? result.tasks.filter(task => task.remindersConfirmed), true);
+      reportScheduling(Object.fromEntries(result.tasks.map(task => [task.id, scheduling])));
+      return { ...result, scheduling };
     } finally {dataGuard.syncing = false; setSyncing(false);}
   }
 
@@ -330,7 +419,9 @@ export function TaskProvider({
     updating.current.add(id);
     dataGuard.activeTasks++;
     try {
-      await remoteDeleteTask(id);
+      const scheduling = await prepareSuppression(task);
+      try {await remoteDeleteTask(id);} catch (error) {return await compensate(task, error);}
+      mutationRevision.current++;
       deletedIds.current.add(id);
       const next = tasksRef.current.filter(item => item.id !== id);
       tasksRef.current = next;
@@ -342,8 +433,11 @@ export function TaskProvider({
       undoTimer.current = setTimeout(() => {
         if (undoRef.current === opportunity) {undoRef.current = null; setUndo(null);}
       }, 5000);
-      try { await persistTasks(next); return { cacheSaved: true }; }
-      catch { return { cacheSaved: false }; }
+      // Native cancellation was already confirmed before DELETE. Do not make
+      // the five-second undo window wait for another scheduler round-trip.
+      let cacheSaved = true;
+      try {await persistTasks(next);} catch {cacheSaved = false;}
+      return { cacheSaved, scheduling };
     } finally { deletionBusy.current = false; updating.current.delete(id); dataGuard.activeTasks--; }
   }
 
@@ -359,7 +453,9 @@ export function TaskProvider({
     dataGuard.activeTasks++;
     try {
       const remote = await remoteRestoreTask(id);
-      const task = { ...opportunity.task, ...remote, subtasks: mergeSubtasks(remote.subtasks, opportunity.task.subtasks), reminders: opportunity.task.reminders };
+      const task = { ...opportunity.task, ...remote, reminders: remote.reminders ?? [], legacyReminders: opportunity.task.legacyReminders,
+        subtasks: mergeSubtasks(remote.subtasks, opportunity.task.subtasks) };
+      mutationRevision.current++;
       deletedIds.current.delete(id);
       const next = mergeReadTasks(tasksRef.current, [task]);
       tasksRef.current = next;
@@ -367,8 +463,7 @@ export function TaskProvider({
       if (undoTimer.current) {clearTimeout(undoTimer.current);}
       undoRef.current = null;
       setUndo(null);
-      try { await persistTasks(next); return { task, cacheSaved: true }; }
-      catch { return { task, cacheSaved: false }; }
+      return await persistConfirmed(next, task);
     } finally { deletionBusy.current = false; updating.current.delete(id); dataGuard.activeTasks--; }
   }
 
@@ -387,20 +482,15 @@ export function TaskProvider({
       const nextTasks = [...tasksRef.current.filter(item => item.id !== task.id), task];
       tasksRef.current = nextTasks;
       setTasks(nextTasks);
-      try {
-        await persistTasks(nextTasks);
-        return { task, cacheSaved: true };
-      } catch {
-        // The remote task exists: report a cache warning, never repeat POST.
-        return { task, cacheSaved: false };
-      }
+      mutationRevision.current++;
+      return await persistConfirmed(nextTasks, task);
     } finally {
       creating.current = false;
       dataGuard.activeTasks--;
     }
   }
 
-  async function updateTask(id: string, changes: Partial<Task>) {
+  async function updateTask(id: string, changes: TaskUpdate) {
     assertDataAvailable();
     if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     const current = tasksRef.current.find(task => task.id === id);
@@ -420,7 +510,16 @@ export function TaskProvider({
           throw new Error('Selecione um projeto válido.');
         }
       }
-      const remote = await patchTask(id, payload, current);
+      if (changes.dueDate !== undefined && changes.dueDate === current.dueDate && current.dueDateKey) {payload.dueDateKey = current.dueDateKey;}
+      if (changes.startDate !== undefined && changes.startDate === current.startDate && current.startDateKey) {payload.startDateKey = current.startDateKey;}
+      const suppress = changes.status === 'completed' && current.status !== 'completed';
+      if (suppress) {await prepareSuppression(current);}
+      let remote: Task;
+      try {remote = await patchTask(id, payload, current);} catch (error) {
+        if (suppress) {return await compensate(current, error);}
+        throw error;
+      }
+      mutationRevision.current++;
       const confirmedSubtasks = mergeSubtasks(remote.subtasks, changes.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks);
       // Old cache-only children are not uploaded. A confirmed collective action
       // applies to their actual cached done values as well as remote children.
@@ -428,17 +527,13 @@ export function TaskProvider({
       const task: Task = {
         ...current, ...remote,
         subtasks: collective ? confirmedSubtasks?.map(child => child.remote ? child : { ...child, done: remote.done }) : confirmedSubtasks,
-        reminders: changes.reminders ?? current.reminders,
+        reminders: remote.reminders ?? [],
+        legacyReminders: current.legacyReminders,
       };
       const next = tasksRef.current.map(item => item.id === id ? task : item);
       tasksRef.current = next;
       setTasks(next);
-      try {
-        await persistTasks(next);
-        return { task, cacheSaved: true };
-      } catch {
-        return { task, cacheSaved: false };
-      }
+      return await persistConfirmed(next, task, suppress ? undefined : current);
     } finally {
       updating.current.delete(id); dataGuard.activeTasks--;
     }
@@ -465,12 +560,13 @@ export function TaskProvider({
     dataGuard.activeTasks++;
     try {
       const remote = await request(current);
-      const task = { ...current, ...remote, subtasks: mergeSubtasks(remote.subtasks, current.subtasks), reminders: current.reminders };
+      const task = { ...current, ...remote, reminders: remote.reminders ?? [], legacyReminders: current.legacyReminders,
+        subtasks: mergeSubtasks(remote.subtasks, current.subtasks) };
+      mutationRevision.current++;
       const next = tasksRef.current.map(item => item.id === id ? task : item);
       tasksRef.current = next;
       setTasks(next);
-      try { await persistTasks(next); return { task, cacheSaved: true }; }
-      catch { return { task, cacheSaved: false }; }
+      return await persistConfirmed(next, task, current);
     } finally { updating.current.delete(id); dataGuard.activeTasks--; }
   }
   function remoteChild(task: Task, id: string) {
@@ -522,6 +618,7 @@ export function TaskProvider({
       value={{
         tasks,
         loading,
+        reminderScheduling,
         syncing,
         synchronizeManually,
         readError,

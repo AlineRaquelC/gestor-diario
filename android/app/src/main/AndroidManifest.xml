@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Isolated gate: inexact alarms, without special alarm access. -->
+    <!-- Task reminders: inexact alarms, without special alarm access. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -14,8 +14,8 @@
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:supportsRtl="true">
-      <receiver android:name=".remindergate.ReminderAlarmReceiver" android:exported="false" />
-      <receiver android:name=".remindergate.ReminderRecoveryReceiver" android:exported="false">
+      <receiver android:name=".reminders.TaskReminderAlarmReceiver" android:exported="false" />
+      <receiver android:name=".reminders.TaskReminderRecoveryReceiver" android:exported="false">
         <intent-filter>
           <action android:name="android.intent.action.BOOT_COMPLETED" />
           <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />

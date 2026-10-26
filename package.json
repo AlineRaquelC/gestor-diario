@@ -50,11 +50,11 @@
     "node": ">= 22.11.0"
   },
   "codegenConfig": {
-    "name": "ReminderGateSpec",
+    "name": "TaskRemindersSpec",
     "type": "modules",
     "jsSrcsDir": "specs",
     "android": {
-      "javaPackageName": "com.gerenciadortarefas.remindergate"
+      "javaPackageName": "com.gerenciadortarefas.reminders"
     }
   }
 }
