@@ -125,12 +125,13 @@ it('falha em CREATED desfaz a criação inteira', async () => {
 });
 it('falha no evento semântico desfaz tarefa e UPDATED do PATCH misto', async () => {
   const task = await create();
+  const stored = connection.db.select().from(tasks).get();
   const real = TasksRepository.prototype.createHistoryEvent;
   vi.spyOn(TasksRepository.prototype, 'createHistoryEvent').mockImplementation(function (this: TasksRepository, event) {
     if (event.action === 'COMPLETED') throw new Error('failed');
     return real.call(this, event);
   });
   expect((await request(app).patch(`/tasks/${task.id}`).send({ title: 'Nova', status: 'COMPLETED' })).status).toBe(500);
-  expect(connection.db.select().from(tasks).get()).toEqual(task);
+  expect(connection.db.select().from(tasks).get()).toEqual(stored);
   expect((await events(task.id)).map(event => event.action)).toEqual(['CREATED']);
 });

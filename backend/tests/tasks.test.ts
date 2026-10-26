@@ -33,7 +33,11 @@ describe('API de tarefas — criação e consulta', () => {
     expect(response.body.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(response.body.createdAt).toBe('2026-10-03T01:00:00.000Z');
     expect(response.body.updatedAt).toBe(response.body.createdAt);
-    expect(connection.db.select().from(tasks).get()).toEqual(response.body);
+    const { project: _project, subtasks: _subtasks, reminders: _reminders, ...storedFields } = response.body;
+    expect(_project.id).toBe(response.body.projectId);
+    expect(_subtasks).toEqual([]);
+    expect(_reminders).toEqual([]);
+    expect(connection.db.select().from(tasks).get()).toEqual(storedFields);
     expect(connection.db.select().from(taskHistory).all()).toEqual([expect.objectContaining({ taskId: response.body.id, action: 'CREATED', createdAt: response.body.createdAt, metadata: {} })]);
   });
 
@@ -121,7 +125,7 @@ describe('API de tarefas — criação e consulta', () => {
     const detail = await request(app).get(`/tasks/${id}`);
     expect(list.status).toBe(200);
     expect(detail.status).toBe(200);
-    expect(detail.body).toEqual({ ...expected, project, subtasks: children });
+    expect(detail.body).toEqual({ ...expected, project, subtasks: children, reminders: [] });
     expect(list.body).toEqual([detail.body]);
     expect(detail.body.projectId).toBe('p');
     expect(detail.body.progress).toBe(37);

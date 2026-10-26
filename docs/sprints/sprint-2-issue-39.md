@@ -1,5 +1,7 @@
 # Refinamento técnico — Issue #39: lembretes e notificações locais confiáveis
 
+Execução de T03–T05 registrada ao final deste documento.
+
 Execução de T01/T02: [contrato temporal e gate Android](sprint-2-issue-39-gate.md).
 O registro de refinamento abaixo preserva o contexto e as decisões anteriores à execução.
 
@@ -486,3 +488,107 @@ sem merge automático. Requisitos oficiais, Sprint Goal, Planning Poker e estado
 da Issue permanecem preservados. A decomposição técnica está registrada neste
 documento, sem novas Issues no GitHub. Dependências, migrations e arquivos
 funcionais permanecem inalterados. A implementação da Issue #39 continua pendente.
+
+## Execução T03–T05 — 26/10/2026
+
+Etapa na branch `feature/39-reminders`, após o segundo gate Android aprovado
+com limitações. T01 e a política de alarmes inexatos permanecem vigentes.
+T06–T13 continuam pendentes; esta etapa não integra cache, formulários,
+TaskContext, scheduler, lifecycle ou sync.
+
+### Schema e migration (T03)
+
+Migration aditiva `0003_task_reminders.sql`, sem modificar 0000–0002:
+
+- `task_reminders`: UUID próprio `id`, `task_id`, `offset_minutes`, `created_at`
+  e `updated_at`, seguindo timestamps UTC e nomes SQLite do backend.
+- FK `tasks.id ON DELETE RESTRICT`; unique `(task_id, offset_minutes)`; check
+  de inteiro não negativo e limite seguro para conversão em milissegundos.
+- Triggers de INSERT e mudança de `task_id` protegem o limite de cinco itens
+  por Task também em gravações diretas no SQLite.
+- `tasks.reminder_time_zone` nullable concentra o IANA compartilhado. Coleção
+  não vazia exige fuso explícito na primeira configuração; edições podem usar
+  o persistido. `[]` limpa o fuso, permitindo recapturá-lo na configuração seguinte.
+  Validade IANA e coerência com data/hora são responsabilidade do service.
+- Tasks antigas ficam com fuso null e `reminders: []`. Nenhuma string do cache
+  mobile é interpretada, importada ou promovida a domínio. Os dados legados
+  locais, inclusive as três pendências sem projeto, não foram modificados.
+
+`reminders-migration.test.ts` usa arquivos SQLite em diretórios temporários:
+instala somente 0000–0002, insere Task excluída e dados em Projects, Subtasks,
+Notes e History, aplica 0003 e compara os campos anteriores integralmente,
+incluindo IDs/clientId/deletedAt. Também testa banco vazio, reaplicação do
+migrator e `foreign_key_check`. Nenhum teste usa o banco pessoal.
+
+### Repository e identidade (T04)
+
+`TasksRepository` agrega reminders ordenados por offset crescente em detalhe,
+lista, tombstones e retry. A lista consulta filhos em lote e os agrupa por Task.
+Sem configuração, retorna sempre `[]`. `triggerAt` UTC é calculado na leitura,
+inclusive para registros expirados, sem persistir um segundo instante canônico.
+
+O diff remove somente offsets ausentes e gera UUID somente para offsets novos.
+Offsets mantidos conservam ID e timestamps, inclusive com ordem de entrada
+invertida. A API recebe somente offsets e rejeita IDs/taskId/timestamps no
+payload; não permite mover um reminder de outra Task.
+
+DELETE continua lógico e não remove linhas de reminders. RESTORE conserva
+Task ID, Reminder IDs, fuso e configuração, sem exigir que disparos históricos
+voltem a ser futuros. Retry de POST por `clientId` resolve a identidade antes
+da validação temporal de criação e retorna os reminders persistidos, inclusive
+após vencimento ou soft delete, sem duplicar Task, filhos ou History.
+
+### Contrato e transações (T05)
+
+POST/PATCH usam o contrato agregado existente, sem novos endpoints:
+
+```json
+{
+  "time": "10:00",
+  "reminderTimeZone": "America/Sao_Paulo",
+  "reminders": [{ "offsetMinutes": 15 }, { "offsetMinutes": 60 }]
+}
+```
+
+Os demais campos obrigatórios de criação continuam exigidos. POST sem
+reminders equivale a `[]`. PATCH omitido preserva a coleção; `[]` remove tudo;
+coleção enviada aplica diff. POST, PATCH, GET lista/detalhe e RESTORE retornam
+reminders com `id`, `taskId`, `offsetMinutes`, timestamps UTC e `triggerAt` derivado.
+Nenhuma label visual pertence ao payload canônico.
+
+Zod valida array, itens estritos, máximo cinco, inteiro seguro não negativo e
+unicidade. O service valida o estado final mesclado com **a implementação de
+T01**, agora em `backend/src/domain/reminders/index.ts`; o caminho mobile
+`src/domain/reminders/index.ts` reexporta essa fonte pura, sem mudar suas regras.
+Não há nova dependência ou integração de mapping/cache. O backend compila essa
+mesma fonte no build, e os 33 testes mobile de T01 continuam usando-a.
+
+Âncora continua `dueDate + time` no IANA persistido; 1440 minutos são 24h
+absolutas. Gap/overlap são rejeitados. Novos offsets e mudança efetiva de
+âncora exigem futuro estrito. GET/RESTORE/retry e edição que mantém offsets
+expirados não aplicam validação de passado como nova configuração. Remoção de
+expirados e conclusão permanecem permitidas.
+
+Transações SQLite `immediate` incluem Task, subtarefas de criação, diff de
+reminders, fuso e History. Falha de insert ou de History desfaz o conjunto
+inteiro. Mudança efetiva integra `UPDATED`; nenhum evento novo foi criado.
+PATCH idêntico conserva IDs, timestamps e History, sem atualização fictícia.
+
+### Evidência automatizada
+
+- B01: múltiplos reminders, zero, cinco itens, ordem e GET vazio.
+- B02: PATCH omitido/[]/diff/repetido, IDs/timestamps e recaptura de fuso.
+- B03: FK, unique, check, cardinalidade, hard delete restrito, isolamento entre
+  Tasks, IDs de outro pai rejeitados e Task inexistente.
+- B04: A–F, antecedência de 24h, fuso inválido, horário ausente/inválido,
+  Sao Paulo/Kathmandu, DST Nova York/Lord Howe e retenção de expirados.
+- B05: rollback de criação com filhos e reminders; falha no insert após remoção
+  do diff; falha no History restaura Task, fuso e coleção inteira.
+- B06: soft delete/restore de configuração já expirada.
+- B07: clientId/retry com resposta repetida, vencimento e tombstone.
+- B08: banco vazio, upgrade isolado, dados preservados e foreign key check.
+
+Validação: 317 testes backend em 13 suítes; 385 testes mobile em 23 suítes;
+16 testes dos validadores CI. Migration em banco temporário, typecheck backend,
+build, lint CI e typecheck mobile aprovados. Mantidos 3 erros/7 warnings de
+lint e 11 diagnósticos TypeScript conhecidos, sem ampliar baselines.
