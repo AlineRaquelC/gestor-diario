@@ -28,7 +28,7 @@ it('mapeia projeto/datas locais e horário vazio para limpeza explícita', () =>
 it('resposta remota prevalece sobre nome antigo e preserva campos locais de apoio', async () => {
   const local = { project: 'Antigo', subtasks: [{ id: 's', title: 'Local', done: false }], reminders: ['Lembrar'] };
   fetchMock.mockResolvedValue(response({ ...remote, subtasks: [] }));
-  expect(await updateTask('task', { projectId: 'p2' }, local)).toMatchObject({ projectId: 'p2', project: 'Projeto novo', subtasks: local.subtasks, reminders: local.reminders });
+  expect(await updateTask('task', { projectId: 'p2' }, local)).toMatchObject({ projectId: 'p2', project: 'Projeto novo', subtasks: local.subtasks, reminders: [], legacyReminders: local.reminders });
 });
 it.each([400, 404, 500])('propaga erro HTTP %s sem retry', async status => {
   fetchMock.mockResolvedValue(response({ error: { code: 'TASK_NOT_FOUND', message: 'Falha de atualização.' } }, status));

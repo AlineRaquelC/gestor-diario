@@ -22,7 +22,7 @@ it.each([['todo', 'PENDING'], ['in_progress', 'PARTIAL'], ['review', 'PARTIAL'],
 });
 it('usa resposta remota como registro final e preserva campos locais', () => {
   const task = fromApiTask(remote, draft);
-  expect(task).toMatchObject({ id: 'uuid', projectId: 'remote-p', project: 'Geral', priority: 'high', status: 'in_progress', subtasks: draft.subtasks, reminders: draft.reminders });
+  expect(task).toMatchObject({ id: 'uuid', projectId: 'remote-p', project: 'Geral', priority: 'high', status: 'in_progress', subtasks: draft.subtasks, reminders: [], legacyReminders: draft.reminders });
   expect(new Date(task.startDate!).getDate()).toBe(2);
 });
 it('faz um único POST e retorna ID do servidor', async () => {
@@ -41,7 +41,8 @@ it('criação usa apenas UUIDs confirmados dos quatro filhos do rascunho, sem du
   expect(task.subtasks).toEqual(confirmed.map(child => ({ ...child, remote: true })));
   expect(task.subtasks).toHaveLength(4);
   expect(JSON.parse(fetchMock.mock.calls[0][1].body).subtasks).toEqual(subtasks.map(({ title }) => ({ title })));
-  expect(task.reminders).toEqual(draft.reminders);
+  expect(task.reminders).toEqual([]);
+  expect(task.legacyReminders).toEqual(draft.reminders);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 it('sem filhos omite o campo e mantém contrato anterior de criação', () => {
@@ -113,10 +114,11 @@ it.each([['LOW', 'PENDING', 'low', 'todo'], ['MEDIUM', 'PARTIAL', 'medium', 'in_
 it('importação manual envia apenas pai, clientId e projectId resolvido, sem copiar filhos', async () => {
   const { importLocalTask } = require('../src/services/taskService') as typeof import('../src/services/taskService');
   fetchMock.mockResolvedValue(response(remote, 201));
-  const result = await importLocalTask({ ...draft, status: 'in_progress', id: 'local' }, 'remote-p', 'stable-key');
+  const result = await importLocalTask({ ...draft, reminders: [], legacyReminders: ['No horário'], status: 'in_progress', id: 'local' }, 'remote-p', 'stable-key');
   const body = JSON.parse(fetchMock.mock.calls[0][1].body);
   expect(body).toMatchObject({ clientId: 'stable-key', projectId: 'remote-p', status: 'PARTIAL' });
-  expect(body).not.toHaveProperty('subtasks'); expect(body).not.toHaveProperty('reminders');
+  expect(body).not.toHaveProperty('subtasks'); expect(body.reminders).toEqual([]);
+  expect(body).not.toHaveProperty('legacyReminders');
   expect(result).toMatchObject({ remoteId: remote.id });
 });
 it('consulta manual inclui tombstones sem alterar GET operacional', async () => {

@@ -1,5 +1,9 @@
 # Issue #39 — contrato temporal e gate Android (T01/T02)
 
+O código de prova descrito aqui foi convertido em infraestrutura de produção
+em T07. Activity/tela debug e nomes Gate foram removidos; a reprodução abaixo
+refere-se aos commits históricos do gate. Estado atual: [execução T06–T09](sprint-2-issue-39.md#execução-t06t09--26102026).
+
 ## Escopo da etapa
 
 Base `dev` em `c1bbcd36733e51295972442c33503383508f06cc`; branch

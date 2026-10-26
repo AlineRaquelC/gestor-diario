@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, TextInput } from 'react-native';
+import { Alert, TextInput, AppState } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TaskProvider, useTasks } from '../src/context/TaskContext';
@@ -14,7 +14,7 @@ jest.mock('../src/services/noteService', () => ({ getTaskNotes: jest.fn(), creat
 jest.mock('../src/services/taskService', () => ({ ...jest.requireActual('../src/services/taskService'), getTasks: jest.fn(), getTaskHistory: jest.fn() }));
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }), useRoute: () => ({ params: { taskId: 't' } }) }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
-const task = { id: 't', title: 'Tarefa real', description: 'Descrição principal independente', project: 'Geral', priority: 'low' as const, status: 'todo' as const, done: false, progress: 0, updatedAt: '2026-10-04T11:00:00Z' };
+const task = { reminders: [], id: 't', title: 'Tarefa real', description: 'Descrição principal independente', project: 'Geral', priority: 'low' as const, status: 'todo' as const, done: false, progress: 0, updatedAt: '2026-10-04T11:00:00Z' };
 const first: Note = { id: 'n1', taskId: 't', content: 'Primeira observação', createdAt: '2026-10-04T12:00:00Z', updatedAt: '2026-10-04T12:00:00Z' };
 const second: Note = { ...first, id: 'n2', content: 'Segunda observação', createdAt: '2026-10-04T13:00:00Z', updatedAt: '2026-10-04T13:00:00Z' };
 const storage = new Map<string, string>();
@@ -31,7 +31,7 @@ async function mount() {
   await act(async () => { renderer = ReactTestRenderer.create(<ProjectProvider><TaskProvider><Probe /><TaskDetailsScreen /></TaskProvider></ProjectProvider>); });
 }
 beforeEach(() => {
-  jest.resetAllMocks(); storage.clear(); storage.set('@taskflow:tasks', JSON.stringify([task]));
+  jest.resetAllMocks(); jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() }); storage.clear(); storage.set('@taskflow:tasks', JSON.stringify([task]));
   jest.mocked(AsyncStorage.getItem).mockImplementation(async key => storage.get(key) ?? null);
   jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => { storage.set(key, value); });
   jest.mocked(getTasks).mockResolvedValue([task]); jest.mocked(getTaskHistory).mockResolvedValue([]);

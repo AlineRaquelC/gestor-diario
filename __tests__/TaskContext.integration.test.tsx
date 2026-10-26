@@ -1,3 +1,4 @@
+import { normalizeReminderCache } from '../src/models/reminder';
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,7 +12,7 @@ const storage = new Map<string, string>();
 let context: ReturnType<typeof useTasks>;
 let renderer: ReactTestRenderer.ReactTestRenderer;
 const draft = { title: 'Nova', project: 'Geral', projectId: 'p7', priority: 'medium' as const, status: 'todo' as const, done: false, startDate: '2026-10-02', dueDate: '2026-10-03' };
-const saved = { ...draft, id: 'server-uuid', projectId: 'remote' };
+const saved = { ...draft, reminders: [], id: 'server-uuid', projectId: 'remote' };
 function Probe() { context = useTasks(); return null; }
 async function mount() {
   await act(async () => { renderer = ReactTestRenderer.create(<ProjectProvider><TaskProvider><Probe /></TaskProvider></ProjectProvider>); });
@@ -164,7 +165,7 @@ it('carrega API depois do cache, sem duplicatas e preservando subtarefas/lembret
   await mount();
   expect(context.loading).toBe(false);
   expect(context.readError).toBeNull();
-  expect(context.tasks).toEqual([{ ...saved, title: 'SQLite', progress: 60, subtasks: local.subtasks, reminders: local.reminders, syncSnapshot: local, syncSnapshots: [local] }, legacy]);
+  expect(context.tasks).toEqual([{ ...saved, title: 'SQLite', progress: 60, subtasks: local.subtasks, reminders: [], legacyReminders: local.reminders, syncSnapshot: normalizeReminderCache(local), syncSnapshots: [normalizeReminderCache(local)] }, legacy]);
   expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(context.tasks);
 });
 it('consulta indisponível mantém cache e informa erro', async () => {
@@ -526,7 +527,7 @@ it('falhas de cache após DELETE/RESTORE retornam warning e conservam estado con
   await act(async () => { await context.addTask(draft); });
   jest.mocked(AsyncStorage.setItem).mockRejectedValue(new Error('cache cheio'));
   jest.mocked(deleteTask).mockResolvedValueOnce({ id: saved.id, deletedAt: 'now', updatedAt: 'now' });
-  await act(async () => { expect(await context.deleteTask(saved.id)).toEqual({ cacheSaved: false }); });
+  await act(async () => { expect(await context.deleteTask(saved.id)).toMatchObject({ cacheSaved: false }); });
   expect(context.tasks).toEqual([]); expect(context.undo?.id).toBe(saved.id);
   jest.mocked(restoreTask).mockResolvedValueOnce(saved);
   await act(async () => { expect((await context.restoreTask(saved.id)).cacheSaved).toBe(false); });
