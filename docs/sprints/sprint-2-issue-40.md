@@ -2,7 +2,7 @@
 
 ## 1. Estado, fontes e recorte
 
-**29/10/2026 — proposta técnica para revisão; implementação não iniciada.**
+**29/10/2026 — refinamento técnico documental; implementação não iniciada.**
 Issue [#40](https://github.com/AlineRaquelC/gestor-diario/issues/40) OPEN,
 **Planning Poker 8**, origem **PBI-13 / RF08**. O prazo máximo de commit/push é
 **08/11/2026**. Pontos não equivalem a dias nem comprovam capacidade disponível.
@@ -20,8 +20,9 @@ Fontes lidas integralmente: Issue #40, [Sprint 2](sprint-2.md),
 [Plano de Entregas](../backlog/entregas.md) e
 [Requisitos oficiais](../requisitos/requisitos-oficiais.md#rf08--página-2).
 RF08 exige repetição diária, semanal ou mensal e geração automática de ocorrências
-futuras. Horizonte, fim de mês, escopo da edição e mecanismo de geração abaixo
-são propostas de engenharia, não texto adicional do requisito oficial.
+futuras. Edição somente de ocorrências ainda não materializadas, desativação sem
+apagar Tasks e janela rolante até hoje + 31 dias são decisões adotadas para esta
+Sprint. As políticas de engenharia não acrescentam texto ao requisito oficial.
 
 O recorte contempla Não repetir, Diariamente, Semanalmente e Mensalmente;
 persistir/editar regra; identidade e geração idempotentes; reabertura e sync sem
@@ -130,6 +131,7 @@ type RecurrenceSeries = {
   timeZone: string;                    // IANA da série, inclusive sem reminders
   anchorDate: string;                  // YYYY-MM-DD da regra vigente
   template: RecurrenceTemplate;
+  materializedThrough: string | null; // fim inclusivo do intervalo já processado
   createdAt: string;
   updatedAt: string;
 };
@@ -158,6 +160,7 @@ em JSON sem FK. Coleções do template não contêm IDs nem estado de Reminder r
 | startOffsetDays | Duração em dias civis inteiros não negativos; permite preservar distância início/prazo sem duplicar duas âncoras. |
 | template.projectId | FK por ID; projeto renomeado/homônimo não muda associação. Projeto inválido deve gerar erro, não fallback por nome. |
 | Task.seriesId + occurrenceKey | Ambos null em Task comum, ambos preenchidos em ocorrência; FK para série, UNIQUE dos dois campos inclusive em Tasks excluídas. Vínculo é somente leitura no PATCH normal. |
+| materializedThrough | Último dia nominal coberto por geração confirmada, inclusive em intervalos sem slots. Só avança no commit do lote. Não é o maior dueDate de Task nem pode ser recalculado após edição/exclusão. Necessário para que nova regra não preencha lacunas dentro do horizonte anterior. |
 | updatedAt | Revisão otimista da série: editar com versão conhecida; conflito explícito, sem last-write-wins silencioso. Reaproveitar timestamp monotônico, sem campo version duplicado neste recorte. |
 
 Não adicionar `parentTaskId`, `templateTaskId`, `generatedTask`, `generatedFrom`
@@ -206,13 +209,63 @@ por intervalo valida a regra, calcula os slots e persiste Task + filhos + remind
 Queries GET permanecem sem efeitos colaterais. Não criar Tasks dentro do render,
 do receiver Android ou do scheduler de notificações.
 
-Proposta operacional a validar: geração inicial e reposição automática ao abrir
-online, voltar ao foreground e sincronizar manualmente; janela de **90 dias civis**
-a partir de hoje na zona da série. Calendário pode pedir o intervalo visível via
-Context/service antes de recarregar o snapshot; a tela não cria nem mantém uma
-segunda coleção de ocorrências. Cada comando deve ter intervalo/lote limitado;
-navegar para futuro distante não exige materializar todos os dias intermediários.
-A escolha de 90 dias não é exigência de RF08 e precisa de medição de volume.
+### Janela rolante adotada
+
+A geração inicial e a reposição automática ao abrir online, voltar ao foreground
+e sincronizar manualmente usam **hoje até hoje + 31 dias corridos, inclusive**,
+na zona IANA da série. Não usar a proposta anterior de 90 dias nesta Sprint.
+Calcular hoje uma única vez por execução no backend, com relógio testável;
+a data enviada pelo cliente não pode estender arbitrariamente o horizonte.
+Somar dias civis, não múltiplos fixos de 24 horas em UTC.
+
+Exemplo: referência **29/10/2026** → limite inclusivo **29/11/2026**.
+O intervalo `[D, D + 31]` contém até **32 datas nominais**, contando o dia atual;
+isso explicita a contagem inclusiva adotada. A regra filtra os slots elegíveis
+nesse intervalo. O limite não se torna D + 30 para reduzir a contagem a 31 datas.
+
+A janela reduz volume de Tasks diárias, custo de Home/API/banco/sync e tamanho
+dos lotes, oferecendo horizonte finito ao calendário. Não implica materializar
+uma série infinita nem eliminar Tasks já persistidas fora da janela atual.
+Navegar no calendário não estende o horizonte: ler Tasks reais já disponíveis
+e informar o limite de novas ocorrências. Não criar projeções ou outro gerador
+na tela para preencher períodos distantes.
+
+### Continuidade, edição e idempotência
+
+Persistir `materializedThrough` como cobertura do intervalo nominal já processado,
+independente de quantas Tasks a frequência produziu. Se o comando cobriu até
+31/10 com uma série semanal e não gerou Task em 30/10, esse dia continua coberto.
+Não derivar cobertura de `MAX(dueDate)` ou só da última occurrenceKey: editar datas,
+soft delete ou um intervalo sem slots tornaria esse cálculo incorreto.
+
+Em nova execução, o início elegível é o maior entre hoje e o dia seguinte à
+cobertura anterior; o fim é hoje + 31, inclusive. Não havendo cobertura anterior,
+o início é hoje. Respeitar também a âncora da regra. Consultar slots existentes,
+inclusive tombstones, e manter a constraint UNIQUE como proteção definitiva.
+Repetir a execução no mesmo dia não insere nem reescreve ocorrências. Em dia
+posterior, completar apenas a extensão ainda não coberta da janela.
+
+A leitura da regra, inserção de ocorrências/filhos/reminders/History e avanço da
+cobertura compartilham a transação `immediate`. Atualizar a cobertura mesmo se a
+regra não tiver slot no intervalo; falha reverte o lote e não avança o marcador.
+Retry depois de resposta perdida lê o estado confirmado, sem duplicar IDs/eventos.
+Troca de frequência preserva a cobertura: a regra nova não preenche lacunas no
+horizonte anteriormente processado. A proteção de unicidade continua necessária
+para concorrência e recuperação, mesmo com esse marcador.
+
+### Sem backfill de passado
+
+Não materializar retroativamente ocorrências de dias **anteriores a hoje** que
+nunca tiveram Task persistida. Após período offline, saltar diretamente para o
+intervalo atual elegível e completar até hoje + 31; não percorrer ou gerar todo o
+backlog desde a âncora. Uma âncora histórica continua útil para calcular a fase
+semanal/mensal, sem autorizar inserções de ocorrências passadas.
+
+Tasks já persistidas, inclusive atrasadas, concluídas ou excluídas, continuam com
+seus IDs, configuração e History. Não apagar nem recriar esses registros. RESTORE
+é recuperação da mesma Task, não backfill. O corte usa o dia nominal da ocorrência;
+startDate pode ser anterior por causa da duração, sem criar uma ocorrência de
+outro dia. O tratamento de horários/triggers do próprio dia continua na seção 8.
 
 Não há cron, worker de recorrência, geração autônoma offline ou garantia infinita
 com app/backend desligados na arquitetura atual. Tasks já materializadas e journal
@@ -220,9 +273,9 @@ continuam disponíveis offline. Fora da janela carregada, mostrar indisponibilid
 da consulta em vez de afirmar calendário vazio. Geração automática em background
 sem contato com backend não está comprovada e exigiria outro contrato.
 
-## 7. Datas, regra e edição: política recomendada
+## 7. Datas, regra e edição
 
-| Tema | Proposta para validação do recorte |
+| Tema | Política do recorte |
 |---|---|
 | Diária | Avançar dias civis na zona da série, nunca somar 24h ao instante UTC. |
 | Semanal | Dia da semana da âncora; avançar sete dias civis, não depender da definição visual de começo de semana. |
@@ -231,9 +284,9 @@ sem contato com backend não está comprovada e exigiria outro contrato.
 | Mudança de fuso do aparelho | Preservar IANA salvo na série; snapshot do Reminder da ocorrência usa esse fuso, quando houver offsets. Não mudar silenciosamente durante viagem. |
 | Horário inexistente/ambíguo | Reutilizar rejeição do domínio da #39. Nenhum ajuste silencioso de hora, escolha arbitrária de offset ou novo pacote de datas. |
 | Editar Task | Edita somente a ocorrência, mantém série/key imutáveis e usa lifecycle normal. Não propaga conclusão, filhos ou alterações a outras Tasks. |
-| Editar regra | Comando separado da edição comum, com escopo explícito “novas ocorrências ainda não geradas”. Altera regra/template para slots novos a partir da âncora efetiva informada; nunca reescreve Tasks existentes ou suas exceções. |
-| Trocar frequência | seriesId permanece; atualizar frequency/anchorDate explicitamente, com conflito por updatedAt. UNIQUE impede duplicar slots que já existiam. Histórico anterior continua nas Tasks reais. |
-| Não repetir | Task comum permanece sem vínculo. Em série existente, frequency NONE interrompe novas gerações; Tasks materializadas permanecem, com seus lifecycles/reminders. Sem active flag redundante. |
+| Editar regra | Comando separado da edição comum, com escopo explícito “novas ocorrências ainda não geradas”. Altera regra/template somente para novas ocorrências após o horizonte já coberto; nunca preenche suas lacunas, reescreve ou apaga Tasks existentes. Editar a ocorrência individual continua sendo outra operação. |
+| Trocar frequência | seriesId e cobertura materializedThrough permanecem; atualizar a regra explicitamente, com conflito por updatedAt. Âncora define a fase da regra, sem retroagir ao intervalo coberto. UNIQUE impede duplicar slots. IDs e History das Tasks anteriores permanecem. |
+| Não repetir | Task comum permanece sem vínculo. Em série existente, DAILY/WEEKLY/MONTHLY → NONE interrompe novas gerações; Tasks materializadas permanecem, inclusive futuras, com seus lifecycles/reminders e History. Não há exclusão automática nem hard delete. Sem active flag redundante. |
 | Excluir Task | Exclui só ocorrência, com confirmação/undo atuais e tombstone preservado. Não para a série nem apaga outras Tasks. |
 | Encerrar série | Selecionar Não repetir e explicar que Tasks já criadas permanecem. Não implementar exclusão em lote ou editor avançado “esta e todas as seguintes” por acidente. |
 
@@ -242,11 +295,24 @@ O helper `shiftMonth` atual é navegação de calendário: aplicado sucessivamen
 O domínio de recorrência precisa de aritmética de datas civis a partir da âncora,
 com testes próprios de ano bissexto, mudança de ano e intervalo válido.
 
-O escopo de edição recomendado simplifica a Sprint, mas significa que mudar regra
-hoje não altera ocorrências futuras **já materializadas** na janela de 90 dias.
-A UI precisa dizer isso antes de salvar. Se o aceite exigir editar/cancelar também
-esse conjunto, será necessário outro desenho de revisão/exceções e reconciliação
-em lote. Não declarar esse comportamento amplo atendido pelo modelo mínimo.
+### Edição da regra adotada
+
+A mudança afeta **somente ocorrências futuras ainda não materializadas**, depois
+do horizonte já persistido/processado. Preservar execuções reais evita mudanças
+silenciosas de Tasks, mantém IDs/History estáveis, simplifica sync e dispensa um
+sistema complexo de exceções nesta Sprint. A UI deve explicar esse alcance antes
+de salvar, inclusive quando Tasks futuras ainda refletem a regra anterior.
+
+Exemplo: DAILY já gerou Tasks para **29/10, 30/10 e 31/10**. Ao mudar para WEEKLY
+em 29/10, as três permanecem com os mesmos IDs, datas, status, reminders e History;
+nenhuma é apagada ou reescrita. Novos slots seguem WEEKLY somente após a cobertura
+anterior. Se o horizonte já cobria além de 31/10, vale esse fim de cobertura,
+não apenas a maior data das três Tasks do exemplo.
+
+Editar uma ocorrência muda somente aquela Task. Trocar a regra para NONE deixa
+de produzir novas ocorrências e também mantém as futuras já persistidas. Não
+cancelar seus reminders por causa de NONE: continuam pertencendo a Tasks reais,
+regidas pelo lifecycle da #39. Não apagar histórico nem fazer hard delete.
 
 ## 8. Compatibilidade com reminders, sync e calendário
 
@@ -262,14 +328,16 @@ rejeita novo reminder vencido e `TASK_TIMEZONE` pode divergir da zona da série.
 Geração interna de snapshots de uma regra antes persistida precisa de contrato
 próprio, sem enfraquecer validação de entrada do usuário.
 
-Recomendação a validar: não gerar backlog de Tasks cujo horário já passou; para
-slot ainda futuro, preservar offsets da regra, inclusive os cujo trigger venceu,
-e agendar somente triggers futuros pelo scheduler existente. A materialização
+Contrato técnico recomendado para completar a política sem backfill: não gerar
+novas Tasks cujo horário já passou; para slot ainda futuro, preservar offsets
+da regra, inclusive os cujo trigger venceu, e agendar somente triggers futuros
+pelo scheduler existente. Esta recomendação para triggers do próprio dia não
+deve ser confundida com o aceite explícito das políticas de edição/janela. A materialização
 interna deve validar estrutura, IANA e resolução temporal com o domínio, sem
 simular um `previous` falso, sem deslocar horário e sem fabricar clientId para
 contornar validações. Essa semântica ainda não existe no backend e é um gate de
 implementação, não uma capacidade confirmada da #39. Sem horário e sem reminders,
-o corte de geração pode usar o dia civil da série. Horários inexistentes/ambíguos
+o corte de geração usa o dia civil da série. Horários inexistentes/ambíguos
 causam erro explícito no lote atômico; não persistir meia ocorrência.
 
 Um erro de geração não deve apagar Tasks existentes. Falha de rede depois do
@@ -294,12 +362,13 @@ para ocorrências integradas e preservar fallback legado. Não expandir série e
 Mudanças propostas, ainda não realizadas:
 
 - Uma migration nova após 0003: série, FK de projeto, vínculo/key nullable em Task,
-  UNIQUE incluindo tombstones, CHECK de pareamento dos campos e enum frequency.
+  UNIQUE incluindo tombstones, CHECK de pareamento dos campos, enum frequency e
+  cobertura materializedThrough nullable na série.
   Tasks existentes permanecem sem série; não inferir por títulos/datas parecidos.
 - Criação de série/primeira ocorrência em transação e com clientId durável;
   endpoint de regra separado do PATCH de ocorrência; comando de materialização
-  por intervalo separado de GET. Nomes de rotas/DTOs serão detalhados após aceite
-  das políticas, mantendo GET/POST/PATCH/RESTORE atuais compatíveis.
+  por intervalo separado de GET, limitado à janela adotada. Nomes de rotas/DTOs
+  serão detalhados na implementação, mantendo GET/POST/PATCH/RESTORE compatíveis.
 - Usar CREATED da Task materializada com metadata de série/key. Editar a regra
   deve registrar UPDATED com metadata de escopo e antes/depois no History da Task
   usada para solicitar a edição, validando vínculo por ID. Não inserir seriesId
@@ -316,7 +385,7 @@ Mudanças propostas, ainda não realizadas:
 
 | Etapa proposta | Resultado verificável / dependência |
 |---|---|
-| T01 — contrato e domínio | Aceite das políticas desta proposta; funções puras de slots/chaves, dia/mês/ano/fuso. Nenhum código antes da autorização de implementação. |
+| T01 — contrato e domínio | Consolidar políticas adotadas; funções puras de slots/chaves, janela inclusiva de 31 dias, cobertura, dia/mês/ano/fuso. Nenhum código antes da autorização de implementação. |
 | T02 — persistência | Migration aditiva, UNIQUE/FKs, repositório e testes de upgrade/preservação; depende T01. |
 | T03 — geração/API | Série/retry, materialização atômica, concorrência, rule edit/NONE, History e validação separada de snapshots; depende T02. |
 | T04 — mapping/cache/sync | DTOs canônicos, ledger, snapshots e geração antes da consolidação; depende T03. |
@@ -327,14 +396,14 @@ Mudanças propostas, ainda não realizadas:
 
 | Grupo de testes propostos | Casos necessários |
 |---|---|
-| Domínio | NONE; DAILY em virada de dia/ano; WEEKLY sem trocar weekday; MONTHLY em 28/29/30/31, ano bissexto e retorno ao dia original; mesma âncora gera mesmos slots. |
+| Domínio | NONE; DAILY em virada de dia/ano; WEEKLY sem trocar weekday; MONTHLY em 28/29/30/31, ano bissexto e retorno ao dia original; mesma âncora gera mesmos slots; referência 29/10 → limite 29/11 inclusive, com 32 datas nominais possíveis. |
 | Identidade | Séries homônimas/projetos homônimos distintos; mesmo slot não duplica; editar dueDate não muda key; concorrência de dois geradores e resposta perdida preservam IDs. |
 | Persistência | Regra/Task/filhos/reminders/History atômicos; rollback em falha; constraints, banco vazio, upgrade e dados anteriores intactos. |
-| Edição | Campo omitido não cria/para série; editar só ocorrência; editar regra somente em novos slots; conflito updatedAt; NONE impede geração sem apagar Tasks. |
+| Edição | Campo omitido não cria/para série; editar só ocorrência; DAILY → WEEKLY preserva 29/10–31/10 e só aplica nova regra após cobertura; intervalo sem slots não é preenchido pela mudança; conflito updatedAt; NONE não apaga futuras, History ou reminders. |
 | Lifecycle | Concluir/reabrir independente; excluir/undo mesma Task; tombstone não regenera; concluir subtarefas reconcilia sem gerar duplicata. |
 | Reminders | Offsets copiados com IDs próprios; triggerAt por data/fuso; cinco por Task; offset 0/1440; snapshot gerado tardiamente e trigger vencido; ambiguidade/gap; sem falso sucesso. |
-| Sync/offline | Montar app e sincronizar repetidamente; ledger/retry; falha intermediária/cache; snapshot consolidado antes do scheduler; offline não gera Tasks ou IDs fictícios. |
-| Calendário | Todas as frequências em dia/semana/mês; quantidade real, ordem e rota corretas; cache em outro fuso; janela não carregada não vira vazio confirmado. |
+| Sync/offline | Montar app e sincronizar repetidamente; ledger/retry; falha intermediária/cache; snapshot consolidado antes do scheduler; offline não gera Tasks ou IDs fictícios; retorno não cria dias passados nunca persistidos; repetição não avança nem regrava cobertura incorretamente; falha do lote não avança materializedThrough. |
+| Calendário | Todas as frequências em dia/semana/mês; quantidade real, ordem e rota corretas; cache em outro fuso; navegação não expande horizonte de 31 dias; período não carregado não vira vazio confirmado; Tasks reais fora da janela permanecem visíveis. |
 | Android | Regra persistida após reabertura, calendário real, sync repetida sem duplicação, notificação de ocorrência futura e cancelamento individual; limitações da #39 preservadas. |
 
 Na implementação, executar validadores CI, lint/typecheck mobile sem ampliar
@@ -344,11 +413,11 @@ Não instalar bibliotecas nem alterar baselines para resolver o planejamento.
 
 ## 11. Riscos e conclusão do refinamento
 
-| Risco | Tratamento / decisão antes de implementar |
+| Risco | Tratamento e verificação na implementação |
 |---|---|
-| Janela de geração versus edição | Validar que “editar regra” afeta apenas slots ainda não materializados. Se precisar alterar futuras já criadas, rever desenho e estimativa antes de começar. |
-| Volume e horizonte offline | Validar 90 dias e geração por intervalo; medir Tasks/reminders/tempo de lote. Não prometer geração ilimitada com app/backend desligados. |
-| Reminders já vencidos na materialização | Aprovar o contrato interno de snapshot; provar que POST manual continua bloqueando inválidos e scheduler nunca publica vencidos. |
+| Janela de geração versus edição | Política adotada: editar afeta apenas novos slots após a cobertura. Verificar que UI não promete alterar futuras já persistidas; não introduzir reescrita em lote nesta Sprint. |
+| Volume e horizonte offline | Janela adotada até hoje + 31 inclusive; medir Tasks/reminders/tempo de lote e respeitar limite no backend e calendário. Não prometer geração ilimitada com app/backend desligados. |
+| Reminders já vencidos na materialização | Contrato técnico recomendado: preservar offsets de slot ainda futuro, agendando só triggers futuros. Conferir esse detalhe na revisão documental; provar na implementação que POST manual continua bloqueando inválidos e scheduler nunca publica vencidos. |
 | Mudança de data/fuso | Separar chave nominal, data efetiva e instante do reminder; preservar zona e testar DST/meses curtos. |
 | Exclusão/stop versus geração | Tombstone ocupa slot; NONE interrompe novas inserções. Não recriar exclusões nem apagar outras ocorrências. |
 | Prazo até 08/11 | Planejar uma camada por vez; 8 pontos mantidos, sem converter em promessa de prazo. Reestimar/reduzir recorte somente com decisão explícita se gates excederem a capacidade. |
@@ -356,7 +425,19 @@ Não instalar bibliotecas nem alterar baselines para resolver o planejamento.
 **Arquitetura recomendada:** série persistida independente, gerando Tasks reais;
 **persistência recomendada:** híbrido `recurrence_series` + série/key em Task.
 A recomendação é compatível com os contratos atuais e evita reimplementar o
-scheduler da #39. Ainda requer validação das políticas de edição, janela e
-materialização tardia descritas acima antes de considerar o recorte Ready para
-implementação. O refinamento não altera o aceite da Issue nem marca funcionalidades
-como entregues. #40 permanece OPEN; PBI-13 permanece parcialmente coberto.
+scheduler da #39. As políticas adotadas em 29/10/2026 ficam fechadas para o
+planejamento: editar regra somente após o horizonte já coberto, preservar Tasks
+materializadas e History, NONE sem exclusão, janela rolante até hoje + 31 dias
+inclusive, idempotência por constraint e ausência de backfill de dias anteriores
+nunca persistidos. A antiga proposta de 90 dias foi substituída, sem manter esse
+valor como opção vigente.
+
+O contrato de snapshots de reminders ainda futuros com trigger já vencido é
+uma recomendação técnica explicitada na seção 8 para revisão. Não fazer backfill
+de dias passados não define, por si, o tratamento de um trigger vencido no próprio
+dia. Esse contrato complementar permanece identificado como recomendação, sem
+declarar recorrência implementada ou testes novos aprovados.
+A autorização de implementação é uma etapa posterior, separada da revisão deste
+refinamento. #40 permanece OPEN, com Planning Poker 8; PBI-13 permanece
+parcialmente coberto. Nenhuma migration, código funcional, dependência ou branch
+de implementação foi criada; não há início de #41 ou promoção dev → main.

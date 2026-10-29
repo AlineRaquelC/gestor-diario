@@ -91,7 +91,9 @@ complexa/personalizada está fora.
 
 Proposta de arquitetura, auditoria e decisões pendentes no
 [refinamento técnico da #40](sprint-2-issue-40.md). A proposta não autoriza
-implementação nem altera o Planning Poker de 8 pontos.
+implementação nem altera o Planning Poker de 8 pontos. Edição sem reescrita de
+Tasks materializadas, NONE sem exclusão, janela rolante até hoje + 31 dias inclusive
+e ausência de backfill foram adotadas para o planejamento.
 
 ### 3. Busca, favoritos e filtros salvos — #41
 
