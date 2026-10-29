@@ -52,6 +52,7 @@ const type = async (label: string, value: string) => {
   await act(async () => input.props.onChangeText(value));
 };
 beforeEach(async () => {
+  jest.useFakeTimers({ now: new Date(2026, 9, 29, 10, 43) });
   create
     .mockReset()
     .mockResolvedValue({
@@ -74,6 +75,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => renderer.unmount());
   jest.restoreAllMocks();
+  jest.useRealTimers();
   jest.clearAllMocks();
 });
 
@@ -307,6 +309,7 @@ test.each([
     .mockReturnValue(
       Date.parse(`${key}T${kind === 'TASK' ? '14:00' : '12:00'}:00Z`),
     );
+  await type('Horário', '10:00');
   await type('Título', 'Passado');
   await choose(label);
   await press('Criar tarefa');
@@ -353,3 +356,13 @@ test.each(['scheduled', 'not_required', 'pending', 'unavailable', 'error'])(
     expect(create).toHaveBeenCalledTimes(1);
   },
 );
+
+ test('inicializa horário atual uma vez e preserva edição manual ao longo do tempo', async () => {
+  const input = () => renderer.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === 'Horário')!;
+  expect(input().props.value).toBe('10:43');
+  await act(async () => {jest.setSystemTime(new Date(2026, 9, 29, 11, 30)); renderer.update(<NewTaskScreen />);});
+  expect(input().props.value).toBe('10:43');
+  await type('Horário', '16:05');
+  await act(async () => {jest.setSystemTime(new Date(2026, 9, 29, 12, 30)); renderer.update(<NewTaskScreen />);});
+  expect(input().props.value).toBe('16:05');
+});

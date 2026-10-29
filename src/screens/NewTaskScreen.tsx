@@ -95,7 +95,12 @@ export default function NewTaskScreen() {
 
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
-  const [time, setTime] = useState('10:00');
+  const [time, setTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(
+      now.getMinutes(),
+    ).padStart(2, '0')}`;
+  });
 
   const [priority, setPriority] = useState<Priority>('medium');
 

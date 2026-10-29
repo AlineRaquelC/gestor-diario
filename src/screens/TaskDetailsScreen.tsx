@@ -17,10 +17,20 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTaskDeletion } from '../hooks/useTaskDeletion';
 
 import { useTasks } from '../context/TaskContext';
+import { formatReminder } from '../models/reminderPresentation';
+import type { SchedulingState } from '../services/reminderScheduler';
 import { presentTaskHistory } from '../models/taskHistory';
 import TaskNotesSection from '../components/TaskNotesSection';
 import { useProjects } from '../context/ProjectContext';
 import { COLORS, RADIUS, SPACING } from '../styles/theme';
+
+const schedulingLabels: Record<SchedulingState, string> = {
+  not_required: 'Nenhum agendamento ativo neste aparelho',
+  scheduled: 'Lembrete agendado neste aparelho',
+  pending: 'Agendamento pendente',
+  unavailable: 'Notificações indisponíveis neste aparelho',
+  error: 'Não foi possível confirmar o agendamento',
+};
 
 export default function TaskDetailsScreen() {
   const navigation = useNavigation<any>();
@@ -36,6 +46,7 @@ export default function TaskDetailsScreen() {
     loading,
     loadTaskById,
     taskHistory,
+    reminderScheduling,
     loadTaskHistory,
   } = useTasks();
 
@@ -391,6 +402,31 @@ export default function TaskDetailsScreen() {
             </View>
           </View>
 
+          {!!task.reminders?.length && (
+            <View style={styles.card}>
+              <Text accessibilityRole="header" style={styles.cardTitle}>
+                Lembretes
+              </Text>
+              <Text style={styles.reminderCaption}>Configuração</Text>
+              {[...task.reminders]
+                .sort((a, b) => a.offsetMinutes - b.offsetMinutes)
+                .map(reminder => (
+                  <Text key={reminder.id} style={styles.reminderText}>
+                    {formatReminder(reminder.offsetMinutes)}
+                  </Text>
+                ))}
+              <Text style={styles.reminderCaption}>Neste aparelho</Text>
+              <Text
+                accessibilityLiveRegion="polite"
+                style={styles.reminderText}
+              >
+                {reminderScheduling?.[task.id]
+                  ? schedulingLabels[reminderScheduling[task.id].state]
+                  : 'Agendamento ainda não confirmado'}
+              </Text>
+            </View>
+          )}
+
           {/* Subtarefas */}
           <View style={styles.sectionHeader}>
             <Text style={styles.cardTitle}>Subtarefas</Text>
@@ -588,6 +624,16 @@ function ActivityRow({
 }
 
 const styles = StyleSheet.create({
+  reminderCaption: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: SPACING.sm,
+  },
+  reminderText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    marginTop: SPACING.xs,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

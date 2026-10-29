@@ -95,3 +95,37 @@ it('mantém informações, ícone real por ID, progresso e editar no layout simp
   await act(async () => edit.props.onPress());
   expect(mockNavigation.navigate).toHaveBeenCalledWith('EditarTarefa', {taskId: 'task'});
 });
+
+import type { SchedulingResult } from '../src/services/reminderScheduler';
+async function showReminders(offsets: number[], scheduling?: SchedulingResult, completed = false, legacyReminders?: string[]) {
+  const reminders = offsets.map(offsetMinutes => ({ id: `r-${offsetMinutes}`, taskId: 'task', offsetMinutes, createdAt: task.updatedAt, updatedAt: task.updatedAt, triggerAt: task.dueDate }));
+  jest.mocked(useTasks).mockReturnValue({ ...jest.mocked(useTasks).mock.results.at(-1)?.value, tasks: [{ ...task, reminders, legacyReminders, status: completed ? 'completed' : 'todo', done: completed }], reminderScheduling: scheduling ? { task: scheduling } : {} } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => renderer.update(<TaskDetailsScreen />));
+}
+it.each([undefined, ['15 min antes']])('sem canônicos não mostra seção nem trata legado %j como ativo', async legacy => {
+  await mount(); await showReminders([], undefined, false, legacy);
+  expect(text()).not.toContain('Lembretes'); expect(text()).not.toContain('15 min antes');
+});
+it.each([[0, 'No horário'], [15, '15 min antes'], [60, '1 hora antes']] as const)('formata offset %s com helper compartilhado', async (offset, label) => {
+  await mount(); await showReminders([offset]); expect(text()).toContain('Lembretes'); expect(text()).toContain(label);
+  expect(text()).toContain('Agendamento ainda não confirmado'); expect(text()).not.toContain('Lembrete agendado neste aparelho');
+});
+it('exibe todos os reminders em ordem de antecedência', async () => {
+  await mount(); await showReminders([60, 0, 15]);
+  const content = text(); expect(content.indexOf('No horário')).toBeLessThan(content.indexOf('15 min antes')); expect(content.indexOf('15 min antes')).toBeLessThan(content.indexOf('1 hora antes'));
+});
+it.each([
+  ['scheduled', 'Lembrete agendado neste aparelho'],
+  ['pending', 'Agendamento pendente'],
+  ['unavailable', 'Notificações indisponíveis neste aparelho'],
+  ['error', 'Não foi possível confirmar o agendamento'],
+  ['not_required', 'Nenhum agendamento ativo neste aparelho'],
+] as const)('estado %s vem do Context', async (state, label) => {
+  await mount(); await showReminders([15], { state }); expect(text()).toContain(label); expect(text()).toContain('Configuração'); expect(text()).toContain('Neste aparelho');
+});
+it('concluída mantém configuração com cancelamento; restauração usa estado atualizado do Context', async () => {
+  await mount(); await showReminders([15], { state: 'not_required' }, true);
+  expect(text()).toContain('15 min antes'); expect(text()).toContain('Nenhum agendamento ativo neste aparelho'); expect(text()).not.toContain('Lembrete agendado neste aparelho');
+  await showReminders([15], { state: 'pending' }); expect(text()).toContain('Agendamento pendente');
+  await showReminders([15], { state: 'scheduled' }); expect(text()).toContain('Lembrete agendado neste aparelho'); expect(text()).not.toContain('Agendamento pendente');
+});

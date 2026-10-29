@@ -794,3 +794,27 @@ e empacotamento; a validação funcional com a pessoa usuária no Pixel 7 perman
 
 O milestone Sprint 2 e as referências de cronograma das Issues #39–#43 foram
 atualizados para **08/11/2026**, preservando escopo e critérios de aceite.
+
+### Ajustes de apresentação antes da conclusão de T12
+
+Nova Tarefa inicia o campo de horário com a hora local do aparelho em HH:mm,
+capturada uma única vez ao abrir a tela. A edição manual é preservada.
+Detalhes da Tarefa mostra os lembretes canônicos em uma seção compacta somente
+leitura, usando o mesmo helper de formatação de Nova/Editar. Sem lembretes
+canônicos, a seção não aparece; strings legadas não são configuração ativa.
+
+A seção separa configuração persistida de estado local do agendamento, obtido
+exclusivamente de `reminderScheduling[task.id]`. Estado ausente não confirma
+agendamento; `not_required` informa ausência de agendamento ativo. Concluir ou
+restaurar mantém a configuração visível e apresenta o estado atualizado do
+Context, sem consultar o módulo nativo pela interface.
+
+Os cenários Android de criação, edição, horário passado, antecedência inválida
+e persistência da configuração já validados permanecem registrados. A conclusão
+de T12 aguarda a repetição dos cenários em que o estado do trigger ficou ambíguo.
+Não há alteração de backend, banco, scheduler ou fluxo de exclusão/desfazer.
+
+Regressão dos ajustes: **513 testes mobile em 28 suítes** (13 novos), **317 testes
+backend em 13 suítes**, 16 testes dos scripts CI, lint/TypeScript sem ampliar
+baselines e typecheck/build backend aprovados. Builds Android debug/release e
+`git diff --check` aprovados. A validação manual final permanece pendente.
