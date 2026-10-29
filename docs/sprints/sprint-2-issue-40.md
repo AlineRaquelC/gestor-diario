@@ -328,17 +328,48 @@ rejeita novo reminder vencido e `TASK_TIMEZONE` pode divergir da zona da série.
 Geração interna de snapshots de uma regra antes persistida precisa de contrato
 próprio, sem enfraquecer validação de entrada do usuário.
 
-Contrato técnico recomendado para completar a política sem backfill: não gerar
-novas Tasks cujo horário já passou; para slot ainda futuro, preservar offsets
-da regra, inclusive os cujo trigger venceu, e agendar somente triggers futuros
-pelo scheduler existente. Esta recomendação para triggers do próprio dia não
-deve ser confundida com o aceite explícito das políticas de edição/janela. A materialização
-interna deve validar estrutura, IANA e resolução temporal com o domínio, sem
-simular um `previous` falso, sem deslocar horário e sem fabricar clientId para
-contornar validações. Essa semântica ainda não existe no backend e é um gate de
-implementação, não uma capacidade confirmada da #39. Sem horário e sem reminders,
-o corte de geração usa o dia civil da série. Horários inexistentes/ambíguos
-causam erro explícito no lote atômico; não persistir meia ocorrência.
+### Política consolidada — reminder vencido na materialização
+
+**Decisão aprovada do refinamento em 29/10/2026.** Para uma ocorrência recorrente
+**ainda futura**, materializada automaticamente a partir de regra válida já
+persistida, criar a Task normalmente e preservar todos os offsets configurados.
+Criar Reminder IDs próprios da ocorrência e calcular triggerAt para cada Reminder.
+A existência de um Reminder expirado não invalida a ocorrência inteira nem faz
+falhar a geração inteira por esse motivo.
+
+Reutilizar o scheduler da #39, sem um scheduler novo:
+
+- Trigger ainda futuro: elegível para agendamento pela infraestrutura existente.
+- Trigger expirado: Reminder e offset permanecem na configuração canônica, sem
+  trigger Android ativo; não agendar nem publicar retroativamente, inclusive no
+  recovery. Trigger no instante atual também não é futuro e não é elegível.
+
+Exemplo na mesma zona IANA: agora **10:20**, ocorrência hoje às **10:30**:
+
+| Offset configurado | triggerAt local correspondente | Resultado |
+|---|---|---|
+| 30 minutos antes (30) | 10:00 | Configuração preservada; trigger expirado não agendado. |
+| No horário (0) | 10:30 | Configuração preservada; trigger futuro elegível ao scheduler. |
+
+A Task é criada com ambos os offsets e com os IDs próprios de seus dois Reminders.
+Na implementação, triggerAt será resolvido como instante pela data/horário/IANA,
+não persistido como um simples texto de horário.
+
+**Criação/edição manual permanece com a validação da #39.** Agora 10:20, Task
+manual às 10:30 e adição de um novo reminder de 30 minutos antes resulta em
+rejeição: seu novo trigger seria 10:00. A materialização automática reproduz uma
+regra válida previamente configurada; não é uma inclusão manual de novo offset
+vencido naquele momento. Preservar configuração não autoriza fabricar disparo
+retroativo nem enfraquecer a validação de entrada manual.
+
+A materialização interna deve validar estrutura, IANA e resolução temporal com o
+domínio, sem simular um `previous` falso, deslocar horário ou fabricar clientId
+para contornar validações. A decisão de negócio está consolidada; o contrato
+interno de geração ainda será implementado e testado, não é capacidade nova já
+existente na #39. Não gerar novas Tasks cujo próprio horário já passou; sem
+horário e sem reminders, o corte usa o dia civil da série. Horários inexistentes
+ou ambíguos continuam causando erro explícito no lote atômico; não persistir meia
+ocorrência. Esses erros estruturais diferem de um trigger simplesmente expirado.
 
 Um erro de geração não deve apagar Tasks existentes. Falha de rede depois do
 commit permite repetir o comando idempotente; falha de cache mantém confirmação
@@ -401,7 +432,7 @@ Mudanças propostas, ainda não realizadas:
 | Persistência | Regra/Task/filhos/reminders/History atômicos; rollback em falha; constraints, banco vazio, upgrade e dados anteriores intactos. |
 | Edição | Campo omitido não cria/para série; editar só ocorrência; DAILY → WEEKLY preserva 29/10–31/10 e só aplica nova regra após cobertura; intervalo sem slots não é preenchido pela mudança; conflito updatedAt; NONE não apaga futuras, History ou reminders. |
 | Lifecycle | Concluir/reabrir independente; excluir/undo mesma Task; tombstone não regenera; concluir subtarefas reconcilia sem gerar duplicata. |
-| Reminders | Offsets copiados com IDs próprios; triggerAt por data/fuso; cinco por Task; offset 0/1440; snapshot gerado tardiamente e trigger vencido; ambiguidade/gap; sem falso sucesso. |
+| Reminders | Offsets copiados com IDs próprios; triggerAt por data/fuso; cinco por Task; offset 0/1440; agora 10:20/Task 10:30/offsets 30 e 0 cria a ocorrência automática com ambos os Reminders, agenda só 10:30 e mantém 10:00 expirado sem publicação retroativa; inclusão manual nova de offset 30 no mesmo cenário é rejeitada; trigger igual a agora não é elegível; ambiguidade/gap; sem falso sucesso. |
 | Sync/offline | Montar app e sincronizar repetidamente; ledger/retry; falha intermediária/cache; snapshot consolidado antes do scheduler; offline não gera Tasks ou IDs fictícios; retorno não cria dias passados nunca persistidos; repetição não avança nem regrava cobertura incorretamente; falha do lote não avança materializedThrough. |
 | Calendário | Todas as frequências em dia/semana/mês; quantidade real, ordem e rota corretas; cache em outro fuso; navegação não expande horizonte de 31 dias; período não carregado não vira vazio confirmado; Tasks reais fora da janela permanecem visíveis. |
 | Android | Regra persistida após reabertura, calendário real, sync repetida sem duplicação, notificação de ocorrência futura e cancelamento individual; limitações da #39 preservadas. |
@@ -417,7 +448,7 @@ Não instalar bibliotecas nem alterar baselines para resolver o planejamento.
 |---|---|
 | Janela de geração versus edição | Política adotada: editar afeta apenas novos slots após a cobertura. Verificar que UI não promete alterar futuras já persistidas; não introduzir reescrita em lote nesta Sprint. |
 | Volume e horizonte offline | Janela adotada até hoje + 31 inclusive; medir Tasks/reminders/tempo de lote e respeitar limite no backend e calendário. Não prometer geração ilimitada com app/backend desligados. |
-| Reminders já vencidos na materialização | Contrato técnico recomendado: preservar offsets de slot ainda futuro, agendando só triggers futuros. Conferir esse detalhe na revisão documental; provar na implementação que POST manual continua bloqueando inválidos e scheduler nunca publica vencidos. |
+| Reminders já vencidos na materialização | Decisão consolidada: criar a ocorrência ainda futura e seus Reminder IDs, preservar todos os offsets, calcular triggerAt e agendar somente triggers futuros; expirados não invalidam a ocorrência nem geram publicação retroativa. Provar na implementação que criação/edição manual continua rejeitando novos triggers vencidos. |
 | Mudança de data/fuso | Separar chave nominal, data efetiva e instante do reminder; preservar zona e testar DST/meses curtos. |
 | Exclusão/stop versus geração | Tombstone ocupa slot; NONE interrompe novas inserções. Não recriar exclusões nem apagar outras ocorrências. |
 | Prazo até 08/11 | Planejar uma camada por vez; 8 pontos mantidos, sem converter em promessa de prazo. Reestimar/reduzir recorte somente com decisão explícita se gates excederem a capacidade. |
@@ -432,11 +463,13 @@ inclusive, idempotência por constraint e ausência de backfill de dias anterior
 nunca persistidos. A antiga proposta de 90 dias foi substituída, sem manter esse
 valor como opção vigente.
 
-O contrato de snapshots de reminders ainda futuros com trigger já vencido é
-uma recomendação técnica explicitada na seção 8 para revisão. Não fazer backfill
-de dias passados não define, por si, o tratamento de um trigger vencido no próprio
-dia. Esse contrato complementar permanece identificado como recomendação, sem
-declarar recorrência implementada ou testes novos aprovados.
+A política de Reminder expirado também está **consolidada**: a materialização
+automática cria a ocorrência ainda futura, preserva offsets, atribui Reminder IDs
+próprios e calcula triggerAt. Somente triggers futuros são elegíveis ao scheduler
+da #39; expirados não invalidam a ocorrência e nunca são publicados retroativamente.
+Criação/edição manual continua rejeitando configuração nova cujo trigger já passou.
+Todas essas políticas são decisões do refinamento; não declaram recorrência
+implementada ou novos testes de recorrência aprovados.
 A autorização de implementação é uma etapa posterior, separada da revisão deste
 refinamento. #40 permanece OPEN, com Planning Poker 8; PBI-13 permanece
 parcialmente coberto. Nenhuma migration, código funcional, dependência ou branch
