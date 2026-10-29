@@ -21,8 +21,8 @@ Ficam fora recorrência (#40), RF43–RF45 completos, REQ114–REQ116 completos,
 escalonamento, silêncio complexo e políticas por prioridade. Sem autenticação,
 biometria, limpeza de dados ou promoção `dev → main`.
 
-Meta operacional: **31/10/2026**; **01/11/2026 é buffer/freeze e último dia para
-commit/push**; apresentação 08/11/2026 não estende o desenvolvimento.
+Data alvo atualizada: **08/11/2026**, último dia para **commit/push**,
+conforme prorrogação informada pelo professor em 29/10/2026.
 
 ## 2. Auditoria do código atual
 
@@ -469,7 +469,7 @@ Estado: todas as tasks permanecem planejadas, sem implementação iniciada.
 | Limite de triggers/múltiplos | Médio | Medir limite real no SDK escolhido; no máximo cinco por Task proposto; avisar capacidade sem descartar silenciosamente. |
 | Compatibilidade futura com #40 | Médio | One-shot por ocorrência/Task ID; copiar offsets com novos Reminder IDs; não construir séries agora. |
 | UI/textos | Baixo | Reutilizar padrão aprovado e formatar labels de valores, sem redesign. |
-| Prazo até 31/10 operacional / freeze 01/11 | Alto | Gate Android cedo; evitar implementação paralela de alternativas; renegociar com evidência se T02/T01 não fecharem. |
+| Prazo atualizado / freeze 08/11 | Alto | Gate Android cedo; evitar implementação paralela de alternativas; renegociar com evidência se T02/T01 não fecharem. |
 
 **13 pontos continuam a estimativa oficial.** A auditoria mostra trabalho completo
 em domínio/fuso, banco, API, cache/sync, lifecycle e Android, não apenas conexão da
@@ -749,3 +749,48 @@ Lint mantém 3 erros/7 warnings conhecidos; TypeScript mobile mantém os 11
 diagnósticos conhecidos. Baselines não foram ampliadas. Migration aplicada em
 SQLite temporário, typecheck/build backend e `git diff --check` aprovados.
 As quatro migrations existentes e o código backend permanecem inalterados.
+
+### Atualização de cronograma — 29/10/2026
+
+O professor prorrogou a data máxima de commit e push para **08/11/2026**.
+O prazo anterior de **01/11/2026** foi substituído. A validação Android manual
+e o fechamento da Issue #39 continuam sendo etapas separadas.
+
+## T10 — interface e experiência de lembretes
+
+Nova Tarefa e Editar Tarefa usam `ReminderInput[]`, com `offsetMinutes` como
+configuração. O seletor compartilhado mantém os presets 0, 15, 30, 60 e 1440,
+formata os valores em um helper e permite personalizados em minutos, horas e
+dias usando a conversão do domínio. Quantidades inválidas, overflow, duplicatas
+e mais de cinco lembretes são impedidos na interface. A lista segue ordem
+crescente de antecedência, com remoção individual e controles acessíveis de 44px.
+
+A primeira configuração captura o fuso IANA do aparelho. A edição preserva o
+fuso salvo e as datas civis canônicas, inclusive com cache originado em outro
+fuso. O PATCH omite reminders/fuso quando não foram alterados; remover todos
+envia `reminders: []` e `reminderTimeZone: null`. Configurações de tarefas
+concluídas continuam visíveis. Strings legadas são apenas informação e exigem
+nova seleção manual para ativar notificações.
+
+Antes de criar ou editar, o domínio valida horário, data, fuso e antecedências.
+Alterar prazo/horário revalida a configuração existente sem exigir toque nos
+lembretes. Lembretes exigem horário HH:mm válido; não há substituição silenciosa
+durante validação. Sem lembretes, não se exige fuso nem permissão.
+
+No Android 13+, POST_NOTIFICATIONS é consultada/solicitada somente ao adicionar
+o primeiro lembrete. Negação permite persistir e explica que notificações estão
+desativadas. O feedback de criação/edição distingue confirmação de agendamento,
+configuração desnecessária e pendência/indisponibilidade/erro. Falha de cache
+continua informada, inclusive junto com falha de scheduler, sem repetir POST/PATCH.
+
+Testes usam apenas mocks, sem notificações reais. A regressão mobile contém
+**500 testes em 28 suítes** (53 novos); backend mantém **317 testes em 13 suítes**.
+Os 16 testes dos scripts CI, lint e TypeScript passaram sem ampliar baselines:
+3 erros/7 warnings ESLint conhecidos e 11 diagnósticos TypeScript conhecidos.
+Typecheck e build backend, assembleDebug/assembleRelease com Hermes, Codegen e
+New Architecture e `git diff --check` aprovados. Os builds verificam compilação
+e empacotamento; a validação funcional com a pessoa usuária no Pixel 7 permanece
+**T12 pendente**. T13, PR final, merge e fechamento da Issue #39 não executados.
+
+O milestone Sprint 2 e as referências de cronograma das Issues #39–#43 foram
+atualizados para **08/11/2026**, preservando escopo e critérios de aceite.

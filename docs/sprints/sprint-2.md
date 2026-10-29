@@ -3,10 +3,10 @@
 ## Identificação e datas
 
 - **Formalização:** 23/10/2026; estado: planejada, nenhuma Issue iniciada.
-- **Janela operacional:** 23/10/2026 → 31/10/2026.
-- **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **31/10/2026**.
-- **Freeze absoluto / data máxima para commit e push:** **01/11/2026**.
-- **Apresentação:** **08/11/2026**; não é data de desenvolvimento nem prorroga o freeze.
+- **Janela operacional atualizada:** 23/10/2026 → 08/11/2026.
+- **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **08/11/2026**.
+- **Freeze absoluto / data máxima para commit e push:** **08/11/2026**.
+- **Apresentação:** **08/11/2026**; a data máxima de commit/push também passou a 08/11 por decisão do professor.
 - **Branch desta documentação:** `docs/plan-sprint-2`; PR exclusivamente para `dev`, sem merge automático.
 
 Esta documentação registra o planejamento da Sprint 2 e suas Issues no GitHub.
@@ -184,7 +184,7 @@ avançado ou isolamento inseguro.
 | Metas/relatórios com contagens inconsistentes | Reutilizar helpers; confrontar texto, barras e progresso com a mesma massa real. |
 | Perfis expondo/misturando dados | Gate de segurança antes de alternância; adiar se o isolamento seguro exceder capacidade. |
 | Legado e dívida técnica já conhecida | Preservar três pendências e dados locais, exclusão explícita de App.test.tsx no CI e baselines atuais; não confundir CI verde com dívida zerada. |
-| Freeze ou regressão tardia | Regressão em 30/10, fechamento em 31/10; 01/11 apenas buffer/freeze; não estender o trabalho até a apresentação. |
+| Freeze ou regressão tardia | Regressão em 30/10, fechamento em 31/10; 08/11 apenas buffer/freeze; respeitar a data máxima de commit/push em 08/11. |
 
 ## Estratégia de testes e validação
 
@@ -209,10 +209,10 @@ avançado ou isolamento inseguro.
 | 28/10 | #41 na ordem planejada, preservando filtros/IDs. |
 | 29/10 | #42 e integração do core; rever capacidade e riscos. #43 apenas se o gate estiver comprovadamente atendido. |
 | 30/10 | Regressão integrada Android, persistência, API/banco quando necessários e CI. |
-| 31/10 | Documentação, fechamento e promoção final planejada, sujeita a aprovação específica/revisão; milestone operacional vence nesta data. Promoção `dev → main` fora do escopo da formalização. |
-| 01/11 | Buffer/freeze; evitar desenvolvimento normal. Data máxima para commit/push; depois disso nenhuma alteração no repositório. |
-| 02–07/11 | Preparação/ensaio da demonstração sem alterar o repositório. |
-| 08/11 | Apresentação do incremento efetivamente validado; não é prazo de desenvolvimento. |
+| 31/10 | Documentação, fechamento e promoção final planejada, sujeita a aprovação específica/revisão; meta original, posteriormente prorrogada para 08/11. Promoção `dev → main` fora do escopo da formalização. |
+| 08/11 | Buffer/freeze; evitar desenvolvimento normal. Data máxima para commit/push; depois disso nenhuma alteração no repositório. |
+| 02–07/11 | Janela adicional para implementação e validação, documentação e preparação da demonstração; commits/push permitidos até 08/11. |
+| 08/11 | Apresentação do incremento efetivamente validado; coincide com o novo limite de commit/push. |
 
 A distribuição diária é uma previsão condicionada à aprovação de início e ao
 cumprimento da DoD. Ajustes de recorte devem refletir explicitamente risco e
@@ -247,3 +247,9 @@ os 37 pontos planejados do core.
 - As labels existentes e o milestone nº 2 identificam a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Nenhuma label nova foi criada.
 - **Dados de teste preservados.** A limpeza para apresentação fica para depois da Sprint 2, mediante aprovação específica e respeitando a data limite do freeze; alterações posteriores ao freeze estão excluídas.
 - Resultado da formalização: planejamento documentado e Issues registradas; implementação funcional e promoção `dev → main` permanecem fora do escopo.
+
+### Atualização de cronograma — 29/10/2026
+
+O professor prorrogou a data máxima de commit e push para **08/11/2026**.
+O prazo anterior de **01/11/2026** foi substituído. A validação Android manual
+e o fechamento da Issue #39 continuam sendo etapas separadas.
