@@ -2,7 +2,9 @@
 
 O código de prova descrito aqui foi convertido em infraestrutura de produção
 em T07. Activity/tela debug e nomes Gate foram removidos; a reprodução abaixo
-refere-se aos commits históricos do gate. Estado atual: [execução T06–T09](sprint-2-issue-39.md#execução-t06t09--26102026).
+refere-se aos commits históricos do gate. Estado final: T01–T11 concluídos e T12 aprovada pela pessoa usuária em
+29/10/2026; ver [validação final](sprint-2-issue-39.md#validação-final--29102026).
+Os estados pendentes descritos abaixo pertencem ao registro histórico de T01/T02.
 
 ## Escopo da etapa
 
@@ -416,3 +418,18 @@ critérios funcionais de infraestrutura, sem aprovar um SLA mais estrito de RF16
 O APK debug foi restaurado sem limpar dados. Os dois IDs sintéticos foram
 cancelados, a consulta final ficou vazia e a Activity normal foi aberta novamente.
 `git diff --check` aprovado. Branch `feature/39-reminders`; T03 não iniciada.
+
+
+## Encerramento do gate e validação integrada — 29/10/2026
+
+O adaptador Android do projeto substituiu o candidato rejeitado e foi integrado
+ao scheduler, journal e lifecycle de produção. A pessoa usuária aprovou T12:
+criação e edição, rejeição de horário/disparo passado, concluir/reabrir,
+excluir/desfazer e excluir sem desfazer. Configuração persistida e estado local
+foram conferidos separadamente em Detalhes. Os resultados completos estão no
+[registro final da #39](sprint-2-issue-39.md#validação-final--29102026).
+
+O GO permanece limitado ao modo inexato do AlarmManager. Exact alarm não foi
+solicitado; não há precisão absoluta de minuto nem publicação retroativa pelo
+recovery. A aprovação integrada não altera as medições e limitações históricas
+acima. Issue aberta, pronta para revisão em PR para `dev`, sem merge automático.

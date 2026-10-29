@@ -1,6 +1,8 @@
 # Refinamento técnico — Issue #39: lembretes e notificações locais confiáveis
 
-Execuções de T03–T05 e T06–T09 registradas ao final deste documento.
+Estado atual em 29/10/2026: **T01–T11 concluídos; T12 aprovada pela pessoa usuária**.
+Implementação pronta para revisão em PR para `dev`; Issue aberta até integração.
+As execuções e a validação final estão registradas ao final deste documento.
 
 Execução de T01/T02: [contrato temporal e gate Android](sprint-2-issue-39-gate.md).
 O registro de refinamento abaixo preserva o contexto e as decisões anteriores à execução.
@@ -818,3 +820,85 @@ Regressão dos ajustes: **513 testes mobile em 28 suítes** (13 novos), **317 te
 backend em 13 suítes**, 16 testes dos scripts CI, lint/TypeScript sem ampliar
 baselines e typecheck/build backend aprovados. Builds Android debug/release e
 `git diff --check` aprovados. A validação manual final permanece pendente.
+
+
+## Validação final — 29/10/2026
+
+T01–T11 concluídos. T12 foi concluída e aprovada pela pessoa usuária no Android,
+com os cenários adicionais abaixo. Planning Poker permanece **13**. O limite
+vigente de commit/push é **08/11/2026**, substituindo 01/11/2026.
+
+| Cenário manual | Resultado aprovado |
+|---|---|
+| Criação | Task com lembrete futuro criada; configuração persistida e exibida em Detalhes; estado “Lembrete agendado neste aparelho”. |
+| Edição | Reminder existente apareceu em Editar; alteração da antecedência persistiu e reapareceu corretamente. |
+| Horário passado | Tentativa bloqueada com mensagem compreensível. |
+| Antecedência inválida | Task futura com trigger resultante no passado bloqueada com mensagem apropriada. |
+| Concluir/reabrir | Configuração preservada; antes de concluir havia agendamento, após concluir “Nenhum agendamento ativo neste aparelho”; reabrir com trigger futuro voltou a “Lembrete agendado neste aparelho”. |
+| Excluir/desfazer | DESFAZER dentro da janela restaurou a mesma Task; configuração preservada e trigger futuro reconciliado, com estado agendado. |
+| Excluir sem desfazer | Janela de undo expirou; Task permaneceu excluída, sem agendamento ativo residual no cenário validado. |
+
+Os ajustes de UX também foram aprovados: Nova Tarefa usa HH:mm atual do aparelho
+somente no valor inicial, preservando edição manual. Detalhes apresenta os
+reminders canônicos e separa configuração persistida do estado local fornecido
+pelo Context. Não apresenta seção vazia nem strings legadas como reminders ativos.
+
+### Implementação final e invariantes
+
+- Domínio temporal compartilhado: minutos, horas e dias; presets e personalizado;
+  até cinco offsets inteiros, únicos, canônicos em `offsetMinutes`; horário e fuso
+  IANA explícitos; validação de horário/disparo passado, overflow e ambiguidades.
+- SQLite/API: `task_reminders`, `reminderTimeZone` e migration aditiva 0003;
+  GET/POST/PATCH/RESTORE retornam configuração canônica. Transações preservam
+  consistência de Task/reminders/History; IDs estáveis, retry por clientId,
+  soft delete e restore permanecem integrados. Nenhum hard delete novo.
+- Mobile: Reminder/ApiReminder/ReminderInput tipados, cache confirmado e legado
+  separado; coleção remota vazia é autoritativa. `legacyReminders` não é convertida,
+  enviada como configuração canônica ou usada para agendar notificações.
+- Scheduler de produção: journal durável, fila serializada, IDs determinísticos,
+  cancelamento/reagendamento e confirmação do estado nativo por serviço. A UI
+  usa TaskContext e não cria scheduler paralelo. API confirma CREATE antes de
+  agendar; cache falho impede novo agendamento e informa a pendência.
+- UPDATE reconcilia quando o fingerprint efetivo muda. COMPLETE cancela sem apagar
+  configuração; REOPEN e RESTORE/UNDO rearmam somente futuros; DELETE cancela.
+  Mudança efetiva de status por subtarefas também reconcilia. SYNC só reconcilia
+  após snapshot consolidado e persistido. Recuperação nunca publica vencidos.
+- Nova/Editar/Detalhes usam a apresentação compartilhada; permissão Android é
+  contextual. Feedback distingue tarefa salva de confirmação do agendamento,
+  inclusive quando cache/scheduler falham, sem repetir POST/PATCH automaticamente.
+
+### Limites mantidos
+
+O adaptador Android é controlado pelo projeto. `react-native-notify-kit` foi
+rejeitado e não permanece como dependência funcional. AlarmManager usa modo
+**inexato**; exact alarm não foi solicitado. Android pode atrasar a entrega e
+não há garantia de precisão absoluta de minuto. O recovery não publica triggers
+vencidos retroativamente. A aprovação manual dos cenários acima não amplia o
+suporte para outros fabricantes nem comprova SLA de entrega.
+
+Não existe transação única entre API, cache/journal e AlarmManager. Falhas de
+persistência ou cancelamento são informadas; ausência de conexão não revela
+exclusões remotas até nova leitura completa. As evidências históricas do gate
+continuam delimitadas ao ambiente e aos cenários nelas registrados.
+
+### Integração
+
+Entrega pronta para PR `feature/39-reminders` → `dev`, com `Closes #39`.
+A Issue permanece aberta; merge depende de revisão. Não há merge automático,
+remoção da branch, início de outra Issue ou promoção `dev` → `main` nesta etapa.
+
+### Regressão final para revisão
+
+- Mobile: **513 testes / 28 suítes**; validadores CI: **16 testes**.
+- Backend: **317 testes / 13 suítes**, typecheck e build aprovados.
+- `db:migrate` aplicado em SQLite temporário isolado. B08 confirmou banco vazio,
+  upgrade do schema anterior, reaplicação idempotente, foreign keys e preservação
+  de projetos/Tasks/subtarefas/notas/History/clientId/soft delete. Verificação
+  adicional do banco vazio migrado: `foreign_key_check = []` e `integrity_check = ok`.
+  Migrations 0000–0002 permanecem inalteradas.
+- Lint: 3 erros/7 warnings conhecidos; TypeScript mobile: 11 diagnósticos conhecidos.
+  Nenhuma baseline ampliada; `git diff --check` aprovado.
+- `assembleDebug` e `assembleRelease`: BUILD SUCCESSFUL; Hermes e New Architecture
+  habilitados, Codegen integrado. Não foram repetidos testes destrutivos em dados reais.
+- `feature/39-reminders` contém todos os commits de `origin/dev` na preparação do PR.
+  Nenhuma captura nova ou arquivo temporário foi adicionado ao repositório.
