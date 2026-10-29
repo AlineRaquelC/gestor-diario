@@ -3,7 +3,7 @@
 ## Identificação e datas
 
 - **Formalização:** 23/10/2026; estado original: planejada, nenhuma Issue iniciada.
-- **Atualização em 29/10/2026:** #39 implementada, T01–T11 concluídos e T12 aprovada pela pessoa usuária; pronta para revisão em PR para `dev`, ainda aberta até integração. Demais Issues não iniciadas.
+- **Atualização em 29/10/2026:** #39 concluída e integrada em `dev` pelo PR #46, com T12 aprovada; Issue CLOSED/completed. #40 em refinamento técnico documental, sem implementação iniciada; #41–#43 não iniciadas.
 - **Janela operacional atualizada:** 23/10/2026 → 08/11/2026.
 - **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **08/11/2026**.
 - **Freeze absoluto / data máxima para commit e push:** **08/11/2026**.
@@ -50,8 +50,8 @@ Ready nem todos os PBIs de origem integralmente cobertos.
 
 | Ordem | Issue | Origem selecionada | Planning Poker | Compromisso | Estado |
 |---|---|---|---:|---|---|
-| 1 | [#39 — Lembretes e notificações locais confiáveis](https://github.com/AlineRaquelC/gestor-diario/issues/39) | PBI-13; RF15/RF16 | 13 | Core; prioridade alta dentro da Sprint | Implementada; T12 aprovada; revisão/merge pendentes |
-| 2 | [#40 — Tarefas recorrentes diária, semanal e mensal](https://github.com/AlineRaquelC/gestor-diario/issues/40) | PBI-13; RF08 | 8 | Core | Planejada; não iniciada |
+| 1 | [#39 — Lembretes e notificações locais confiáveis](https://github.com/AlineRaquelC/gestor-diario/issues/39) | PBI-13; RF15/RF16 | 13 | Core; prioridade alta dentro da Sprint | Concluída; PR #46 integrado em dev |
+| 2 | [#40 — Tarefas recorrentes diária, semanal e mensal](https://github.com/AlineRaquelC/gestor-diario/issues/40) | PBI-13; RF08 | 8 | Core | Proposta técnica em revisão; implementação não iniciada |
 | 3 | [#41 — Busca de tarefas, favoritos e filtros salvos](https://github.com/AlineRaquelC/gestor-diario/issues/41) | PBI-14; RF13/RF49/RF51 | 8 | Core | Planejada; não iniciada |
 | 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | Planejada; não iniciada |
 | 5 | [#43 — [Stretch] Base de perfis locais](https://github.com/AlineRaquelC/gestor-diario/issues/43) | PBI-19; RF33/RF34, cobertura parcial | 13 | Stretch, fora do compromisso | Planejada; não iniciada |
@@ -88,6 +88,12 @@ Não duplicar ao gerar, reabrir ou sincronizar; calendário deve refletir as dat
 Políticas de limite/fim de mês devem ficar explícitas no refinamento específico.
 Ocorrências devem ser compatíveis com os lembretes estabilizados. Recorrência
 complexa/personalizada está fora.
+
+Proposta de arquitetura, auditoria e decisões pendentes no
+[refinamento técnico da #40](sprint-2-issue-40.md). A proposta não autoriza
+implementação nem altera o Planning Poker de 8 pontos. Edição sem reescrita de
+Tasks materializadas, NONE sem exclusão, janela rolante até hoje + 31 dias inclusive
+e ausência de backfill foram adotadas para o planejamento.
 
 ### 3. Busca, favoritos e filtros salvos — #41
 
@@ -243,7 +249,7 @@ os 37 pontos planejados do core.
 
 ## Estado do planejamento e práticas do repositório
 
-- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 29/10, #39 está implementada com T12 aprovada, aguardando revisão/integração; #40–#43 permanecem não iniciadas.
+- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 29/10, #39 está concluída e integrada em `dev` pelo PR #46; #40 está em refinamento técnico, sem código implementado, e #41–#43 permanecem não iniciadas.
 - O desenvolvimento futuro segue o Git Flow: base `dev` limpa/atualizada, branch por Issue, Conventional Commits e PR para `dev` com referência à Issue, critérios e evidências. Integração por revisão, sem merge automático ou desenvolvimento direto em `dev`/`main`.
 - As labels existentes e o milestone nº 2 identificam a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Nenhuma label nova foi criada.
 - **Dados de teste preservados.** A limpeza para apresentação fica para depois da Sprint 2, mediante aprovação específica e respeitando a data limite do freeze; alterações posteriores ao freeze estão excluídas.
@@ -253,4 +259,4 @@ os 37 pontos planejados do core.
 
 O professor prorrogou a data máxima de commit e push para **08/11/2026**.
 O prazo anterior de **01/11/2026** foi substituído. A validação Android manual
-e o fechamento da Issue #39 são etapas separadas; a validação T12 foi posteriormente aprovada em 29/10, e a integração continua pendente.
+e o fechamento da Issue #39 são etapas separadas; a validação T12 foi posteriormente aprovada em 29/10 e #39 foi integrada em `dev` pelo PR #46, com fechamento como completed.
