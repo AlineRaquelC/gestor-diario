@@ -1,11 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 import { projects } from './projects.js';
+import { recurrenceSeries } from './recurrence-series.js';
 import { timestamps } from './timestamps.js';
 
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey().notNull(),
   clientId: text('client_id').unique(),
+  recurrenceSeriesId: text('recurrence_series_id').references(() => recurrenceSeries.id, { onDelete: 'restrict', onUpdate: 'no action' }),
+  occurrenceKey: text('occurrence_key'),
   title: text('title').notNull(),
   description: text('description'),
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'restrict', onUpdate: 'no action' }),
@@ -22,6 +25,8 @@ export const tasks = sqliteTable('tasks', {
   deletedAt: text('deleted_at'),
   undoUntil: text('undo_until'),
 }, (table) => [
+  unique('tasks_series_occurrence_unique').on(table.recurrenceSeriesId, table.occurrenceKey),
+  check('tasks_recurrence_pair', sql`(${table.recurrenceSeriesId} IS NULL) = (${table.occurrenceKey} IS NULL)`),
   check('tasks_title_not_empty', sql`length(trim(${table.title})) > 0`),
   check('tasks_priority_valid', sql`${table.priority} IN ('LOW', 'MEDIUM', 'HIGH')`),
   check('tasks_status_valid', sql`${table.status} IN ('PENDING', 'PARTIAL', 'COMPLETED')`),

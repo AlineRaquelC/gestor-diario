@@ -25,11 +25,11 @@ describe('schema e migration SQLite', () => {
 
   afterEach(() => connection?.sqlite.close());
 
-  it('cria as seis tabelas em banco vazio e permite reaplicar a migration', () => {
+  it('cria as sete tabelas em banco vazio e permite reaplicar a migration', () => {
     const names = connection.sqlite.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT GLOB '__*' ORDER BY name",
     ).all();
-    expect(names).toEqual(['notes', 'projects', 'subtasks', 'task_history', 'task_reminders', 'tasks'].map(name => ({ name })));
+    expect(names).toEqual(['notes', 'projects', 'recurrence_series', 'subtasks', 'task_history', 'task_reminders', 'tasks'].map(name => ({ name })));
     seedParents();
     expect(() => migrate(connection.db, { migrationsFolder })).not.toThrow();
     expect(connection.db.select().from(tasks).all()).toHaveLength(1);
