@@ -45,11 +45,13 @@ afterEach(async () => {await act(async () => renderer.unmount()); expect(dataGua
 it('ação explícita publica Context somente após cache consolidado confirmado', async () => {
   expect(synchronize).not.toHaveBeenCalled();
   const save = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+  let firstPersist = true;
   jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => {
-    if (key === '@taskflow:tasks' && value.includes('"rt"')) {expect(tasksContext.tasks[0].id).toBe('lt');}
+    if (key === '@taskflow:tasks' && value.includes('"rt"') && firstPersist) {expect(tasksContext.tasks[0].id).toBe('lt'); firstPersist = false;}
     return save(key, value);
   });
   await act(async () => {await button().props.onPress();});
+  expect(firstPersist).toBe(false);
   expect(screenText()).toContain('Sincronização concluída');
   expect(StyleSheet.flatten(renderer.root.findAllByType(Text).find(node => node.props.accessibilityRole === 'alert')!.props.style).color).toBe(COLORS.success);
   expect(tasksContext.tasks).toEqual(result.tasks); expect(projectsContext.projects).toEqual(result.projects);

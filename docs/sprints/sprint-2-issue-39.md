@@ -1,5 +1,12 @@
 # Refinamento técnico — Issue #39: lembretes e notificações locais confiáveis
 
+Estado atual em 29/10/2026: **T01–T11 concluídos; T12 aprovada pela pessoa usuária**.
+Implementação pronta para revisão em PR para `dev`; Issue aberta até integração.
+As execuções e a validação final estão registradas ao final deste documento.
+
+Execução de T01/T02: [contrato temporal e gate Android](sprint-2-issue-39-gate.md).
+O registro de refinamento abaixo preserva o contexto e as decisões anteriores à execução.
+
 ## 1. Estado e limites
 
 **23/10/2026 — refinamento técnico concluído; proposta em revisão.** Issue
@@ -16,8 +23,8 @@ Ficam fora recorrência (#40), RF43–RF45 completos, REQ114–REQ116 completos,
 escalonamento, silêncio complexo e políticas por prioridade. Sem autenticação,
 biometria, limpeza de dados ou promoção `dev → main`.
 
-Meta operacional: **31/10/2026**; **01/11/2026 é buffer/freeze e último dia para
-commit/push**; apresentação 08/11/2026 não estende o desenvolvimento.
+Data alvo atualizada: **08/11/2026**, último dia para **commit/push**,
+conforme prorrogação informada pelo professor em 29/10/2026.
 
 ## 2. Auditoria do código atual
 
@@ -464,7 +471,7 @@ Estado: todas as tasks permanecem planejadas, sem implementação iniciada.
 | Limite de triggers/múltiplos | Médio | Medir limite real no SDK escolhido; no máximo cinco por Task proposto; avisar capacidade sem descartar silenciosamente. |
 | Compatibilidade futura com #40 | Médio | One-shot por ocorrência/Task ID; copiar offsets com novos Reminder IDs; não construir séries agora. |
 | UI/textos | Baixo | Reutilizar padrão aprovado e formatar labels de valores, sem redesign. |
-| Prazo até 31/10 operacional / freeze 01/11 | Alto | Gate Android cedo; evitar implementação paralela de alternativas; renegociar com evidência se T02/T01 não fecharem. |
+| Prazo atualizado / freeze 08/11 | Alto | Gate Android cedo; evitar implementação paralela de alternativas; renegociar com evidência se T02/T01 não fecharem. |
 
 **13 pontos continuam a estimativa oficial.** A auditoria mostra trabalho completo
 em domínio/fuso, banco, API, cache/sync, lifecycle e Android, não apenas conexão da
@@ -483,3 +490,415 @@ sem merge automático. Requisitos oficiais, Sprint Goal, Planning Poker e estado
 da Issue permanecem preservados. A decomposição técnica está registrada neste
 documento, sem novas Issues no GitHub. Dependências, migrations e arquivos
 funcionais permanecem inalterados. A implementação da Issue #39 continua pendente.
+
+## Execução T03–T05 — 26/10/2026
+
+Etapa na branch `feature/39-reminders`, após o segundo gate Android aprovado
+com limitações. T01 e a política de alarmes inexatos permanecem vigentes.
+T06–T13 continuam pendentes; esta etapa não integra cache, formulários,
+TaskContext, scheduler, lifecycle ou sync.
+
+### Schema e migration (T03)
+
+Migration aditiva `0003_task_reminders.sql`, sem modificar 0000–0002:
+
+- `task_reminders`: UUID próprio `id`, `task_id`, `offset_minutes`, `created_at`
+  e `updated_at`, seguindo timestamps UTC e nomes SQLite do backend.
+- FK `tasks.id ON DELETE RESTRICT`; unique `(task_id, offset_minutes)`; check
+  de inteiro não negativo e limite seguro para conversão em milissegundos.
+- Triggers de INSERT e mudança de `task_id` protegem o limite de cinco itens
+  por Task também em gravações diretas no SQLite.
+- `tasks.reminder_time_zone` nullable concentra o IANA compartilhado. Coleção
+  não vazia exige fuso explícito na primeira configuração; edições podem usar
+  o persistido. `[]` limpa o fuso, permitindo recapturá-lo na configuração seguinte.
+  Validade IANA e coerência com data/hora são responsabilidade do service.
+- Tasks antigas ficam com fuso null e `reminders: []`. Nenhuma string do cache
+  mobile é interpretada, importada ou promovida a domínio. Os dados legados
+  locais, inclusive as três pendências sem projeto, não foram modificados.
+
+`reminders-migration.test.ts` usa arquivos SQLite em diretórios temporários:
+instala somente 0000–0002, insere Task excluída e dados em Projects, Subtasks,
+Notes e History, aplica 0003 e compara os campos anteriores integralmente,
+incluindo IDs/clientId/deletedAt. Também testa banco vazio, reaplicação do
+migrator e `foreign_key_check`. Nenhum teste usa o banco pessoal.
+
+### Repository e identidade (T04)
+
+`TasksRepository` agrega reminders ordenados por offset crescente em detalhe,
+lista, tombstones e retry. A lista consulta filhos em lote e os agrupa por Task.
+Sem configuração, retorna sempre `[]`. `triggerAt` UTC é calculado na leitura,
+inclusive para registros expirados, sem persistir um segundo instante canônico.
+
+O diff remove somente offsets ausentes e gera UUID somente para offsets novos.
+Offsets mantidos conservam ID e timestamps, inclusive com ordem de entrada
+invertida. A API recebe somente offsets e rejeita IDs/taskId/timestamps no
+payload; não permite mover um reminder de outra Task.
+
+DELETE continua lógico e não remove linhas de reminders. RESTORE conserva
+Task ID, Reminder IDs, fuso e configuração, sem exigir que disparos históricos
+voltem a ser futuros. Retry de POST por `clientId` resolve a identidade antes
+da validação temporal de criação e retorna os reminders persistidos, inclusive
+após vencimento ou soft delete, sem duplicar Task, filhos ou History.
+
+### Contrato e transações (T05)
+
+POST/PATCH usam o contrato agregado existente, sem novos endpoints:
+
+```json
+{
+  "time": "10:00",
+  "reminderTimeZone": "America/Sao_Paulo",
+  "reminders": [{ "offsetMinutes": 15 }, { "offsetMinutes": 60 }]
+}
+```
+
+Os demais campos obrigatórios de criação continuam exigidos. POST sem
+reminders equivale a `[]`. PATCH omitido preserva a coleção; `[]` remove tudo;
+coleção enviada aplica diff. POST, PATCH, GET lista/detalhe e RESTORE retornam
+reminders com `id`, `taskId`, `offsetMinutes`, timestamps UTC e `triggerAt` derivado.
+Nenhuma label visual pertence ao payload canônico.
+
+Zod valida array, itens estritos, máximo cinco, inteiro seguro não negativo e
+unicidade. O service valida o estado final mesclado com **a implementação de
+T01**, agora em `backend/src/domain/reminders/index.ts`; o caminho mobile
+`src/domain/reminders/index.ts` reexporta essa fonte pura, sem mudar suas regras.
+Não há nova dependência ou integração de mapping/cache. O backend compila essa
+mesma fonte no build, e os 33 testes mobile de T01 continuam usando-a.
+
+Âncora continua `dueDate + time` no IANA persistido; 1440 minutos são 24h
+absolutas. Gap/overlap são rejeitados. Novos offsets e mudança efetiva de
+âncora exigem futuro estrito. GET/RESTORE/retry e edição que mantém offsets
+expirados não aplicam validação de passado como nova configuração. Remoção de
+expirados e conclusão permanecem permitidas.
+
+Transações SQLite `immediate` incluem Task, subtarefas de criação, diff de
+reminders, fuso e History. Falha de insert ou de History desfaz o conjunto
+inteiro. Mudança efetiva integra `UPDATED`; nenhum evento novo foi criado.
+PATCH idêntico conserva IDs, timestamps e History, sem atualização fictícia.
+
+### Evidência automatizada
+
+- B01: múltiplos reminders, zero, cinco itens, ordem e GET vazio.
+- B02: PATCH omitido/[]/diff/repetido, IDs/timestamps e recaptura de fuso.
+- B03: FK, unique, check, cardinalidade, hard delete restrito, isolamento entre
+  Tasks, IDs de outro pai rejeitados e Task inexistente.
+- B04: A–F, antecedência de 24h, fuso inválido, horário ausente/inválido,
+  Sao Paulo/Kathmandu, DST Nova York/Lord Howe e retenção de expirados.
+- B05: rollback de criação com filhos e reminders; falha no insert após remoção
+  do diff; falha no History restaura Task, fuso e coleção inteira.
+- B06: soft delete/restore de configuração já expirada.
+- B07: clientId/retry com resposta repetida, vencimento e tombstone.
+- B08: banco vazio, upgrade isolado, dados preservados e foreign key check.
+
+Validação: 317 testes backend em 13 suítes; 385 testes mobile em 23 suítes;
+16 testes dos validadores CI. Migration em banco temporário, typecheck backend,
+build, lint CI e typecheck mobile aprovados. Mantidos 3 erros/7 warnings de
+lint e 11 diagnósticos TypeScript conhecidos, sem ampliar baselines.
+
+## Execução T06–T09 — 26/10/2026
+
+Integração na mesma branch `feature/39-reminders`, preservando o backend de
+T03–T05 e o domínio temporal de T01. A Issue permanece aberta. T10 (formulários
+e feedback visual), T12 (validação Android final em dispositivo) e T13 continuam
+pendentes. Não houve alteração visual em Nova/Editar, TaskDetails, Home ou Calendar.
+
+### Tipos, mapping e cache (T06)
+
+`src/models/reminder.ts` define `Reminder`, `ApiReminder` e `ReminderInput` de
+acordo com o retorno real do backend: ID próprio, Task ID, offset, timestamps e
+`triggerAt`. `Task` agora suporta coleção tipada, `reminderTimeZone` e os dias
+literais `dueDateKey`/`startDateKey`, evitando reinterpretar o dia de um ISO antigo
+após viagem. Atualização que repete o mesmo ISO conserva a chave civil recebida;
+um dia efetivamente editado é serializado como novo dia.
+
+O cache continua em `@taskflow:tasks`. Hidratação detecta `string[]`, move as
+labels para `legacyReminders` e usa `reminders: []`, sem interpretar nomes ou
+converter presets. Cache canônico valida coleção, identidade, offsets e
+timestamps. Conteúdo inválido ou falha de leitura bloqueia a regravação do cache
+original. Não há limpeza de dados nem promoção das três tarefas legadas sem projeto.
+
+`fromApiTask` usa sempre os reminders remotos; `[]` é autoritativo. Evidência
+legada permanece separada nas leituras, mutações, restore e sync. O marcador
+local `remindersConfirmed` só é produzido pelo mapping de resposta remota e fica
+persistido no cache; nunca faz parte do contrato HTTP. Cache antigo sem essa
+confirmação não se torna fonte de novas agendas.
+
+POST/PATCH serializam somente `{ offsetMinutes }` e `reminderTimeZone` quando
+presentes. PATCH omitido não envia coleção; `[]` é remoção explícita. IDs,
+timestamps, flags locais, snapshots e journal não são enviados. Importação por
+clientId conserva a identidade existente e não promove labels legadas.
+
+`VisualReminderDraft` é a fronteira temporária para a UI antiga de Nova Tarefa:
+strings são preservadas como evidência local e omitidas no POST canônico. Não são
+configuração de notificação. T10 substituirá essa fronteira por controles tipados.
+`deviceReminderTimeZone()` obtém e valida o IANA do aparelho sem fallback Node.
+A pré-validação usa o mesmo `validateReminderChange` de T01, sem nova semântica;
+POST com clientId delega a decisão temporal ao backend, que distingue retry de
+uma nova criação mesmo depois do vencimento.
+
+### Scheduler, journal e infraestrutura nativa (T07)
+
+`src/services/reminderScheduler.ts` concentra a lógica Android fora do Context.
+Recebe somente Tasks remotas confirmadas, resolve o instante pelo domínio T01 e
+confere a equivalência com `triggerAt` da API. Estado concluído, tombstone,
+remoção e vencimento produzem cancelamento. Novos triggers exigem futuro e são
+rechecados depois da gravação do journal, imediatamente antes da chamada nativa.
+
+Identidade única: `task-reminder:<taskId>:<reminderId>`. A assinatura contém dia
+civil, hora, IANA, offset e triggerAt; não inclui título, descrição, projeto,
+prioridade ou timestamps de atualização. Mesmo snapshot consulta/confirma a agenda
+sem cancelar/reagendar triggers iguais. A fila serial também protege chamadas
+concorrentes. Cancelamentos são confirmados por consulta antes de substituições;
+falha interrompe o lote e mantém intenção para retry local.
+
+Journal versionado em `@taskflow:reminder-journal:v1`, separado de Tasks e do
+ledger de sync. Persiste identidade, assinatura, instante, estado, erro e
+supressão provisória por Task. A ordem é intenção durável → operação nativa →
+consulta → confirmação durável. Se a resposta de schedule se perder, a próxima
+consulta reconhece o mesmo ID/instante e não duplica o trigger. Registro inválido
+não é sobrescrito. Retry offline usa apenas esse journal, conservando supressões
+incertas até uma nova confirmação remota.
+
+Resultados expostos ao Context e aos callers: `not_required`, `scheduled`,
+`pending`, `unavailable` e `error`. `cacheSaved` é independente do resultado do
+scheduler. Edição irrelevante conserva o último resultado conhecido, inclusive
+indisponibilidade, sem produzir falso sucesso. Esses dados serão consumidos pela
+UI em T10; esta etapa não adiciona mensagens ou solicitações visuais de permissão.
+
+O módulo definitivo chama-se `NativeTaskReminders`; classes Kotlin
+`TaskReminderModule`, `TaskReminderPackage`, `TaskReminderStore`,
+`TaskReminderAlarmReceiver` e `TaskReminderRecoveryReceiver`, no pacote
+`com.gerenciadortarefas.reminders`. Spec/Codegen usam `TaskRemindersSpec`.
+Foram removidos Activity debug, componente `src/dev/ReminderGate.tsx`, registro
+React e restrições de IDs da prova. Documentação/evidências do gate permanecem
+como histórico técnico, não como uma tela operacional da aplicação atual.
+
+Registro nativo contém somente ID técnico e trigger UTC. Notificação genérica:
+“Gestor Diário” / “Você tem uma tarefa próxima do prazo.” Não armazena título,
+descrição ou projeto. Mantidos `setAndAllowWhileIdle` inexato e a consulta de
+permissão global/canal; nenhuma permissão de exact alarm foi introduzida.
+Recovery por reboot/atualização/abertura rearma somente futuros e descarta
+vencidos, sem publicar durante recovery. Entrega normal do AlarmManager continua
+separada dessa recuperação, conforme a política aprovada no segundo gate.
+
+### Lifecycle e operações confirmadas (T08)
+
+- Create: validar → POST confirmado → estado/cache → journal/reconciliação.
+  Falha de API não agenda draft. Falha local depois do commit retorna o resultado
+  separado e nunca reenvia POST/PATCH para recuperar Android.
+- Update: usa a resposta remota e compara assinatura efetiva. Mudança temporal
+  reconcilia diff; título/descrição/projeto/prioridade não tocam na agenda.
+- Cache falhou após confirmação: não arma configuração nova sem snapshot durável;
+  tenta suprimir agendas obsoletas e retorna pendência/erro explícito.
+- DELETE e conclusão explícita: intenção de supressão e cancelamento provisório
+  antes da API. Falha na preparação impede enviar a operação. Falha da API
+  compensa a partir da configuração anterior confirmada, somente para futuros.
+  Erro de compensação permanece observável junto ao erro da operação.
+- DELETE confirmado conserva a configuração canônica no backend e a agenda
+  cancelada. Undo continua com cinco segundos a partir da confirmação remota.
+  Após DELETE não há segunda rodada de scheduler bloqueando o undo.
+  RESTORE é enviado dentro da janela sem aguardar scheduler; após resposta,
+  mesmos IDs e somente futuros podem voltar a ser armados.
+- Reabertura e add/toggle/remove de subtarefas usam o status efetivo da resposta.
+  Última subtarefa concluída cancela triggers. Configuração histórica expirada
+  não impede conclusão, restore ou reabertura.
+- Startup aguarda hidratação segura e GET completo; detalhe reconcilia somente
+  seu escopo. GET atrasado não desfaz mutações confirmadas e não libera supressão
+  durante operação em andamento. Foreground atualiza um snapshot completo antes
+  de reconciliar; falha de rede usa somente o journal confirmado, sem inferir
+  exclusão a partir de lista parcial ou cache ilegível.
+
+### Sincronização (T09)
+
+`syncService` normaliza legado, usa reminders/fuso remotos e conserva snapshots
+divergentes. Comparação ordenada inclui IDs, Task IDs e offsets, sem usar
+createdAt/updatedAt como conflito artificial. Dias civis preservados participam
+da comparação. Nenhuma preservação cega de `local.reminders` permanece.
+
+O resultado inclui `reminderSnapshot`, extraído da leitura remota final com
+tombstones. Somente após downloads/uploads necessários, consolidação e gravação
+de ambos os caches o Context entrega esse snapshot completo ao scheduler. Erro
+intermediário não cancela/recria triggers. Ausência em consulta parcial não é
+exclusão; tombstone ou ausência em snapshot completo confirmado podem cancelar.
+Sync repetida conserva IDs e um único trigger; `[]` remoto remove configuração
+local tipada sem ressuscitar evidência legada. Journal nunca entra nos uploads.
+
+### Evidências e limites
+
+Testes Jest usam módulo nativo mockado; não publicam notificações reais. Cobrem
+mapping, cache antigo/novo, coleção vazia autoritativa, datas/fuso, omitido/[],
+identidade determinística, diff, fila, journal, crash após schedule, retry,
+cancelamento falho, permissão, expiração, create/update/delete/restore/status,
+subtarefas, startup/foreground, sync repetida, tombstone e falha intermediária.
+
+Android `:app:assembleDebug :app:assembleRelease`: **BUILD SUCCESSFUL** nas quatro
+ABIs padrão. Codegen gera `NativeTaskRemindersSpec` e a integração C++
+`TaskRemindersSpec`; Hermes e `newArchEnabled=true` mantidos. Nenhuma alteração de
+toolchain ou dependência foi necessária. Builds comprovam compilação/empacotamento;
+a repetição final dos cenários de entrega, Doze e permissões em dispositivo
+permanece T12.
+
+Mantidas as limitações do segundo gate: alarmes inexatos podem atrasar, sem SLA
+de minuto; recovery não publica vencidos. Não existe transação conjunta entre API,
+AsyncStorage e AlarmManager. A janela até confirmar cancelamento permanece real;
+falha de journal/cancelamento não é tratada como sucesso. Offline não revela
+exclusões feitas remotamente em outro aparelho; a próxima leitura completa
+reconcilia esse estado.
+
+Validação local desta etapa: **447 testes mobile em 27 suítes** (62 novos),
+**317 testes backend em 13 suítes** e **16 testes dos validadores CI** aprovados.
+Lint mantém 3 erros/7 warnings conhecidos; TypeScript mobile mantém os 11
+diagnósticos conhecidos. Baselines não foram ampliadas. Migration aplicada em
+SQLite temporário, typecheck/build backend e `git diff --check` aprovados.
+As quatro migrations existentes e o código backend permanecem inalterados.
+
+### Atualização de cronograma — 29/10/2026
+
+O professor prorrogou a data máxima de commit e push para **08/11/2026**.
+O prazo anterior de **01/11/2026** foi substituído. A validação Android manual
+e o fechamento da Issue #39 continuam sendo etapas separadas.
+
+## T10 — interface e experiência de lembretes
+
+Nova Tarefa e Editar Tarefa usam `ReminderInput[]`, com `offsetMinutes` como
+configuração. O seletor compartilhado mantém os presets 0, 15, 30, 60 e 1440,
+formata os valores em um helper e permite personalizados em minutos, horas e
+dias usando a conversão do domínio. Quantidades inválidas, overflow, duplicatas
+e mais de cinco lembretes são impedidos na interface. A lista segue ordem
+crescente de antecedência, com remoção individual e controles acessíveis de 44px.
+
+A primeira configuração captura o fuso IANA do aparelho. A edição preserva o
+fuso salvo e as datas civis canônicas, inclusive com cache originado em outro
+fuso. O PATCH omite reminders/fuso quando não foram alterados; remover todos
+envia `reminders: []` e `reminderTimeZone: null`. Configurações de tarefas
+concluídas continuam visíveis. Strings legadas são apenas informação e exigem
+nova seleção manual para ativar notificações.
+
+Antes de criar ou editar, o domínio valida horário, data, fuso e antecedências.
+Alterar prazo/horário revalida a configuração existente sem exigir toque nos
+lembretes. Lembretes exigem horário HH:mm válido; não há substituição silenciosa
+durante validação. Sem lembretes, não se exige fuso nem permissão.
+
+No Android 13+, POST_NOTIFICATIONS é consultada/solicitada somente ao adicionar
+o primeiro lembrete. Negação permite persistir e explica que notificações estão
+desativadas. O feedback de criação/edição distingue confirmação de agendamento,
+configuração desnecessária e pendência/indisponibilidade/erro. Falha de cache
+continua informada, inclusive junto com falha de scheduler, sem repetir POST/PATCH.
+
+Testes usam apenas mocks, sem notificações reais. A regressão mobile contém
+**500 testes em 28 suítes** (53 novos); backend mantém **317 testes em 13 suítes**.
+Os 16 testes dos scripts CI, lint e TypeScript passaram sem ampliar baselines:
+3 erros/7 warnings ESLint conhecidos e 11 diagnósticos TypeScript conhecidos.
+Typecheck e build backend, assembleDebug/assembleRelease com Hermes, Codegen e
+New Architecture e `git diff --check` aprovados. Os builds verificam compilação
+e empacotamento; a validação funcional com a pessoa usuária no Pixel 7 permanece
+**T12 pendente**. T13, PR final, merge e fechamento da Issue #39 não executados.
+
+O milestone Sprint 2 e as referências de cronograma das Issues #39–#43 foram
+atualizados para **08/11/2026**, preservando escopo e critérios de aceite.
+
+### Ajustes de apresentação antes da conclusão de T12
+
+Nova Tarefa inicia o campo de horário com a hora local do aparelho em HH:mm,
+capturada uma única vez ao abrir a tela. A edição manual é preservada.
+Detalhes da Tarefa mostra os lembretes canônicos em uma seção compacta somente
+leitura, usando o mesmo helper de formatação de Nova/Editar. Sem lembretes
+canônicos, a seção não aparece; strings legadas não são configuração ativa.
+
+A seção separa configuração persistida de estado local do agendamento, obtido
+exclusivamente de `reminderScheduling[task.id]`. Estado ausente não confirma
+agendamento; `not_required` informa ausência de agendamento ativo. Concluir ou
+restaurar mantém a configuração visível e apresenta o estado atualizado do
+Context, sem consultar o módulo nativo pela interface.
+
+Os cenários Android de criação, edição, horário passado, antecedência inválida
+e persistência da configuração já validados permanecem registrados. A conclusão
+de T12 aguarda a repetição dos cenários em que o estado do trigger ficou ambíguo.
+Não há alteração de backend, banco, scheduler ou fluxo de exclusão/desfazer.
+
+Regressão dos ajustes: **513 testes mobile em 28 suítes** (13 novos), **317 testes
+backend em 13 suítes**, 16 testes dos scripts CI, lint/TypeScript sem ampliar
+baselines e typecheck/build backend aprovados. Builds Android debug/release e
+`git diff --check` aprovados. A validação manual final permanece pendente.
+
+
+## Validação final — 29/10/2026
+
+T01–T11 concluídos. T12 foi concluída e aprovada pela pessoa usuária no Android,
+com os cenários adicionais abaixo. Planning Poker permanece **13**. O limite
+vigente de commit/push é **08/11/2026**, substituindo 01/11/2026.
+
+| Cenário manual | Resultado aprovado |
+|---|---|
+| Criação | Task com lembrete futuro criada; configuração persistida e exibida em Detalhes; estado “Lembrete agendado neste aparelho”. |
+| Edição | Reminder existente apareceu em Editar; alteração da antecedência persistiu e reapareceu corretamente. |
+| Horário passado | Tentativa bloqueada com mensagem compreensível. |
+| Antecedência inválida | Task futura com trigger resultante no passado bloqueada com mensagem apropriada. |
+| Concluir/reabrir | Configuração preservada; antes de concluir havia agendamento, após concluir “Nenhum agendamento ativo neste aparelho”; reabrir com trigger futuro voltou a “Lembrete agendado neste aparelho”. |
+| Excluir/desfazer | DESFAZER dentro da janela restaurou a mesma Task; configuração preservada e trigger futuro reconciliado, com estado agendado. |
+| Excluir sem desfazer | Janela de undo expirou; Task permaneceu excluída, sem agendamento ativo residual no cenário validado. |
+
+Os ajustes de UX também foram aprovados: Nova Tarefa usa HH:mm atual do aparelho
+somente no valor inicial, preservando edição manual. Detalhes apresenta os
+reminders canônicos e separa configuração persistida do estado local fornecido
+pelo Context. Não apresenta seção vazia nem strings legadas como reminders ativos.
+
+### Implementação final e invariantes
+
+- Domínio temporal compartilhado: minutos, horas e dias; presets e personalizado;
+  até cinco offsets inteiros, únicos, canônicos em `offsetMinutes`; horário e fuso
+  IANA explícitos; validação de horário/disparo passado, overflow e ambiguidades.
+- SQLite/API: `task_reminders`, `reminderTimeZone` e migration aditiva 0003;
+  GET/POST/PATCH/RESTORE retornam configuração canônica. Transações preservam
+  consistência de Task/reminders/History; IDs estáveis, retry por clientId,
+  soft delete e restore permanecem integrados. Nenhum hard delete novo.
+- Mobile: Reminder/ApiReminder/ReminderInput tipados, cache confirmado e legado
+  separado; coleção remota vazia é autoritativa. `legacyReminders` não é convertida,
+  enviada como configuração canônica ou usada para agendar notificações.
+- Scheduler de produção: journal durável, fila serializada, IDs determinísticos,
+  cancelamento/reagendamento e confirmação do estado nativo por serviço. A UI
+  usa TaskContext e não cria scheduler paralelo. API confirma CREATE antes de
+  agendar; cache falho impede novo agendamento e informa a pendência.
+- UPDATE reconcilia quando o fingerprint efetivo muda. COMPLETE cancela sem apagar
+  configuração; REOPEN e RESTORE/UNDO rearmam somente futuros; DELETE cancela.
+  Mudança efetiva de status por subtarefas também reconcilia. SYNC só reconcilia
+  após snapshot consolidado e persistido. Recuperação nunca publica vencidos.
+- Nova/Editar/Detalhes usam a apresentação compartilhada; permissão Android é
+  contextual. Feedback distingue tarefa salva de confirmação do agendamento,
+  inclusive quando cache/scheduler falham, sem repetir POST/PATCH automaticamente.
+
+### Limites mantidos
+
+O adaptador Android é controlado pelo projeto. `react-native-notify-kit` foi
+rejeitado e não permanece como dependência funcional. AlarmManager usa modo
+**inexato**; exact alarm não foi solicitado. Android pode atrasar a entrega e
+não há garantia de precisão absoluta de minuto. O recovery não publica triggers
+vencidos retroativamente. A aprovação manual dos cenários acima não amplia o
+suporte para outros fabricantes nem comprova SLA de entrega.
+
+Não existe transação única entre API, cache/journal e AlarmManager. Falhas de
+persistência ou cancelamento são informadas; ausência de conexão não revela
+exclusões remotas até nova leitura completa. As evidências históricas do gate
+continuam delimitadas ao ambiente e aos cenários nelas registrados.
+
+### Integração
+
+Entrega pronta para PR `feature/39-reminders` → `dev`, com `Closes #39`.
+A Issue permanece aberta; merge depende de revisão. Não há merge automático,
+remoção da branch, início de outra Issue ou promoção `dev` → `main` nesta etapa.
+
+### Regressão final para revisão
+
+- Mobile: **513 testes / 28 suítes**; validadores CI: **16 testes**.
+- Backend: **317 testes / 13 suítes**, typecheck e build aprovados.
+- `db:migrate` aplicado em SQLite temporário isolado. B08 confirmou banco vazio,
+  upgrade do schema anterior, reaplicação idempotente, foreign keys e preservação
+  de projetos/Tasks/subtarefas/notas/History/clientId/soft delete. Verificação
+  adicional do banco vazio migrado: `foreign_key_check = []` e `integrity_check = ok`.
+  Migrations 0000–0002 permanecem inalteradas.
+- Lint: 3 erros/7 warnings conhecidos; TypeScript mobile: 11 diagnósticos conhecidos.
+  Nenhuma baseline ampliada; `git diff --check` aprovado.
+- `assembleDebug` e `assembleRelease`: BUILD SUCCESSFUL; Hermes e New Architecture
+  habilitados, Codegen integrado. Não foram repetidos testes destrutivos em dados reais.
+- `feature/39-reminders` contém todos os commits de `origin/dev` na preparação do PR.
+  Nenhuma captura nova ou arquivo temporário foi adicionado ao repositório.

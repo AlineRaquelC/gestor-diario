@@ -22,6 +22,11 @@ import { useProjects } from '../context/ProjectContext';
 
 import { COLORS, RADIUS, SPACING } from '../styles/theme';
 import { taskFormStyles } from '../styles/taskFormStyles';
+import TaskReminderSelector from '../components/TaskReminderSelector';
+import { deviceReminderTimeZone, ReminderInput } from '../models/reminder';
+import { validateReminderChange } from '../domain/reminders';
+import { calendarDate } from '../services/taskService';
+import { taskSavedFeedback } from '../models/reminderPresentation';
 import TaskProjectSelector from '../components/TaskProjectSelector';
 
 const PRIORITIES = [
@@ -60,14 +65,6 @@ const STATUSES = [
   },
 ];
 
-const REMINDER_OPTIONS = [
-  '15 min antes',
-  '30 min antes',
-  '1 hora antes',
-  'No horário',
-  '1 dia antes',
-];
-
 export default function NewTaskScreen() {
   const navigation = useNavigation<any>();
 
@@ -98,7 +95,12 @@ export default function NewTaskScreen() {
 
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
-  const [time, setTime] = useState('10:00');
+  const [time, setTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(
+      now.getMinutes(),
+    ).padStart(2, '0')}`;
+  });
 
   const [priority, setPriority] = useState<Priority>('medium');
 
@@ -112,9 +114,8 @@ export default function NewTaskScreen() {
 
   const [addingSubtask, setAddingSubtask] = useState(false);
 
-  const [reminders, setReminders] = useState<string[]>([]);
-
-  const [showReminderPicker, setShowReminderPicker] = useState(false);
+  const [reminders, setReminders] = useState<ReminderInput[]>([]);
+  const [reminderTimeZone, setReminderTimeZone] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
@@ -146,18 +147,6 @@ export default function NewTaskScreen() {
 
   function removeSubtask(index: number) {
     setSubtasks(current => current.filter((_, i) => i !== index));
-  }
-
-  function handleAddReminder(option: string) {
-    if (!reminders.includes(option)) {
-      setReminders(current => [...current, option]);
-    }
-
-    setShowReminderPicker(false);
-  }
-
-  function removeReminder(index: number) {
-    setReminders(current => current.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
@@ -213,6 +202,30 @@ export default function NewTaskScreen() {
       Alert.alert('Projeto obrigatório', 'Selecione um projeto válido.');
       return;
     }
+    let zone = reminderTimeZone;
+    try {
+      if (reminders.length) {
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+          throw new Error(
+            'Defina um horário válido para configurar lembretes.',
+          );
+        }
+        zone = zone ?? deviceReminderTimeZone();
+        validateReminderChange(
+          {
+            dueDate: calendarDate(dueDate.toISOString()),
+            time,
+            timeZone: zone,
+            offsets: reminders.map(item => item.offsetMinutes),
+          },
+          undefined,
+          Date.now,
+        );
+      }
+    } catch (error) {
+      Alert.alert('Lembretes', (error as Error).message);
+      return;
+    }
     submitting.current = true;
     setSaving(true);
     try {
@@ -245,13 +258,12 @@ export default function NewTaskScreen() {
         })),
 
         reminders,
+        ...(reminders.length ? { reminderTimeZone: zone } : {}),
       });
 
       Alert.alert(
         'Tarefa criada',
-        result.cacheSaved
-          ? 'A tarefa foi criada com sucesso.'
-          : 'A tarefa foi salva no servidor, mas o cache local falhou. Não envie novamente.',
+        taskSavedFeedback(false, result.cacheSaved, result.scheduling),
         [
           {
             text: 'OK',
@@ -597,66 +609,14 @@ export default function NewTaskScreen() {
 
           {/* LEMBRETES */}
           <FormGroup label="Lembretes">
-            <View style={styles.sectionCard}>
-              {reminders.map((reminder, index) => (
-                <View key={`${reminder}-${index}`} style={styles.listRow}>
-                  <Text style={styles.listText}>{reminder}</Text>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => removeReminder(index)}
-                  >
-                    <Text style={styles.removeText}>✕</Text>
-                  </Pressable>
-                </View>
-              ))}
-
-              {showReminderPicker ? (
-                <View>
-                  {REMINDER_OPTIONS.map(option => {
-                    const disabled = reminders.includes(option);
-
-                    return (
-                      <Pressable
-                        accessibilityRole="button"
-                        key={option}
-                        disabled={disabled}
-                        style={[
-                          styles.reminderOption,
-
-                          disabled && styles.reminderDisabled,
-                        ]}
-                        onPress={() => handleAddReminder(option)}
-                      >
-                        <Text style={styles.reminderOptionText}>{option}</Text>
-
-                        {disabled && (
-                          <Text style={styles.reminderCheck}>✓</Text>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-
-                  <Pressable
-                    accessibilityRole="button"
-                    style={styles.cancelReminder}
-                    onPress={() => setShowReminderPicker(false)}
-                  >
-                    <Text style={styles.cancelReminderText}>Cancelar</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.addRow}
-                  onPress={() => setShowReminderPicker(true)}
-                >
-                  <Text style={styles.addIcon}>＋</Text>
-
-                  <Text style={styles.addText}>Adicionar lembrete</Text>
-                </Pressable>
-              )}
-            </View>
+            <TaskReminderSelector
+              value={reminders}
+              timeZone={reminderTimeZone}
+              onChange={(items, zone) => {
+                setReminders(items);
+                setReminderTimeZone(zone);
+              }}
+            />
           </FormGroup>
         </ScrollView>
 

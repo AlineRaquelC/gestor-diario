@@ -12,6 +12,7 @@ export const tasks = sqliteTable('tasks', {
   startDate: text('start_date').notNull(),
   dueDate: text('due_date').notNull(),
   time: text('time'),
+  reminderTimeZone: text('reminder_time_zone'),
   priority: text('priority', { enum: ['LOW', 'MEDIUM', 'HIGH'] }).notNull(),
   status: text('status', { enum: ['PENDING', 'PARTIAL', 'COMPLETED'] }).notNull().default('PENDING'),
   done: integer('done', { mode: 'boolean' }).notNull().default(false),

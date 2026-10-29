@@ -6,6 +6,10 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnable
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
+  override fun onCreate(savedInstanceState: android.os.Bundle?) {
+    com.gerenciadortarefas.reminders.TaskReminderStore.recover(this, "activity-open")
+    super.onCreate(savedInstanceState)
+  }
 
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule

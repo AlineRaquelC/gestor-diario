@@ -1,3 +1,4 @@
+import { normalizeReminderCache } from '../src/models/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { synchronize, preserveTask, SYNC_LEDGER_KEY } from '../src/services/syncService';
 import { listProjects, createProject, updateProject } from '../src/services/projectService';
@@ -10,7 +11,7 @@ jest.mock('../src/services/projectService', () => ({ listProjects: jest.fn(), cr
 jest.mock('../src/services/taskService', () => ({ getTasksForSync: jest.fn(), importLocalTask: jest.fn(), mergeSubtasks: jest.requireActual('../src/services/taskService').mergeSubtasks }));
 const storage = new Map<string, string>();
 const project: Project = { id: 'local-p', name: 'Mesmo nome', color: '#fff', icon: 'P' };
-const task: Task = { id: 'local-t', projectId: project.id, project: project.name, title: 'Legado', priority: 'high', status: 'todo', done: false, startDate: '2020-01-01', dueDate: '2020-01-02' };
+const task: Task = { reminders: [], id: 'local-t', projectId: project.id, project: project.name, title: 'Legado', priority: 'high', status: 'todo', done: false, startDate: '2020-01-01', dueDate: '2020-01-02' };
 let projects: Project[], tasks: Task[];
 beforeEach(() => {
   jest.resetAllMocks(); storage.clear(); projects = []; tasks = [];
@@ -77,10 +78,10 @@ it('não usa nome como fallback quando falta projectId', async () => {
 });
 it('preserva subtarefas, notas/histórico antigos e lembretes sem enviar CRUD de filhos', async () => {
   const local = { ...task, subtasks: [{ id: 'old', title: 'Local', done: true }], reminders: ['Lembrar'], notes: [{ content: 'Nota' }], history: [{ action: 'Old' }] };
-  const result = await synchronize([project], [local]);
-  expect(result.tasks[0]).toMatchObject({ subtasks: local.subtasks, reminders: local.reminders, notes: local.notes, history: local.history });
+  const result = await synchronize([project], [normalizeReminderCache(local)]);
+  expect(result.tasks[0]).toMatchObject({ subtasks: local.subtasks, reminders: [], legacyReminders: local.reminders, notes: local.notes, history: local.history });
   const ledger = JSON.parse(storage.get(SYNC_LEDGER_KEY)!);
-  expect(ledger.snapshots['task:local-t'][0]).toEqual(local);
+  expect(ledger.snapshots['task:local-t'][0]).toEqual(normalizeReminderCache(local));
 });
 it('soft delete remoto prevalece, conserva snapshot e não envia nova criação', async () => {
   tasks = [{ ...task, id: 'rt', remoteId: 'rt', deletedAt: '2026-10-21' }];
@@ -173,4 +174,29 @@ it('leituras sucessivas preservam todas as versões locais divergentes sem snaps
   const second = preserveTask({ ...task, title: 'Servidor 2' }, edited);
   expect(second.syncSnapshots?.map(item => item.title)).toEqual([task.title, 'Edição local 2']);
   expect(second.syncSnapshots?.every(item => !('syncSnapshots' in item) && !('syncSnapshot' in item))).toBe(true);
+});
+it('reminders/fuso remotos prevalecem; [] autoritativo; timestamps não geram conflito artificial', async () => {
+  const reminder = { id: 'r', taskId: 'rt', offsetMinutes: 15, createdAt: '2026-10-26T12:00:00Z', updatedAt: '2026-10-26T12:00:00Z', triggerAt: '2026-10-27T12:45:00Z' };
+  const local = { ...task, id: 'rt', remoteId: 'rt', reminders: [reminder], reminderTimeZone: 'America/Sao_Paulo', legacyReminders: ['Lembrar'] };
+  tasks = [{ ...local, reminders: [], reminderTimeZone: null }];
+  const result = await synchronize([], [local]);
+  expect(result.tasks[0]).toMatchObject({ reminders: [], reminderTimeZone: null, legacyReminders: ['Lembrar'] });
+  expect(result.reminderSnapshot).toEqual(tasks);
+  expect(importLocalTask).not.toHaveBeenCalled();
+  const { taskFields } = require('../src/services/syncService') as typeof import('../src/services/syncService');
+  expect(taskFields(local)).toBe(taskFields({ ...local, reminders: [{ ...reminder, updatedAt: '2026-10-26T13:00:00Z' }] }));
+  expect(taskFields(local)).not.toBe(taskFields({ ...local, reminders: [{ ...reminder, id: 'new-id' }] }));
+});
+it('duas syncs com reminders canônicos conservam IDs e retornam somente snapshot consolidado', async () => {
+  const reminder = { id: 'r', taskId: 'rt', offsetMinutes: 0, createdAt: '2026-10-26T12:00:00Z', updatedAt: '2026-10-26T12:00:00Z', triggerAt: '2026-10-27T13:00:00Z' };
+  const remote = { ...task, id: 'rt', remoteId: 'rt', reminders: [reminder], reminderTimeZone: 'America/Sao_Paulo' };
+  tasks = [remote];
+  const first = await synchronize([], [remote]); const second = await synchronize(first.projects, first.tasks);
+  expect(first.tasks[0].reminders).toEqual(second.tasks[0].reminders);
+  expect(second.reminderSnapshot).toEqual([remote]); expect(importLocalTask).not.toHaveBeenCalled();
+});
+it('comparação usa o mesmo dia civil para cache ISO antigo e chaves canônicas', () => {
+  const { taskFields } = require('../src/services/syncService') as typeof import('../src/services/syncService');
+  const legacy = { ...task, startDate: new Date(2026, 9, 26).toISOString(), dueDate: new Date(2026, 9, 27).toISOString() };
+  expect(taskFields(legacy)).toBe(taskFields({ ...legacy, startDateKey: '2026-10-26', dueDateKey: '2026-10-27' }));
 });

@@ -35,6 +35,10 @@ import { useTaskDeletion } from '../hooks/useTaskDeletion';
 
 import { COLORS, RADIUS, SPACING } from '../styles/theme';
 import { taskFormStyles } from '../styles/taskFormStyles';
+import TaskReminderSelector from '../components/TaskReminderSelector';
+import type { ReminderInput } from '../models/reminder';
+import { validateReminderChange } from '../domain/reminders';
+import { taskSavedFeedback } from '../models/reminderPresentation';
 import TaskProjectSelector from '../components/TaskProjectSelector';
 
 const PRIORITIES = [
@@ -114,19 +118,28 @@ export default function EditTaskScreen() {
     : undefined;
   // The task already confirms this remote relationship. Its name is only a label,
   // never a way to associate it with a local project.
-  const projectOptions = task?.projectId && !linkedProject
-    ? [...projects, { id: task.projectId, name: task.project }]
-    : projects;
+  const projectOptions =
+    task?.projectId && !linkedProject
+      ? [...projects, { id: task.projectId, name: task.project }]
+      : projects;
   const [title, setTitle] = useState(task?.title ?? '');
 
   const [description, setDescription] = useState(task?.description ?? '');
 
   const [startDate, setStartDate] = useState(
-    task?.startDate ? new Date(task.startDate) : new Date(),
+    task?.startDateKey
+      ? new Date(`${task.startDateKey}T00:00:00`)
+      : task?.startDate
+      ? new Date(task.startDate)
+      : new Date(),
   );
 
   const [dueDate, setDueDate] = useState(
-    task?.dueDate ? new Date(task.dueDate) : new Date(),
+    task?.dueDateKey
+      ? new Date(`${task.dueDateKey}T00:00:00`)
+      : task?.dueDate
+      ? new Date(task.dueDate)
+      : new Date(),
   );
 
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
@@ -151,6 +164,13 @@ export default function EditTaskScreen() {
 
   const [newSubtask, setNewSubtask] = useState('');
 
+  const [reminders, setReminders] = useState<ReminderInput[]>(
+    (task?.reminders ?? []).map(({ offsetMinutes }) => ({ offsetMinutes })),
+  );
+  const [reminderTimeZone, setReminderTimeZone] = useState(
+    task?.reminderTimeZone ?? null,
+  );
+  const [remindersDirty, setRemindersDirty] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   if (!task) {
@@ -245,7 +265,8 @@ export default function EditTaskScreen() {
     const dueDay = calendarDate(dueDate.toISOString());
     if (
       startDay !==
-        (originalStartDate ? calendarDate(originalStartDate) : undefined) &&
+        (task?.startDateKey ??
+          (originalStartDate ? calendarDate(originalStartDate) : undefined)) &&
       startDay < calendarDate(new Date().toISOString())
     ) {
       Alert.alert(
@@ -261,14 +282,45 @@ export default function EditTaskScreen() {
       );
       return;
     }
-    if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    if (!reminders.length && time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
       Alert.alert('Horário inválido', 'Informe o horário no formato HH:mm.');
+      return;
+    }
+    try {
+      if (reminders.length && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+        throw new Error('Defina um horário válido para configurar lembretes.');
+      }
+      validateReminderChange(
+        {
+          dueDate: dueDay,
+          time,
+          timeZone: reminderTimeZone ?? '',
+          offsets: reminders.map(item => item.offsetMinutes),
+        },
+        {
+          dueDate:
+            task?.dueDateKey ??
+            (task?.dueDate ? calendarDate(task.dueDate) : dueDay),
+          time: task?.time ?? '',
+          timeZone: task?.reminderTimeZone ?? '',
+          offsets: (task?.reminders ?? []).map(item => item.offsetMinutes),
+        },
+        Date.now,
+      );
+    } catch (error) {
+      Alert.alert('Lembretes', (error as Error).message);
       return;
     }
     submitting.current = true;
     setSaving(true);
     try {
       const result = await updateTask(taskId, {
+        ...(remindersDirty
+          ? {
+              reminders,
+              reminderTimeZone: reminders.length ? reminderTimeZone : null,
+            }
+          : {}),
         title: title.trim(),
         description: description.trim(),
         ...(chosenProjectId !== null && selectedProject
@@ -283,9 +335,7 @@ export default function EditTaskScreen() {
       setDirty(false);
       Alert.alert(
         'Alterações salvas',
-        result.cacheSaved
-          ? 'A tarefa foi atualizada com sucesso.'
-          : 'As alterações foram salvas no servidor, mas o cache local falhou. Não envie novamente.',
+        taskSavedFeedback(true, result.cacheSaved, result.scheduling),
         [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch (error) {
@@ -525,7 +575,9 @@ export default function EditTaskScreen() {
                 selectedId={project}
                 onSelect={id => {
                   setProject(
-                    id === linkedProject?.id || id === task.projectId ? null : id,
+                    id === linkedProject?.id || id === task.projectId
+                      ? null
+                      : id,
                   );
                   markDirty();
                 }}
@@ -694,6 +746,19 @@ export default function EditTaskScreen() {
             </View>
           </Field>
 
+          <Field label="Lembretes">
+            <TaskReminderSelector
+              value={reminders}
+              timeZone={reminderTimeZone ?? task.reminderTimeZone ?? null}
+              legacy={!!task.legacyReminders?.length}
+              onChange={(items, zone) => {
+                setReminders(items);
+                setReminderTimeZone(zone);
+                setRemindersDirty(true);
+                markDirty();
+              }}
+            />
+          </Field>
           {/* Excluir */}
           <View style={styles.dangerZone}>
             <Text style={styles.dangerLabel}>ZONA DE PERIGO</Text>

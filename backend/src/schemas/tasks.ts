@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { createSubtaskSchema } from './subtasks.js';
 
+const remindersSchema = z.array(z.strictObject({
+  offsetMinutes: z.number().int().min(0).max(Math.floor(Number.MAX_SAFE_INTEGER / 60000)),
+})).max(5).refine(items => new Set(items.map(item => item.offsetMinutes)).size === items.length,
+  'Há lembretes com a mesma antecedência.');
+
 export const createTaskSchema = z.strictObject({
   clientId: z.string().min(1).max(200).optional(),
   title: z.string().trim().min(1),
@@ -11,6 +16,8 @@ export const createTaskSchema = z.strictObject({
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   status: z.enum(['PENDING', 'PARTIAL', 'COMPLETED']).default('PENDING'),
+  reminderTimeZone: z.string().nullable().optional(),
+  reminders: remindersSchema.optional(),
   subtasks: z.array(createSubtaskSchema).optional(),
 });
 export type CreateTask = z.infer<typeof createTaskSchema>;

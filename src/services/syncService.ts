@@ -1,3 +1,5 @@
+import { normalizeReminderCache } from '../models/reminder';
+import type { SchedulingResult } from './reminderScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDay } from '../utils/dashboard';
 import type { Project } from '../context/ProjectContext';
@@ -8,26 +10,29 @@ import { getTasksForSync, importLocalTask, mergeSubtasks } from './taskService';
 export const SYNC_LEDGER_KEY = '@taskflow:sync-ledger';
 type Entry = { clientId: string; remoteId?: string };
 type Ledger = { entries: Record<string, Entry>; snapshots: Record<string, unknown[]> };
-export type SyncResult = { projects: Project[]; tasks: Task[]; pending: number; projectsSent: number; tasksSent: number; conflicts: number };
+export type SyncResult = { projects: Project[]; tasks: Task[]; pending: number; projectsSent: number; tasksSent: number; conflicts: number; reminderSnapshot?: Task[]; scheduling?: SchedulingResult };
 
 // This is an import identity, not a security token. Persist before making a POST.
 const newClientId = () => `mobile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function taskFields(task: Task) {
-  return JSON.stringify([task.title, task.description ?? '', task.projectId, task.startDate, task.dueDate,
-    task.time ?? '', task.priority, task.status, task.done]);
+  return JSON.stringify([task.title, task.description ?? '', task.projectId, task.startDateKey ?? localDay(task.startDate), task.dueDateKey ?? localDay(task.dueDate),
+    task.time ?? '', task.priority, task.status, task.done, task.reminderTimeZone ?? null,
+    [...(task.reminders ?? [])].sort((a, b) => a.offsetMinutes - b.offsetMinutes).map(item => [item.id, item.taskId, item.offsetMinutes])]);
 }
 export function preserveTask(remote: Task, local?: Task): Task {
   if (!local) {return remote;}
+  local = normalizeReminderCache(local);
   const { syncSnapshot, syncSnapshots, ...snapshot } = local;
   const versions = [...(syncSnapshots ?? (syncSnapshot ? [syncSnapshot] : []))];
   if (taskFields(local) !== taskFields(remote) && !versions.some(version => JSON.stringify(version) === JSON.stringify(snapshot))) {versions.push(snapshot);}
   return { ...local, ...remote, localId: local.localId, syncPending: undefined,
     syncSnapshot: versions[0], ...(versions.length ? { syncSnapshots: versions } : {}),
-    subtasks: mergeSubtasks(remote.subtasks, local.subtasks), reminders: local.reminders };
+    subtasks: mergeSubtasks(remote.subtasks, local.subtasks), reminders: remote.reminders ?? [], legacyReminders: local.legacyReminders };
 }
 
 export async function synchronize(projects: Project[], tasks: Task[]): Promise<SyncResult> {
+  tasks = tasks.map(task => normalizeReminderCache(task));
   // Complete both initial downloads before preparing any upload.
   const remoteProjects = await listProjects();
   const remoteTasks = await getTasksForSync();
@@ -145,7 +150,7 @@ export async function synchronize(projects: Project[], tasks: Task[]): Promise<S
         ? { syncPending: 'Vínculo de projeto indisponível; tarefa preservada.' } : {}) });
     }
   }
-  return { projects: finalProjects, tasks: finalTasks,
+  return { projects: finalProjects, tasks: finalTasks, reminderSnapshot: consolidatedTasks,
     pending: finalProjects.filter(item => item.syncPending).length + finalTasks.filter(item => item.syncPending).length,
     projectsSent, tasksSent, conflicts };
 }

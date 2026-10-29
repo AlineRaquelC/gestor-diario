@@ -27,7 +27,7 @@ describe('PATCH /tasks/:id', () => {
     app = createApp(connection.db);
     const created = await request(app).post('/tasks').send(valid);
     expect(created.status).toBe(201);
-    original = created.body;
+    original = connection.db.select().from(tasks).get()!;
   });
   afterEach(() => { connection.sqlite.close(); vi.useRealTimers(); vi.restoreAllMocks(); });
   const patch = (body: object, id = original.id) => request(app).patch(`/tasks/${id}`).send(body);
@@ -40,9 +40,10 @@ describe('PATCH /tasks/:id', () => {
     expect(response.body).toMatchObject({ ...input, id: original.id, done: true, progress: 100, createdAt: original.createdAt });
     expect(response.body.updatedAt > original.updatedAt).toBe(true);
     expect(response.body.project).toMatchObject({ id: 'p2', name: 'Outro' });
-    const { project, subtasks: children, ...row } = response.body;
+    const { project, subtasks: children, reminders, ...row } = response.body;
     expect(project.id).toBe(response.body.projectId);
     expect(children).toEqual([]);
+    expect(reminders).toEqual([]);
     expect(connection.db.select().from(tasks).get()).toEqual(row);
     expect((await request(app).get(`/tasks/${original.id}`)).body).toEqual(response.body);
     expect((await request(app).get('/tasks')).body).toEqual([response.body]);
@@ -53,7 +54,8 @@ describe('PATCH /tasks/:id', () => {
   it('PATCH parcial preserva campos omitidos e não aplica default de status', async () => {
     const response = await patch({ title: ' Outra ' });
     expect(response.status).toBe(200);
-    const { updatedAt, project: _project, subtasks: _subtasks, ...row } = response.body;
+    const { updatedAt, project: _project, subtasks: _subtasks, reminders: _reminders, ...row } = response.body;
+    expect(_reminders).toEqual([]);
     const { updatedAt: _originalUpdated, ...unchanged } = original;
     expect(row).toEqual({ ...unchanged, title: 'Outra' });
     expect(updatedAt > original.updatedAt).toBe(true);

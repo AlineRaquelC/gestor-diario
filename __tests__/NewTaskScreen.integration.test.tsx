@@ -52,7 +52,13 @@ const type = async (label: string, value: string) => {
   await act(async () => input.props.onChangeText(value));
 };
 beforeEach(async () => {
-  create.mockReset().mockResolvedValue({ cacheSaved: true });
+  jest.useFakeTimers({ now: new Date(2026, 9, 29, 10, 43) });
+  create
+    .mockReset()
+    .mockResolvedValue({
+      cacheSaved: true,
+      scheduling: { state: 'not_required' },
+    });
   jest
     .mocked(useTasks)
     .mockReturnValue({ addTask: create } as unknown as ReturnType<
@@ -69,6 +75,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => renderer.unmount());
   jest.restoreAllMocks();
+  jest.useRealTimers();
   jest.clearAllMocks();
 });
 
@@ -127,6 +134,7 @@ test('sem projetos mantém cadastro obrigatório e o caminho existente de criar 
   expect(create).not.toHaveBeenCalled();
 });
 test('prioridade, status, subtarefa e lembrete preservam valores do draft', async () => {
+  jest.spyOn(Date, 'now').mockReturnValue(new Date(2020, 0, 1).getTime());
   await type('Título', 'Com detalhes');
   await press('Alta');
   await press('Em andamento');
@@ -148,7 +156,7 @@ test('prioridade, status, subtarefa e lembrete preservam valores do draft', asyn
       priority: 'high',
       status: 'in_progress',
       subtasks: [expect.objectContaining({ title: 'Filha', done: false })],
-      reminders: ['15 min antes'],
+      reminders: [{ offsetMinutes: 15 }],
     }),
   );
 });
@@ -179,4 +187,182 @@ test('aguarda criação remota, bloqueia duplo envio e mantém erro sem navegaç
   );
   expect(mockNavigation.navigate).not.toHaveBeenCalled();
   expect(controls('Criar tarefa')[0].props.disabled).toBe(false);
+});
+
+jest.mock('../src/services/reminderPermission', () => ({
+  requestReminderPermission: jest.fn().mockResolvedValue(true),
+}));
+jest.mock('../src/models/reminder', () => ({
+  ...jest.requireActual('../src/models/reminder'),
+  deviceReminderTimeZone: jest.fn(() => 'America/Sao_Paulo'),
+}));
+import { requestReminderPermission } from '../src/services/reminderPermission';
+import { deviceReminderTimeZone } from '../src/models/reminder';
+
+async function choose(label: string) {
+  await press('Adicionar lembrete');
+  await press(label);
+}
+function futureClock() {
+  jest.spyOn(Date, 'now').mockReturnValue(new Date(2020, 0, 1).getTime());
+}
+test('sem lembrete não captura fuso nem solicita permissão', async () => {
+  await type('Título', 'Normal');
+  await type('Horário', '');
+  await press('Criar tarefa');
+  expect(create.mock.calls[0][0]).not.toHaveProperty('reminderTimeZone');
+  expect(create.mock.calls[0][0].reminders).toEqual([]);
+  expect(requestReminderPermission).not.toHaveBeenCalled();
+  expect(deviceReminderTimeZone).not.toHaveBeenCalled();
+});
+test.each([
+  ['No horário', 0],
+  ['15 min antes', 15],
+  ['1 hora antes', 60],
+  ['1 dia antes', 1440],
+])('preset %s envia minutos canônicos e fuso', async (label, offsetMinutes) => {
+  futureClock();
+  await type('Título', 'Preset');
+  await choose(label as string);
+  await press('Criar tarefa');
+  expect(create).toHaveBeenCalledWith(
+    expect.objectContaining({
+      reminders: [{ offsetMinutes }],
+      reminderTimeZone: 'America/Sao_Paulo',
+    }),
+  );
+  expect(requestReminderPermission).toHaveBeenCalledTimes(1);
+});
+test.each([
+  ['Minutos', '7', 7],
+  ['Horas', '2', 120],
+  ['Dias', '3', 4320],
+])('personalizado em %s', async (unit, amount, offsetMinutes) => {
+  futureClock();
+  await type('Título', 'Custom');
+  await press('Adicionar lembrete');
+  await press('Personalizado');
+  await type('Quantidade do lembrete', amount);
+  await press(unit);
+  await press('Adicionar personalizado');
+  await press('Criar tarefa');
+  expect(create).toHaveBeenCalledWith(
+    expect.objectContaining({ reminders: [{ offsetMinutes }] }),
+  );
+});
+test.each(['0', '-1', '1.5', 'abc', '999999999999999999999999'])(
+  'rejeita quantidade personalizada %s',
+  async amount => {
+    await press('Adicionar lembrete');
+    await press('Personalizado');
+    await type('Quantidade do lembrete', amount);
+    await press('Adicionar personalizado');
+    expect(alert).toHaveBeenCalled();
+    expect(requestReminderPermission).not.toHaveBeenCalled();
+  },
+);
+test('impede equivalente repetido e limita a cinco', async () => {
+  await choose('1 hora antes');
+  await press('Adicionar lembrete');
+  await press('Personalizado');
+  await type('Quantidade do lembrete', '60');
+  await press('Adicionar personalizado');
+  expect(alert).toHaveBeenLastCalledWith(
+    'Lembretes',
+    'Esse lembrete já está configurado.',
+  );
+  await press('No horário');
+  for (const label of ['15 min antes', '30 min antes', '1 dia antes']) {
+    await choose(label);
+  }
+  expect(controls('Adicionar lembrete')[0].props.disabled).toBe(true);
+  expect(JSON.stringify(renderer.toJSON())).toContain(
+    'Você pode configurar até 5 lembretes por tarefa.',
+  );
+  expect(requestReminderPermission).toHaveBeenCalledTimes(1);
+});
+test.each(['', '25:00', 'abc'])(
+  'bloqueia horário inválido %s antes da API',
+  async time => {
+    await type('Título', 'Inválida');
+    await choose('No horário');
+    await type('Horário', time);
+    await press('Criar tarefa');
+    expect(create).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenLastCalledWith(
+      'Lembretes',
+      'Defina um horário válido para configurar lembretes.',
+    );
+  },
+);
+test.each([
+  ['No horário', 'TASK'],
+  ['1 dia antes', 'TRIGGER'],
+])('valida passado: %s', async (label, kind) => {
+  const day = new Date();
+  const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(day.getDate()).padStart(2, '0')}`;
+  jest
+    .spyOn(Date, 'now')
+    .mockReturnValue(
+      Date.parse(`${key}T${kind === 'TASK' ? '14:00' : '12:00'}:00Z`),
+    );
+  await type('Horário', '10:00');
+  await type('Título', 'Passado');
+  await choose(label);
+  await press('Criar tarefa');
+  expect(create).not.toHaveBeenCalled();
+  expect(alert.mock.calls.at(-1)?.[1]).toContain(
+    kind === 'TASK'
+      ? 'O horário da tarefa já passou'
+      : 'O lembrete precisa ser agendado',
+  );
+});
+test('permissão negada permite salvar a configuração sem afirmar agendamento', async () => {
+  futureClock();
+  jest.mocked(requestReminderPermission).mockResolvedValueOnce(false);
+  create.mockResolvedValue({
+    cacheSaved: true,
+    scheduling: { state: 'unavailable' },
+  });
+  await type('Título', 'Negada');
+  await choose('No horário');
+  // The permission adapter owns the OS prompt; this alert explains persistence.
+  expect(alert).toHaveBeenCalledWith(
+    'Notificações desativadas',
+    'A tarefa poderá ser salva, mas as notificações estão desativadas neste aparelho.',
+  );
+  await press('Criar tarefa');
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(alert.mock.calls.at(-1)?.[1]).toContain('não foi agendado');
+});
+test.each(['scheduled', 'not_required', 'pending', 'unavailable', 'error'])(
+  'feedback %s combina cache sem repetir POST',
+  async state => {
+    create.mockResolvedValue({ cacheSaved: false, scheduling: { state } });
+    await type('Título', 'Feedback');
+    await press('Criar tarefa');
+    const message = alert.mock.calls.at(-1)?.[1];
+    expect(message).toContain(
+      state === 'scheduled'
+        ? 'lembrete agendado'
+        : state === 'not_required'
+        ? 'sucesso'
+        : 'não foi agendado',
+    );
+    expect(message).toContain('cache local falhou');
+    expect(create).toHaveBeenCalledTimes(1);
+  },
+);
+
+ test('inicializa horário atual uma vez e preserva edição manual ao longo do tempo', async () => {
+  const input = () => renderer.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === 'Horário')!;
+  expect(input().props.value).toBe('10:43');
+  await act(async () => {jest.setSystemTime(new Date(2026, 9, 29, 11, 30)); renderer.update(<NewTaskScreen />);});
+  expect(input().props.value).toBe('10:43');
+  await type('Horário', '16:05');
+  await act(async () => {jest.setSystemTime(new Date(2026, 9, 29, 12, 30)); renderer.update(<NewTaskScreen />);});
+  expect(input().props.value).toBe('16:05');
 });

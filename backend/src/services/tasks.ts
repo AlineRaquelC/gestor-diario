@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { ReminderError, normalizeOffsets, resolveTaskInstant, validateReminderChange } from '../domain/reminders/index.js';
 import { randomUUID } from 'node:crypto';
 import { ProjectError } from '../errors/projects.js';
 import { TaskValidationError, TaskNotFoundError, TaskConflictError } from '../errors/tasks.js';
@@ -90,7 +91,10 @@ export class TasksService {
       if (!this.projects.findById(input.projectId ?? task.projectId)) {
         throw new ProjectError('PROJECT_NOT_FOUND');
       }
-      const changes: UpdateTask & { done?: boolean; progress?: number } = { ...input };
+      const reminderState = this.validateReminders({ ...task, ...input, dueDate,
+        reminders: input.reminders ?? task.reminders }, task, now);
+      const changes: UpdateTask & { done?: boolean; progress?: number } = { ...input, reminderTimeZone: reminderState.timeZone };
+      delete changes.reminders;
       const updatedAt = new Date(Math.max(now.getTime(), Date.parse(task.updatedAt) + 1)).toISOString();
       const children = this.subtasks.findByTaskId(id);
       let childrenChanged = false;
@@ -105,14 +109,38 @@ export class TasksService {
       }
       const state = taskState(children.length ? this.subtasks.findByTaskId(id) : [], input.status ?? task.status);
       Object.assign(changes, state);
-      if (!this.repository.updateById(id, changes, updatedAt)) throw new TaskNotFoundError();
+      const reminderChanged = reminderState.offsets.join(',') !== task.reminders.map(item => item.offsetMinutes).join(',');
+      if (reminderChanged) this.repository.replaceReminders(id, reminderState.offsets, updatedAt);
       const fields: string[] = (Object.keys(input) as (keyof UpdateTask)[])
-        .filter(key => key !== 'status' && input[key] !== task[key]);
+        .filter(key => key !== 'status' && key !== 'reminders' && key !== 'reminderTimeZone' && input[key] !== task[key]);
+      if (reminderChanged) fields.push('reminders');
+      if (reminderState.timeZone !== task.reminderTimeZone) fields.push('reminderTimeZone');
       if (childrenChanged) fields.push('subtasks', 'progress');
+      if (!fields.length && state.status === task.status && state.done === task.done && state.progress === task.progress && !childrenChanged) return task;
+      if (!this.repository.updateById(id, changes, updatedAt)) throw new TaskNotFoundError();
       if (fields.length) this.repository.recordUpdate(id, randomUUID(), updatedAt, fields);
       recordStatus(this.repository, id, task.status, state.status, updatedAt);
       return this.findById(id);
     });
+  }
+
+  private validateReminders(
+    next: { dueDate: string; time?: string | null; reminderTimeZone?: string | null; reminders?: { offsetMinutes: number }[] },
+    previous: typeof next | undefined, now: Date,
+  ) {
+    try {
+      const offsets = normalizeOffsets((next.reminders ?? []).map(item => item.offsetMinutes));
+      // Even a supplied zone on an empty collection must be structurally valid.
+      if (next.reminderTimeZone != null) resolveTaskInstant('2026-01-15', '12:00', next.reminderTimeZone);
+      const timeZone = offsets.length ? next.reminderTimeZone ?? '' : null;
+      validateReminderChange({ dueDate: next.dueDate, time: next.time ?? '', timeZone: timeZone ?? '', offsets },
+        previous ? { dueDate: previous.dueDate, time: previous.time ?? '', timeZone: previous.reminderTimeZone ?? '',
+          offsets: (previous.reminders ?? []).map(item => item.offsetMinutes) } : undefined, () => now.getTime());
+      return { offsets, timeZone };
+    } catch (error) {
+      if (error instanceof ReminderError) throw new TaskValidationError(error.message);
+      throw error;
+    }
   }
 
   create(input: CreateTask) {
@@ -132,6 +160,7 @@ export class TasksService {
     if (input.dueDate < input.startDate) {
       throw new TaskValidationError('O prazo não pode ser anterior à data de início.');
     }
+    const reminderState = this.validateReminders(input, undefined, now);
     return this.repository.transaction(() => {
       if (input.clientId) {
         const existing = this.repository.findByClientId(input.clientId);
@@ -140,7 +169,10 @@ export class TasksService {
       if (!this.projects.findById(input.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
       const timestamp = now.toISOString();
       const completed = input.status === 'COMPLETED';
-      const { subtasks: draftChildren = [], ...fields } = input;
+      const draftChildren = input.subtasks ?? [];
+      const fields = { ...input };
+      delete fields.reminders;
+      delete fields.subtasks;
       const children = draftChildren.map((child, index) => ({
         id: randomUUID(), title: child.title, done: completed,
         // Preserve the draft order with the repository's existing ordering.
@@ -150,13 +182,15 @@ export class TasksService {
       const updatedAt = children.at(-1)?.updatedAt ?? timestamp;
       const task = this.repository.create({
         ...fields, ...taskState(children, input.status), id: randomUUID(),
+        reminderTimeZone: reminderState.timeZone,
         favorite: false, createdAt: timestamp, updatedAt,
         deletedAt: null, undoUntil: null,
       });
+      this.repository.replaceReminders(task.id, reminderState.offsets, timestamp);
       for (const child of children) this.subtasks.create({ ...child, taskId: task.id });
       this.repository.createHistoryEvent({ id: randomUUID(), taskId: task.id,
         action: 'CREATED', createdAt: timestamp, metadata: {} });
-      return children.length ? this.findById(task.id) : task;
+      return this.findById(task.id);
     });
   }
 }
