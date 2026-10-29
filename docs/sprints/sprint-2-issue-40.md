@@ -2,7 +2,9 @@
 
 ## 1. Estado, fontes e recorte
 
-**29/10/2026 — refinamento técnico documental; implementação não iniciada.**
+**29/10/2026 — T01–T03 implementados no backend; T04–T08 não iniciados.**
+A execução está registrada ao final. A auditoria e o refinamento preservam a
+base anterior à implementação e as políticas aprovadas no PR #47.
 Issue [#40](https://github.com/AlineRaquelC/gestor-diario/issues/40) OPEN,
 **Planning Poker 8**, origem **PBI-13 / RF08**. O prazo máximo de commit/push é
 **08/11/2026**. Pontos não equivalem a dias nem comprovam capacidade disponível.
@@ -33,11 +35,12 @@ Ficam fora intervalos a cada N períodos, múltiplos dias da semana, feriados, d
 regras independentes de repetição dos reminders. RF43–RF45 e REQ114–REQ116 não
 são entregues por esta Issue. Não declarar PBI-13 integralmente concluído.
 
-Este refinamento não cria código funcional, migration, banco, dependência ou
-feature branch de implementação. O documento fica em branch `docs/`. Não inicia
-#41 nem autoriza promoção `dev` → `main`.
+O refinamento original foi exclusivamente documental e integrado pelo PR #47.
+A execução T01–T03 usa `feature/40-recurrence`, limitada a domínio, persistência e
+API backend. Mobile, UI, sync e scheduler Android permanecem inalterados. Não
+inicia #41 nem autoriza promoção `dev` → `main`.
 
-## 2. Auditoria da arquitetura atual
+## 2. Auditoria da base anterior à implementação
 
 A busca por `recurrence`, `recorr`, `series`, `occurrence`, `parentTask`,
 `templateTask` e `generatedTask` em `src`, `backend/src`, `backend/drizzle`,
@@ -474,3 +477,134 @@ A autorização de implementação é uma etapa posterior, separada da revisão 
 refinamento. #40 permanece OPEN, com Planning Poker 8; PBI-13 permanece
 parcialmente coberto. Nenhuma migration, código funcional, dependência ou branch
 de implementação foi criada; não há início de #41 ou promoção dev → main.
+
+
+## Execução T01–T03 — 29/10/2026
+
+### T01 — domínio e contrato
+
+Implementação pura em `backend/src/domain/recurrence/index.ts`, sem React Native,
+com RecurrenceFrequency, RecurrenceTemplate, RecurrenceSeries e OccurrenceIdentity.
+Os valores são NONE/DAILY/WEEKLY/MONTHLY; não há labels visuais no domínio.
+Relógio é uma função injetada. A data atual é obtida na zona IANA da série,
+independente da zona do processo Node; a API não expõe referência de teste.
+
+A janela é `[hoje, hoje + 31 dias]`, inclusiva. O início considera a cobertura
+persistida e a âncora, sem percorrer períodos históricos. DAILY usa campos civis,
+WEEKLY preserva a fase semanal e MONTHLY calcula cada mês a partir da âncora,
+limitando apenas o mês curto. A duração start/due é uma distância entre dias do
+calendário gregoriano, não uma diferença entre instantes UTC em milissegundos.
+
+`materializedThrough` é cobertura, não MAX(dueDate). Após criação/ativação da
+primeira ocorrência, começa na sua chave nominal: a regra inicia nessa âncora e
+a primeira Task já ocupa o slot. A reposição processa a extensão até hoje + 31,
+avança mesmo sem novos slots e não avança em caso de rollback. NONE não gera nem
+avança cobertura. Task inicial criada explicitamente para futuro distante pode
+existir fora da janela; isso não autoriza gerar outras Tasks além do horizonte.
+
+### T02 — schema e migration
+
+Migration nova **0004_recurrence_series**, aditiva, com snapshot/journal Drizzle.
+Migrations 0000–0003 permanecem inalteradas. A nova migration cria a série e usa
+ALTER TABLE para acrescentar colunas nullable em Tasks, sem recriar tabelas,
+desligar foreign keys, copiar ou apagar registros anteriores.
+
+A tabela `recurrence_series` tem UUID, clientId UNIQUE, frequência, fuso, âncora,
+cobertura e timestamps. O template tem colunas de título/descrição/projectId com
+FK/prioridade/horário/duração, e coleções JSON validadas de títulos de subtarefas
+e offsets. Não persiste IDs de filhos, status de execução, Notes, History ou
+triggerAt no template. Checks protegem frequência, duração, campos vazios e
+estrutura das coleções; a API valida integralmente tipos/offsets/IANA/datas.
+
+Tasks possuem `recurrenceSeriesId` e `occurrenceKey`, ambos null para registros
+anteriores e Tasks comuns. A FK é RESTRICT; o CHECK exige pareamento e o índice
+UNIQUE inclui tombstones. Remover logicamente uma ocorrência não libera o slot.
+
+Foi acrescentado **firstOccurrenceKey** imutável na série. Esse metadado identifica
+a primeira Task para retry por clientId mesmo quando a âncora vigente for editada
+ou a primeira Task tiver outro dueDate ou estiver excluída. Não é Task de template,
+não é usado como cobertura e não substitui a chave da regra vigente. O valor é
+controlado pelo backend e não pode ser alterado pela API.
+
+### T03 — comandos, DTOs e materialização
+
+| Método / rota | Contrato implementado |
+|---|---|
+| POST /recurrence-series | clientId obrigatório, frequency, timeZone, anchorDate e template completo; retorna `{ series, firstOccurrence }`. Cria série/primeira Task/filhos/reminders/CREATED na mesma transação. |
+| POST /recurrence-series/from-task/:taskId | clientId, frequency e timeZone; ativa a mesma Task já existente como primeira ocorrência. Template derivado dos dados persistidos, sem copiar Notes ou IDs para futuras ocorrências. Preserva estado/filhos/reminders/History da Task de origem e registra UPDATED do vínculo. |
+| GET /recurrence-series e GET /recurrence-series/:id | Consulta de série/template, sem materialização ou outros efeitos colaterais. |
+| PATCH /recurrence-series/:id | expectedUpdatedAt e taskId da ocorrência usada na edição; frequency, anchorDate e/ou template completo. Conflito de versão retorna 409 RECURRENCE_CONFLICT. Mantém série, chave inicial e cobertura. |
+| POST /recurrence-series/:id/materialize | Corpo vazio; retorna `{ series, created }`. Backend calcula data/janela e realiza o lote atômico. |
+| POST /recurrence-series/materialize | Corpo vazio; executa lote global atômico e retorna `{ results, createdCount }`. Falha de uma série reverte também as inserções anteriores do comando global. |
+
+O template canônico possui `title`, `description`, `projectId`, `priority`, `time`,
+`startOffsetDays`, `subtasks: [{ title }]` e `reminders: [{ offsetMinutes }]`.
+Description/time podem ser null; coleções omitidas viram arrays vazios. Offsets
+são únicos, limitados a cinco e ordenados. Não são aceitos IDs de filhos, estado,
+Notes, triggerAt, horizonte arbitrário ou referência de relógio no corpo.
+
+A criação explícita da primeira Task valida início/prazo na zona da série e exige
+que, havendo horário, seu instante ainda seja futuro. Reminders novos da criação
+ou edição manual continuam sujeitos à validação da #39. A ativação de Task já
+persistida não fabrica outra Task nem redefine seu status; se houver reminders,
+a zona solicitada deve coincidir com a zona salva, sem troca silenciosa.
+
+Retries de clientId retornam a mesma série e primeira Task, inclusive após mudança
+de âncora, vencimento ou soft delete; não repetem History. A ativação rejeita outra
+série para Task já vinculada e não reutiliza clientId para vincular outra Task.
+
+A materialização lê regra/cobertura e insere sob transação SQLite IMMEDIATE.
+A defesa final é INSERT com ON CONFLICT DO NOTHING na chave série/slot, não
+INSERT OR REPLACE. Slot existente, inclusive tombstone ou Task com data/status
+editados, não é reescrito. Filho/reminder/History só são inseridos quando a nova
+Task foi efetivamente criada. Novas ocorrências são PENDING, done false,
+progress 0, com filhos pendentes e IDs próprios, sem Notes históricas.
+
+Para ocorrência nominal anterior a hoje, não há backfill. Para hoje com time,
+`resolveTaskInstant(dueDate, time, series.timeZone) <= clock()` determina Task
+passada e impede nova inserção. Sem time, o próprio dia de hoje é elegível.
+Por duração, startDate de uma ocorrência futura pode preceder hoje; esse snapshot
+não é uma nova entrada manual com data de início antiga.
+
+Ocorrência ainda futura recebe todos os Reminders do template, com IDs próprios;
+triggerAt é calculado pelo domínio da #39 e retornado no DTO, não armazenado como
+estado da série. Offset cujo trigger venceu é preservado e não invalida a Task.
+Exemplo testado: agora 10:20, Task 10:30, offsets 30 e 0 → configuração com ambos,
+trigger 10:00 expirado e trigger 10:30 futuro. Nenhum agendamento ocorre no backend;
+o scheduler existente só aceitará futuros quando o mobile consumir os snapshots.
+Horários inexistentes/ambíguos continuam sendo erro estrutural e revertem o lote.
+
+Mudanças de regra/NONE não reescrevem Tasks já materializadas nem removem reminders.
+History usa UPDATED com série, escopo e regra antes/depois na Task solicitante;
+geradas usam CREATED com seriesId/occurrenceKey. Não há action type ou hard delete
+novo. Atualizar cobertura também atualiza a revisão da série; clientes devem
+recarregar após conflito. A operação idempotente sem extensão não altera timestamps.
+
+GET/POST/PATCH/RESTORE de Task normal preservam seus comportamentos. DTO de Task
+expõe recurrenceSeriesId/occurrenceKey (null em Task comum) e, quando vinculada,
+resumo `recurrence` com frequency/timeZone/anchorDate/materializedThrough/updatedAt.
+O template completo fica na consulta da série, sem duplicação por Task. Os campos
+de vínculo não são aceitos como entrada no POST/PATCH normal. Não há geração em
+GET, calendário, render, scheduler ou receiver Android.
+
+### Validação desta etapa
+
+- Backend: **426 testes em 16 suítes** (109 novos em relação à base de 317).
+  Domínio determinístico, API e migrations em SQLite temporário cobrem slots,
+  calendário/bissexto/DST, duração, janela/cobertura, não backfill, retries,
+  concorrência, tombstones/restore, edição/NONE, ativação de Task existente,
+  identidade dos filhos, snapshots de reminders vencidos, History e rollback
+  de criação, edição e lotes individual/global.
+- Migration: banco vazio, upgrade de 0003 com projetos/Tasks/subtarefas/Notes/
+  History/reminders/clientId/deletedAt preservados, reaplicação, foreign_key_check,
+  integridade, FK, CHECK e UNIQUE incluindo soft delete aprovados.
+- `db:migrate` executado em banco temporário isolado; typecheck e build backend
+  aprovados. Nenhuma migration antiga foi modificada.
+- Raiz: 16 testes dos validadores CI; lint com 3 erros/7 warnings e TypeScript
+  com 11 diagnósticos conhecidos, sem ampliar baselines; suíte mobile de 513 testes
+  em 28 suítes preservada. `git diff --check` aprovado.
+
+T04–T08 permanecem não iniciados. Não há mapping/cache/sync novo no mobile, UI,
+geração no calendário ou alteração de lifecycle/scheduler Android nesta etapa.
+A validação solicitada não declara T07 nem T08 concluídos. Issue #40 permanece
+OPEN, Planning Poker 8, sem PR final, merge ou promoção dev → main.

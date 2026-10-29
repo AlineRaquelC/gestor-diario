@@ -1,4 +1,7 @@
 import type { ErrorRequestHandler } from 'express';
+import { RecurrenceError } from '../domain/recurrence/index.js';
+import { ReminderError } from '../domain/reminders/index.js';
+import { RecurrenceNotFoundError, RecurrenceConflictError } from '../errors/recurrence.js';
 import { ZodError } from 'zod';
 import { TaskValidationError, TaskNotFoundError, TaskConflictError } from '../errors/tasks.js';
 import { ProjectError } from '../errors/projects.js';
@@ -13,17 +16,17 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
     return;
   }
 
-  if (error instanceof TaskConflictError) {
+  if (error instanceof TaskConflictError || error instanceof RecurrenceConflictError) {
     res.status(409).json({ error: { code: error.code, message: error.message } });
     return;
   }
 
-  if (error instanceof TaskValidationError) {
+  if (error instanceof TaskValidationError || error instanceof RecurrenceError || error instanceof ReminderError) {
     res.status(400).json({ error: { code: error.code, message: error.message } });
     return;
   }
 
-  if (error instanceof TaskNotFoundError || error instanceof SubtaskNotFoundError || error instanceof NoteNotFoundError) {
+  if (error instanceof RecurrenceNotFoundError || error instanceof TaskNotFoundError || error instanceof SubtaskNotFoundError || error instanceof NoteNotFoundError) {
     res.status(404).json({ error: { code: error.code, message: error.message } });
     return;
   }

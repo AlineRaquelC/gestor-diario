@@ -1,3 +1,7 @@
+import { createRecurrenceSeriesRouter } from './routes/recurrence-series.js';
+import { RecurrenceSeriesService } from './services/recurrence-series.js';
+import { RecurrenceSeriesRepository } from './repositories/recurrence-series.js';
+import type { Clock } from './domain/reminders/index.js';
 import cors from 'cors';
 import express from 'express';
 import type { openDatabase } from './database/index.js';
@@ -21,7 +25,7 @@ import { NotesController } from './controllers/notes.js';
 import { createNotesRouter } from './routes/notes.js';
 
 // The entry point owns the database; tests inject an isolated connection.
-export function createApp(db: ReturnType<typeof openDatabase>['db']) {
+export function createApp(db: ReturnType<typeof openDatabase>['db'], recurrenceClock: Clock = Date.now) {
   const app = express();
   const controller = new ProjectsController(new ProjectsService(new ProjectsRepository(db)));
   app.use(cors());
@@ -33,6 +37,9 @@ export function createApp(db: ReturnType<typeof openDatabase>['db']) {
   )));
   app.use('/tasks', createSubtasksRouter(new SubtasksController(new SubtasksService(new TasksRepository(db), new SubtasksRepository(db)))));
   app.use('/tasks', createNotesRouter(new NotesController(new NotesService(new TasksRepository(db), new NotesRepository(db)))));
+  app.use('/recurrence-series', createRecurrenceSeriesRouter(new RecurrenceSeriesService(
+    new RecurrenceSeriesRepository(db), new TasksRepository(db), new ProjectsRepository(db), new SubtasksRepository(db), recurrenceClock,
+  )));
   app.use(errorHandler);
   return app;
 }
