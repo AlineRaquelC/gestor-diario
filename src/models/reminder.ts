@@ -4,7 +4,7 @@ import type { Reminder as StoredReminder } from '../domain/reminders';
 export type Reminder = StoredReminder & { readonly triggerAt: string };
 export type ApiReminder = Reminder;
 export type ReminderInput = { offsetMinutes: number };
-// Temporary boundary for the unchanged NewTaskScreen, removed by T10.
+// Compatibility boundary for historical drafts; task forms use ReminderInput[].
 export type VisualReminderDraft = string[];
 
 export function validateReminderTimeZone(zone: string): string {
