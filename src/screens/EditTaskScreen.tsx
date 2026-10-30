@@ -1,3 +1,4 @@
+import TaskRecurrenceEditor from '../components/TaskRecurrenceEditor';
 import React, { useState, useRef } from 'react';
 
 import {
@@ -746,6 +747,9 @@ export default function EditTaskScreen() {
             </View>
           </Field>
 
+          <Field label="Repetição">
+            <TaskRecurrenceEditor task={task} disabled={saving || subtaskSaving !== null} />
+          </Field>
           <Field label="Lembretes">
             <TaskReminderSelector
               value={reminders}

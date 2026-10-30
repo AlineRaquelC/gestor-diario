@@ -166,6 +166,7 @@ export default function CalendarScreen() {
             <Text style={styles.todayText}>Hoje</Text>
           </Pressable>
         </View>
+        <Text style={styles.subtitle}>Recorrências exibem apenas tarefas já criadas pelo servidor. Períodos além da janela atual podem ainda não estar carregados.</Text>
         <View style={styles.modes}>
           {(
             [
@@ -270,8 +271,8 @@ export default function CalendarScreen() {
               {!loading && !periodHasTasks && (
                 <Text style={styles.empty}>
                   {mode === 'month'
-                    ? 'Nenhuma tarefa neste mês.'
-                    : 'Nenhuma tarefa nesta semana.'}
+                    ? 'Nenhuma tarefa carregada neste mês.'
+                    : 'Nenhuma tarefa carregada nesta semana.'}
                 </Text>
               )}
             </>
@@ -292,7 +293,7 @@ export default function CalendarScreen() {
           </Text>
         )}
         {!loading && selectedTasks.length === 0 && (
-          <Text style={styles.empty}>Nenhuma tarefa para este dia.</Text>
+          <Text style={styles.empty}>Nenhuma tarefa carregada para este dia.</Text>
         )}
         {mode === 'day'
           ? groupDayTasks(selectedTasks)

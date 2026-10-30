@@ -1,3 +1,7 @@
+import RecurrenceFrequencySelector from '../components/RecurrenceFrequencySelector';
+import { deviceRecurrenceTimeZone } from '../models/recurrence';
+import type { RecurrenceFrequency } from '../models/recurrence';
+import { newRecurrenceRequestId } from '../services/recurrenceService';
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -117,6 +121,9 @@ export default function NewTaskScreen() {
   const [reminders, setReminders] = useState<ReminderInput[]>([]);
   const [reminderTimeZone, setReminderTimeZone] = useState<string | null>(null);
 
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('NONE');
+  const [recurrenceZone, setRecurrenceZone] = useState<string | null>(null);
+  const recurrenceRequest = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
 
@@ -210,8 +217,8 @@ export default function NewTaskScreen() {
             'Defina um horário válido para configurar lembretes.',
           );
         }
-        zone = zone ?? deviceReminderTimeZone();
-        validateReminderChange(
+        zone = (frequency !== 'NONE' ? recurrenceZone : null) ?? zone ?? deviceReminderTimeZone();
+        if (frequency === 'NONE') {validateReminderChange(
           {
             dueDate: calendarDate(dueDate.toISOString()),
             time,
@@ -220,7 +227,7 @@ export default function NewTaskScreen() {
           },
           undefined,
           Date.now,
-        );
+        );}
       }
     } catch (error) {
       Alert.alert('Lembretes', (error as Error).message);
@@ -258,12 +265,13 @@ export default function NewTaskScreen() {
         })),
 
         reminders,
+        ...(frequency !== 'NONE' ? { recurrenceInput: { frequency, timeZone: recurrenceZone ?? deviceRecurrenceTimeZone() }, recurrenceRequestId: recurrenceRequest.current ?? (recurrenceRequest.current = newRecurrenceRequestId()) } : {}),
         ...(reminders.length ? { reminderTimeZone: zone } : {}),
       });
 
       Alert.alert(
         'Tarefa criada',
-        taskSavedFeedback(false, result.cacheSaved, result.scheduling),
+        taskSavedFeedback(false, result.cacheSaved, result.scheduling, frequency !== 'NONE'),
         [
           {
             text: 'OK',
@@ -512,6 +520,15 @@ export default function NewTaskScreen() {
             )}
           </FormGroup>
 
+          <FormGroup label="Repetir">
+            <RecurrenceFrequencySelector value={frequency} disabled={saving} onChange={value => {
+              try {
+                if (value !== 'NONE') {setRecurrenceZone(deviceRecurrenceTimeZone()); setStatus('todo');}
+                setFrequency(value);
+              } catch (error) {Alert.alert('Recorrência', (error as Error).message);}
+            }} />
+            {frequency !== 'NONE' && <Text style={styles.subLabel}>Fuso da série: {recurrenceZone}. A primeira ocorrência será criada como A fazer.</Text>}
+          </FormGroup>
           {/* STATUS */}
           <FormGroup label="Status inicial">
             <View style={styles.statusWrap}>
@@ -523,7 +540,7 @@ export default function NewTaskScreen() {
                     key={item.value}
                     accessibilityRole="button"
                     accessibilityLabel={item.label}
-                    accessibilityState={{ selected: active }}
+                    accessibilityState={{ selected: active, disabled: frequency !== 'NONE' && item.value !== 'todo' }}
                     style={[
                       styles.statusButton,
 
@@ -533,6 +550,7 @@ export default function NewTaskScreen() {
                         backgroundColor: item.background,
                       },
                     ]}
+                    disabled={frequency !== 'NONE' && item.value !== 'todo'}
                     onPress={() => setStatus(item.value)}
                   >
                     <Text
@@ -611,7 +629,7 @@ export default function NewTaskScreen() {
           <FormGroup label="Lembretes">
             <TaskReminderSelector
               value={reminders}
-              timeZone={reminderTimeZone}
+              timeZone={frequency !== 'NONE' ? recurrenceZone : reminderTimeZone}
               onChange={(items, zone) => {
                 setReminders(items);
                 setReminderTimeZone(zone);

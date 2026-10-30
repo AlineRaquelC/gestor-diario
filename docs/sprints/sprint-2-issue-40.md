@@ -2,7 +2,7 @@
 
 ## 1. Estado, fontes e recorte
 
-**29/10/2026 — T01–T03 implementados no backend; T04–T08 não iniciados.**
+**30/10/2026 — T01–T06 implementados; T07 e T08 pendentes.**
 A execução está registrada ao final. A auditoria e o refinamento preservam a
 base anterior à implementação e as políticas aprovadas no PR #47.
 Issue [#40](https://github.com/AlineRaquelC/gestor-diario/issues/40) OPEN,
@@ -604,7 +604,119 @@ GET, calendário, render, scheduler ou receiver Android.
   com 11 diagnósticos conhecidos, sem ampliar baselines; suíte mobile de 513 testes
   em 28 suítes preservada. `git diff --check` aprovado.
 
-T04–T08 permanecem não iniciados. Não há mapping/cache/sync novo no mobile, UI,
-geração no calendário ou alteração de lifecycle/scheduler Android nesta etapa.
-A validação solicitada não declara T07 nem T08 concluídos. Issue #40 permanece
-OPEN, Planning Poker 8, sem PR final, merge ou promoção dev → main.
+O registro acima corresponde à entrega T01–T03. A integração mobile T04–T06 está
+descrita a seguir. T07 e T08 permanecem pendentes; os checks desta etapa não
+substituem a regressão final nem a validação funcional Android da #40.
+
+
+## Execução T04–T06 — integração mobile (30/10/2026)
+
+### T04 — contrato, identidade, cache e sync
+
+Task passa a preservar `recurrenceSeriesId`, `occurrenceKey` e o resumo
+`recurrence` entregue pela API: frequency, timeZone, anchorDate,
+materializedThrough e updatedAt. O template completo não é duplicado no cache
+de cada ocorrência. Registros antigos sem esses campos continuam Tasks comuns.
+O vínculo e a chave não entram no PATCH normal e divergências de identidade no
+snapshot são rejeitadas, preservando os dados confirmados. A comparação de domínio
+considera vínculo, chave, frequência, fuso e âncora; revisão e avanço de cobertura
+não geram conflito artificial. Uma revisão antiga não rebaixa uma regra já
+confirmada no cache.
+
+A criação comum mantém POST /tasks. A criação recorrente usa somente o comando
+atômico POST /recurrence-series e mapeia a primeira ocorrência retornada. A
+intenção e seu clientId são gravados em AsyncStorage antes da requisição. Falha
+de persistência impede o POST; resposta incerta mantém a identidade para retry,
+inclusive ao retomar a mesma intenção em outro formulário. Payload de tentativa
+incerta não é substituído silenciosamente. Rejeição explícita permite corrigir
+os dados. Confirmação da API continua válida mesmo se a gravação posterior do
+journal falhar. Retry de uma intenção já enviada não revalida o relógio como uma
+nova criação; o backend recupera a identidade existente. Entrada nova continua
+validando datas civis, fuso, duração, horário e reminders antes do POST.
+
+A sync manual chama a materialização idempotente antes dos downloads e da
+consolidação final. Falha interrompe a operação, sem publicar sucesso ou uma
+lista vazia. Ocorrências ausentes no remoto não são importadas como novas Tasks;
+tombstones continuam autoritativos. Não existe geração local/offline.
+
+Os helpers de calendário civil de T01 foram separados em módulo puro, mantendo
+os exports e regras do backend. Isso permite seu uso no mobile sem carregar
+imports de execução `.js` exclusivos do build ESM do servidor. A suíte backend
+preserva os testes de calendário, janela e materialização; não houve alteração
+de endpoint, migration ou regra de geração nesta integração.
+
+### T05 — Nova Tarefa, Editar e Detalhes
+
+Nova Tarefa oferece Repetir com Não repetir como padrão, Diariamente,
+Semanalmente e Mensalmente. Ao ativar uma frequência, captura fuso IANA da série,
+mesmo sem reminders. Com reminders, a primeira ocorrência e o template usam os
+mesmos offsets canônicos e fuso. O contrato atômico cria a primeira ocorrência
+como A fazer; a interface explicita esse estado e desabilita Em andamento nesse
+fluxo. Tasks comuns mantêm o comportamento anterior. O horário inicial continua
+sendo HH:mm atual, sem sobrescrever a edição manual.
+
+A confirmação informa criação recorrente e, separadamente, o resultado local do
+scheduler e eventual falha do cache. Uma API confirmada não é reenviada por falha
+local de agendamento. A validação manual de reminder vencido da #39 permanece;
+consumir um snapshot gerado com offset expirado não rejeita a ocorrência nem
+remove a configuração persistida.
+
+Editar mantém os campos usuais limitados à ocorrência selecionada. Alterar regra
+é uma ação própria: consulta a série e envia PATCH /recurrence-series/:id com
+expectedUpdatedAt e taskId. O aviso é: “A nova regra será aplicada apenas às
+próximas ocorrências ainda não criadas.” Não repetir interrompe a geração e
+preserva as Tasks existentes. Conflito mostra erro e oferece recarregar; não
+repete o PATCH automaticamente. O resumo confirmado é atualizado nas ocorrências
+cacheadas da mesma série, sem reescrever seus campos, IDs ou reminders. Task
+comum também pode ativar recorrência pelo comando from-task, preservando a mesma
+Task e usando intenção durável.
+
+Detalhes mostra seção compacta de Recorrência apenas quando há vínculo canônico,
+com o mesmo helper de labels. IDs e templates não são apresentados. Os reminders
+continuam distinguindo configuração persistida de estado local do scheduler.
+Seletores e ações possuem papéis, labels, estado acessível e alvos mínimos de
+44 px, com quebra de linha e sem dependência exclusiva de cor.
+
+### T06 — materialização controlada e lifecycle
+
+Startup e retorno ao foreground executam materialize → fetch → persistência do
+cache → publicação no Context → reconciliação do snapshot confirmado. Foreground
+possui guard em andamento; chamadas simultâneas de materialização compartilham a
+mesma Promise. Sync manual respeita operações/undo e atualização em andamento.
+Revisão de mutação impede que uma leitura antiga desfaça uma alteração confirmada.
+Falha de rede/materialização conserva o cache e não fabrica slots. No startup,
+o erro de leitura não abre alerta invasivo; cache ilegível não é sobrescrito nem
+usado para autorizar novos agendamentos.
+
+Não há materialização em render, Details, navegação de calendário ou scheduler.
+Depois de criar/alterar uma série, a extensão é consumida no próximo ponto
+controlado de atualização; mudar a regra não reescreve Tasks já materializadas.
+O calendário utiliza apenas Tasks do Context e prioriza dueDateKey válido, com
+fallback legado. Sua indicação de cobertura deixa claro que períodos além da
+janela atual podem não estar carregados. Navegar não amplia a janela. Home
+preserva filtros, ordenação e ocorrências como Tasks normais.
+
+Concluir, reabrir, excluir e desfazer afetam somente a ocorrência, sem gerar outra
+Task ou mudar regra. Subtarefas mantêm o lifecycle da #39. Exclusão/restauração
+preservam identidade e tombstone, e o scheduler existente continua responsável
+apenas pelos reminders futuros de Tasks confirmadas. Não foi criado scheduler
+de recorrência nem alterada a infraestrutura Android de alarmes inexatos.
+
+### Verificações T04–T06
+
+- Mobile: **567 testes em 30 suítes**, 54 novos sobre a base de 513. Cobertura de
+  mapping/cache/legado, identidade e revisões, intenção durável/retry, criação
+  atômica nas três frequências, reminders, sync repetida/tombstones/offline,
+  edição explícita/NONE/conflito, Detalhes, calendário e guards/lifecycle.
+- Backend: **426 testes em 16 suítes**, typecheck e build aprovados. A migration
+  permanece aprovada em SQLite temporário; testes de upgrade/constraints/FKs e
+  preservação de dados permanecem verdes. Nenhuma migration foi criada/alterada.
+- Validadores CI: **16 testes**. Lint: 3 erros e 7 warnings conhecidos; TypeScript
+  mobile: 11 diagnósticos conhecidos. Nenhuma baseline foi ampliada.
+- Android: assembleDebug e assembleRelease aprovados com Hermes, New Architecture
+  e Codegen habilitados. Isso confirma integridade de build, sem substituir a
+  validação funcional Android T08. Não houve notificação real em Jest.
+- `git diff --check` aprovado. Arquivos temporários e builds não são versionados.
+
+Issue #40 permanece OPEN, Planning Poker **8**, prazo **08/11/2026**. T07/T08 não
+foram iniciados, sem PR final, fechamento, merge, início da #41 ou dev → main.

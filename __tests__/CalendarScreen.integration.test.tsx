@@ -70,8 +70,8 @@ afterEach(async () => {
 
 test('month default, real empty states and existing bottom navigation', () => {
   expect(labels()).toContain('Outubro de 2026');
-  expect(labels()).toContain('Nenhuma tarefa para este dia.');
-  expect(labels()).toContain('Nenhuma tarefa neste mês.');
+  expect(labels()).toContain('Nenhuma tarefa carregada para este dia.');
+  expect(labels()).toContain('Nenhuma tarefa carregada neste mês.');
   expect(
     controls().find(node =>
       node.findAllByType(Text).some(text => text.props.children === 'Mês'),
@@ -155,7 +155,7 @@ test('creation/edit/conclusion/reopen react without reload and completed tasks r
   await update([task()]);
   expect(labels()).toContain('PRAZO PRÓXIMO');
   await update([task({ dueDate: '2026-10-05' })]);
-  expect(labels()).toContain('Nenhuma tarefa para este dia.');
+  expect(labels()).toContain('Nenhuma tarefa carregada para este dia.');
   await press('5 de outubro, 1 tarefas');
   expect(
     controls().some(
@@ -182,4 +182,13 @@ test('loading and errors preserve accessible real tasks', async () => {
     renderer.root.findAll(node => node.props.accessibilityRole === 'alert')
       .length,
   ).toBeGreaterThan(0);
+});
+
+test('navegar além do horizonte mostra apenas Tasks reais e informa limite de cobertura', async () => {
+  const occurrence = task({ recurrenceSeriesId: 's', occurrenceKey: '2026-10-04', dueDateKey: '2026-10-04', recurrence: { frequency: 'DAILY', timeZone: 'UTC', anchorDate: '2026-10-04', materializedThrough: '2026-11-04', updatedAt: '2026-10-04T13:00:00Z' } });
+  await update([occurrence]);
+  expect(labels().some(label => typeof label === 'string' && label.includes('apenas tarefas já criadas'))).toBe(true);
+  await press('›'); await press('›');
+  expect(mockTasks).toEqual([occurrence]);
+  expect(labels()).toContain('Nenhuma tarefa carregada neste mês.');
 });

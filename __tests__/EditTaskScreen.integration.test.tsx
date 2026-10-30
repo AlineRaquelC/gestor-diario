@@ -1,3 +1,4 @@
+jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
 import React from 'react';
 import { Alert, TextInput } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
@@ -400,4 +401,19 @@ it('tarefa legada sem prazo nem reminders mantém edição normal', async () => 
   await renderReminders({ dueDate: undefined, startDate: undefined, reminders: [], reminderTimeZone: null });
   await act(async () => {await button('✓ Salvar alterações').props.onPress();});
   expect(patch).toHaveBeenCalledTimes(1); expect(patch.mock.calls[0][1]).not.toHaveProperty('reminders');
+});
+
+it('editar ocorrência mantém regra informativa e PATCH somente da Task atual', async () => {
+  await act(async () => renderer.unmount());
+  const changeRule = jest.fn(), activate = jest.fn();
+  const occurrence = { ...task, recurrenceSeriesId: 'series', occurrenceKey: '2026-09-03', recurrence: { frequency: 'WEEKLY' as const, timeZone: 'America/Sao_Paulo', anchorDate: '2026-09-03', materializedThrough: '2026-10-04', updatedAt: '2026-09-01T13:00:00Z' } };
+  jest.mocked(useTasks).mockReturnValue({ tasks: [occurrence], updateTask: patch, changeRecurrenceRule: changeRule, activateTaskRecurrence: activate, deleteTask: jest.fn() } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => {renderer = ReactTestRenderer.create(<EditTaskScreen />);});
+  expect(JSON.stringify(renderer.toJSON())).toContain('Semanalmente');
+  expect(JSON.stringify(renderer.toJSON())).toContain('somente esta tarefa');
+  await act(async () => {await button('✓ Salvar alterações').props.onPress();});
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('recurrence');
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('recurrenceSeriesId');
+  expect(changeRule).not.toHaveBeenCalled(); expect(activate).not.toHaveBeenCalled();
 });

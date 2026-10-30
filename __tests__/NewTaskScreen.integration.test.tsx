@@ -1,3 +1,4 @@
+jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
 import React from 'react';
 import { Alert, Modal, Text, TextInput } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
@@ -365,4 +366,33 @@ test.each(['scheduled', 'not_required', 'pending', 'unavailable', 'error'])(
   await type('Horário', '16:05');
   await act(async () => {jest.setSystemTime(new Date(2026, 9, 29, 12, 30)); renderer.update(<NewTaskScreen />);});
   expect(input().props.value).toBe('16:05');
+});
+
+test('recorrência começa em Não repetir e criação comum não envia série', async () => {
+  expect(controls('Não repetir')[0].props.accessibilityState.checked).toBe(true);
+  await type('Título', 'Comum'); await press('Criar tarefa');
+  expect(create.mock.calls[0][0]).not.toHaveProperty('recurrenceInput');
+});
+test.each([['Diariamente', 'DAILY'], ['Semanalmente', 'WEEKLY'], ['Mensalmente', 'MONTHLY']])('cria com %s e fuso independente de reminder', async (label, frequency) => {
+  await type('Título', 'Recorrente'); await press(label); await press('Criar tarefa');
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ recurrenceInput: { frequency, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }, recurrenceRequestId: expect.any(String), reminders: [], status: 'todo' }));
+  expect(alert.mock.calls[0][1]).toContain('Tarefa recorrente criada.');
+});
+test('retry de criação recorrente mantém identidade e informa falha sem sucesso falso', async () => {
+  create.mockRejectedValueOnce(new Error('Resposta não confirmada'));
+  await type('Título', 'Retry'); await press('Diariamente'); await press('Criar tarefa');
+  const request = create.mock.calls[0][0].recurrenceRequestId;
+  expect(alert.mock.calls[0]).toEqual(['Não foi possível criar a tarefa', 'Resposta não confirmada']);
+  await press('Criar tarefa');
+  expect(create.mock.calls[1][0].recurrenceRequestId).toBe(request);
+});
+test('recorrência com reminder mantém offsets e feedback de falha local sem sugerir recriar', async () => {
+  futureClock();
+  create.mockResolvedValue({ cacheSaved: false, scheduling: { state: 'unavailable' } });
+  await type('Título', 'Série com lembrete'); await type('Horário', '23:00');
+  await press('Semanalmente'); await choose('15 min antes'); await press('Criar tarefa');
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ recurrenceInput: { frequency: 'WEEKLY', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }, reminders: [{ offsetMinutes: 15 }], reminderTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
+  expect(alert.mock.calls.at(-1)![1]).toContain('Tarefa recorrente criada.');
+  expect(alert.mock.calls.at(-1)![1]).toContain('não foi agendado');
+  expect(alert.mock.calls.at(-1)![1]).toContain('Não envie novamente');
 });
