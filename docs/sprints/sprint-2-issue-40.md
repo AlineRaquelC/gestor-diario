@@ -2,7 +2,7 @@
 
 ## 1. Estado, fontes e recorte
 
-**30/10/2026 — T01–T06 implementados; T07 e T08 pendentes.**
+**30/10/2026 — T01–T07 concluídos; T08 aguardando validação manual da usuária.**
 A execução está registrada ao final. A auditoria e o refinamento preservam a
 base anterior à implementação e as políticas aprovadas no PR #47.
 Issue [#40](https://github.com/AlineRaquelC/gestor-diario/issues/40) OPEN,
@@ -720,3 +720,104 @@ de recorrência nem alterada a infraestrutura Android de alarmes inexatos.
 
 Issue #40 permanece OPEN, Planning Poker **8**, prazo **08/11/2026**. T07/T08 não
 foram iniciados, sem PR final, fechamento, merge, início da #41 ou dev → main.
+
+
+## T07 — regressão integrada (30/10/2026)
+
+A auditoria confirmou o recorte NONE/DAILY/WEEKLY/MONTHLY, série persistida com
+backend como única autoridade, primeira Task como primeira ocorrência e vínculo
+imutável por recurrenceSeriesId/occurrenceKey. A janela permanece inclusiva até
+hoje + 31 dias, sem backfill. materializedThrough avança sob transação confirmada;
+rollback não avança e edição/exclusão de ocorrência não reduz a cobertura.
+UNIQUE inclui tombstones, inclusive quando a cobertura é recuperada.
+
+A regressão acrescenta 14 testes integrados: nove backend e cinco mobile.
+Não foi necessária alteração funcional, de arquitetura, migration, dependência,
+workflow ou baseline. A cobertura confirmada compreende:
+
+| Área | Evidência automatizada |
+|---|---|
+| DAILY | Geração diária, mudança de mês/ano/fevereiro, DST/fuso, duração civil start/due e extensão idempotente da janela. |
+| WEEKLY | Mesmo dia da âncora, intervalo civil de sete dias, sem dias múltiplos ou drift. |
+| MONTHLY | Âncoras 28/29/30/31 em ano comum/bissexto; sequência persistida 31/01 → 28/02 → 31/03 → 30/04 → 31/05, sem perder a âncora original. |
+| Cobertura/rollback | Limite +31 incluso; segunda materialização cria zero; falhas de Task, History ou cobertura revertem lote; exclusão/edição não fazem o gerador esquecer slots. |
+| Tombstone/undo | Gerar → excluir → materializar mantém Task excluída e IDs; restauração usa a mesma Task e filhos. |
+| Edição da ocorrência | Título, descrição, projeto por ID, prioridade, datas e reminders alteram somente a ocorrência, sem mudar template, chave nominal ou vizinhas. Homônimos de projeto não trocam associação. |
+| Edição de regra | DAILY → WEEKLY, WEEKLY → MONTHLY e MONTHLY → DAILY só afetam nova extensão; as três frequências podem virar NONE sem apagar Tasks já existentes, filhos, reminders ou History anterior. Conflito de revisão é explícito. |
+| Reminders/subtarefas/Notes | Filhos recebem IDs próprios e subtarefas começam pendentes; só títulos/offsets são herdados. Notes históricas não são copiadas. Scheduler recebe snapshot confirmado: offset expirado continua configurado, não é agendado e não bloqueia os reminders futuros da mesma ocorrência ou de outra. Validação manual da #39 permanece intacta. |
+| Sync/offline | Duas materializações globais e seus snapshots preservam séries, Task IDs, occurrenceKey, Reminder IDs, filhos e History exatamente; duas syncs mobile conservam IDs e não geram localmente. Falha/offline preserva cache e não publica sucesso. |
+| Startup/foreground | Foreground não registra execução concorrente enquanto startup está pendente; guard coalesce atualizações em andamento; persistência precede scheduler. |
+| Calendário/Home | Tasks reais, dueDateKey priorizado, contagem e navegação pelo Task ID real; navegação não expande janela. Home mantém ocorrência como Task normal, filtros e ordenação sem duplicação visual ou alteração da série. |
+| UI | Default Não repetir, quatro opções, criação atômica/timezone/reminders/retry, edição explícita da regra com aviso de escopo/NONE/conflito; Detalhes exibe somente configuração canônica, sem seção vazia ou IDs técnicos. |
+
+### Resultados completos
+
+| Verificação | Resultado |
+|---|---|
+| Mobile — npm run test:ci | **572 testes / 30 suítes**, todos aprovados. |
+| Backend — npm test | **435 testes / 16 suítes**, todos aprovados. |
+| Novos testes da #40 | **59 mobile + 118 backend = 177**, sobre as bases de 513/317. Desses, **5 mobile + 9 backend = 14** foram acrescentados em T07. |
+| Validadores — npm run test:ci-scripts | **16 testes**, aprovados. |
+| Lint mobile — npm run lint:ci | 3 erros e 7 warnings conhecidos, sem ampliar baseline. |
+| TypeScript mobile — npm run typecheck:ci | 11 diagnósticos conhecidos, sem ampliar baseline. |
+| Backend — npm run db:migrate | Aprovado em SQLite temporário isolado; suíte de migration continua cobrindo banco vazio, upgrade, FKs, dados preservados e constraints. |
+| Backend — npm run typecheck / npm run build | Aprovados. |
+| Android — assembleDebug / assembleRelease | Aprovados, Hermes/New Architecture/Codegen habilitados. |
+| git diff --check | Aprovado. |
+
+T07 está concluída. Os builds e o smoke técnico de preparação não aprovam os
+cenários funcionais Android de T08. Issue #40 continua OPEN, Planning Poker 8,
+prazo de commit/push 08/11/2026, sem PR final ou merge.
+
+## T08 — roteiro preparado, validação manual pendente
+
+### Ambiente e preservação
+
+Pixel_7 existente, Android API 36, APK debug atualizado por `adb install -r`,
+sem limpar app, AsyncStorage ou userdata do AVD. API local e Metro disponíveis;
+porta 8081 encaminhada pelo ADB. O AVD foi iniciado com GPU por software e boot
+sem carregar snapshot, após bloqueio do driver gráfico; o relógio não foi
+alterado. O aplicativo abre e a Home fica disponível para iniciar os cenários.
+Essa verificação é somente smoke técnico, sem aprovação funcional de T08.
+
+A API local ainda estava no schema anterior. Antes de aplicar a migration aditiva
+0004 já aprovada, foi feito backup SQLite consistente em /tmp. A verificação
+posterior comparou contagens e hashes das colunas anteriores de Tasks, Projects,
+Subtasks, task_reminders, Notes e History: dados preservados, incluindo 42 Tasks;
+foreign_key_check vazio. Nenhum dado de teste foi removido. Backup, logs e
+capturas de diagnóstico permanecem fora do repositório.
+
+A massa será criada pela interface durante a validação, com nomes isolados
+REC-DIARIA, REC-SEMANAL, REC-MENSAL e REC-REMINDER, de preferência em projeto
+identificado para T08. Não foram pré-criadas séries que confundam a confirmação
+da primeira ocorrência. Selecionar horário futuro; para o reminder, usar No
+horário ou antecedência menor que o tempo restante até a Task.
+
+### Execução com a usuária
+
+| Cenário | Procedimento e resultado a conferir | Estado |
+|---|---|---|
+| 1 — DAILY | Criar REC-DIARIA; confirmar primeira ocorrência em Detalhes. Sincronizar para materializar, conferir datas no calendário, fechar/reabrir e comparar quantidade/identidades sem duplicação. | Pendente |
+| 2 — WEEKLY | Criar REC-SEMANAL; sincronizar e conferir ocorrências no mesmo dia da semana da âncora. Reabrir e sincronizar novamente sem duplicação. | Pendente |
+| 3 — MONTHLY | Criar REC-MENSAL; sincronizar e conferir frequência e datas. Na referência 30/10/2026, âncora 31/10 permite observar 30/11 dentro do horizonte +31. Se a data real mudar e esse caso não couber na janela, usar fluxo visual simples e a evidência automatizada de janeiro a maio/bissexto, sem alterar o relógio. | Pendente |
+| 4 — Ocorrência | Editar título/data/prioridade de uma ocorrência; abrir outra e confirmar que permaneceu igual. Reminders editados pertencem somente à Task selecionada. | Pendente |
+| 5 — Regra | Em Editar, usar Alterar regra de repetição: DAILY → WEEKLY. Conferir aviso de escopo e que Tasks já persistidas permanecem. Sincronizar sem preencher lacunas dentro da cobertura já processada. | Pendente |
+| 6 — NONE | Alterar explicitamente para Não repetir. Confirmar regra em Detalhes/Editar e permanência de Tasks já materializadas; sincronização não deve apagar nenhuma delas. | Pendente |
+| 7 — Exclusão/undo | Excluir ocorrência e deixar janela de undo expirar; sincronizar e confirmar que não renasce. Em outra ocorrência, excluir e usar DESFAZER dentro da janela: mesma Task e configuração retornam. | Pendente |
+| 8 — Reminder | Criar REC-REMINDER com frequência e reminder futuro; conferir configuração e estado local em Detalhes. Materializar e conferir outra ocorrência com configuração própria. Não é necessário esperar todas as notificações. | Pendente |
+| 9 — Sync duplo | Sincronizar duas vezes, sem alterar dados, e comparar lista/quantidade/datas. Nenhuma série, ocorrência, reminder ou History novo na segunda execução sem extensão. | Pendente |
+| 10 — Calendário | Conferir contagens/dias; abrir uma ocorrência pelo calendário e confirmar título, data e recorrência em Detalhes. Navegar além da cobertura não gera Tasks. | Pendente |
+
+Criar uma série persiste a primeira Task; a geração das demais ocorre no próximo
+startup/foreground/sync controlado. Para uma comparação manual estável, repetir
+sync sem atravessar a mudança do dia civil da série. Não interpretar avanço
+legítimo da janela no dia seguinte como duplicação.
+
+Alterar regra ou escolher NONE não permite provar visualmente a extensão após
+31 dias na mesma sessão. A persistência da regra, o aviso e a preservação das
+Tasks serão conferidos no Android; novos slots após materializedThrough e parada
+de geração estão cobertos por relógio injetado nos testes integrados. Não se deve
+mudar o relógio real ou editar cobertura do banco usado pelo aplicativo.
+
+Cada resultado de T08 será registrado após execução real com a usuária. T08
+continua pendente; não abrir PR final, fechar #40, iniciar #41 ou promover dev → main.

@@ -467,3 +467,14 @@ test('sorting panel hides filters and shows direction only for selected criteria
   await press('Aplicar ordenação');
   expect(labels()).toContain('Para fazer');
 });
+
+test('filtros e ordenação tratam ocorrência como Task normal sem alterar série', async () => {
+  const recurrence = { frequency: 'DAILY' as const, timeZone: 'UTC', anchorDate: '2026-10-20', materializedThrough: '2026-11-20', updatedAt: '2026-10-20T10:00:00Z' };
+  await act(async () => context.updateTaskLocal('Alta pendente A', { recurrenceSeriesId: 'series', occurrenceKey: '2026-10-20', recurrence }));
+  const confirmed = context.tasks;
+  await apply('Prioridade: Alta');
+  expect(titles()).toEqual(['Alta pendente A', 'Alta parcial B']);
+  await apply('Ordenação: Prazo', 'Direção do prazo: Mais distante → mais próximo');
+  expect(titles()).toEqual(['Alta parcial B', 'Alta pendente A']);
+  expect(context.tasks).toBe(confirmed); expect(context.tasks[0].recurrence).toEqual(recurrence);
+});

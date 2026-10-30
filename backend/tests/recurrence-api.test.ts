@@ -302,3 +302,75 @@ it('o lote global também é atômico entre séries', async () => {
   expect((await request(app).post('/recurrence-series/materialize').send({})).status).toBe(500);
   expect(snapshot()).toEqual(before);
 });
+
+it('regressão MONTHLY persiste janeiro a maio usando sempre a âncora original', async () => {
+  vi.setSystemTime(new Date('2027-01-31T12:00:00Z'));
+  const { series } = await create({ ...draft, frequency: 'MONTHLY', anchorDate: '2027-01-31' });
+  for (const day of ['2027-01-31', '2027-03-01', '2027-04-01', '2027-05-01']) {
+    vi.setSystemTime(new Date(`${day}T12:00:00Z`));
+    expect((await generate(series.id)).status).toBe(200);
+  }
+  expect(rows().map(task => task.occurrenceKey)).toEqual(['2027-01-31', '2027-02-28', '2027-03-31', '2027-04-30', '2027-05-31']);
+});
+it('excluir ocorrência e materializar novamente mantém tombstone, cobertura e filhos', async () => {
+  const { series } = await create(); const generated = (await generate(series.id)).body.created[0];
+  expect((await request(app).delete(`/tasks/${generated.id}`)).status).toBe(200);
+  const before = snapshot();
+  const result = await generate(series.id);
+  expect(result.status).toBe(200); expect(result.body.created).toEqual([]); expect(snapshot()).toEqual(before);
+  expect(rows().filter(task => task.recurrenceSeriesId === series.id && task.occurrenceKey === generated.occurrenceKey))
+    .toEqual([expect.objectContaining({ id: generated.id, deletedAt: expect.any(String) })]);
+  expect((await request(app).get('/tasks')).body.some((task: { id: string }) => task.id === generated.id)).toBe(false);
+});
+it('editar todos os campos de uma ocorrência não muda template, vizinhas nem chave nominal', async () => {
+  connection.db.insert(projects).values({ id: 'p2', name: 'Projeto', color: '#000', icon: 'P' }).run();
+  const { series } = await create(); const generated = (await generate(series.id)).body.created[0];
+  const before = snapshot();
+  const response = await request(app).patch(`/tasks/${generated.id}`).send({ title: 'Só esta', description: 'Isolada', projectId: 'p2',
+    priority: 'HIGH', startDate: '2026-10-31', dueDate: '2026-11-01', time: '15:00',
+    reminderTimeZone: draft.timeZone, reminders: [{ offsetMinutes: 60 }] });
+  expect(response.status, JSON.stringify(response.body)).toBe(200);
+  expect(response.body).toMatchObject({ title: 'Só esta', description: 'Isolada', projectId: 'p2', priority: 'HIGH', dueDate: '2026-11-01',
+    occurrenceKey: generated.occurrenceKey, recurrenceSeriesId: series.id });
+  expect(response.body.reminders.map((item: { offsetMinutes: number }) => item.offsetMinutes)).toEqual([60]);
+  expect(rows().filter(task => task.id !== generated.id)).toEqual(before.tasks.filter(task => task.id !== generated.id));
+  expect(connection.db.select().from(recurrenceSeries).all()).toEqual(before.series);
+  expect(connection.db.select().from(taskReminders).all().filter(item => item.taskId !== generated.id))
+    .toEqual(before.reminders.filter(item => item.taskId !== generated.id));
+  expect((await generate(series.id)).body.created).toEqual([]);
+});
+it.each([
+  ['DAILY', 'WEEKLY', ['2026-12-03', '2026-12-10', '2026-12-17', '2026-12-24', '2026-12-31']],
+  ['WEEKLY', 'MONTHLY', ['2026-12-29']],
+  ['MONTHLY', 'DAILY', null],
+])('regressão %s → %s só gera depois da cobertura, sem reescrever Tasks', async (from, to, keys) => {
+  const { series, firstOccurrence } = await create({ ...draft, frequency: from }); await generate(series.id);
+  const before = snapshot();
+  const changed = await edit(series.id, firstOccurrence.id, { frequency: to });
+  expect(changed.status).toBe(200); expect(changed.body.materializedThrough).toBe('2026-11-29');
+  expect(rows()).toEqual(before.tasks); expect(connection.db.select().from(taskReminders).all()).toEqual(before.reminders);
+  expect((await generate(series.id)).body.created).toEqual([]);
+  vi.setSystemTime(new Date('2026-12-01T13:20:00Z'));
+  const result = await generate(series.id); expect(result.status).toBe(200);
+  const actual = result.body.created.map((task: { occurrenceKey: string }) => task.occurrenceKey);
+  if (keys) {expect(actual).toEqual(keys);} else {expect(actual).toHaveLength(32); expect(actual[0]).toBe('2026-12-01'); expect(actual.at(-1)).toBe('2027-01-01');}
+  expect(rows().filter(task => before.tasks.some(old => old.id === task.id))).toEqual(before.tasks);
+  const confirmed = snapshot(); expect((await generate(series.id)).body.created).toEqual([]); expect(snapshot()).toEqual(confirmed);
+});
+it.each(['WEEKLY', 'MONTHLY'])('%s → NONE preserva todas as Tasks, filhos, reminders e History anteriores', async frequency => {
+  const { series, firstOccurrence } = await create({ ...draft, frequency }); await generate(series.id); const before = snapshot();
+  expect((await edit(series.id, firstOccurrence.id, { frequency: 'NONE' })).status).toBe(200);
+  vi.setSystemTime(new Date('2027-01-01T13:20:00Z'));
+  const result = await generate(series.id); expect(result.body.created).toEqual([]);
+  expect(result.body.series.materializedThrough).toBe('2026-11-29');
+  const after = snapshot(); expect(after.tasks).toEqual(before.tasks); expect(after.reminders).toEqual(before.reminders); expect(after.subtasks).toEqual(before.subtasks);
+  expect(after.history.filter(event => before.history.some(old => old.id === event.id))).toEqual(before.history);
+});
+it('dois comandos globais seguidos e seus GETs mantêm IDs, filhos, History e séries exatamente iguais', async () => {
+  await create(); await create({ ...draft, clientId: 'weekly', frequency: 'WEEKLY' });
+  const first = await request(app).post('/recurrence-series/materialize').send({}); expect(first.status).toBe(200);
+  const confirmed = snapshot(), firstRead = (await request(app).get('/tasks?includeDeleted=true')).body;
+  const second = await request(app).post('/recurrence-series/materialize').send({});
+  expect(second.status).toBe(200); expect(second.body.createdCount).toBe(0);
+  expect((await request(app).get('/tasks?includeDeleted=true')).body).toEqual(firstRead); expect(snapshot()).toEqual(confirmed);
+});

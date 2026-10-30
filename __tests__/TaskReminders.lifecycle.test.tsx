@@ -265,3 +265,16 @@ it('falha de foreground mantém cache confirmado e libera guard para nova atuali
   await act(async () => foreground('active'));
   expect(getTasks).toHaveBeenCalledTimes(1);
 });
+
+it('foreground durante startup não concorre com materialização inicial pendente', async () => {
+  await act(async () => renderer.unmount());
+  const registration = jest.mocked(AppState.addEventListener); registration.mockClear(); jest.mocked(materializeRecurrences).mockClear(); jest.mocked(getTasks).mockClear();
+  let finish!: () => void;
+  jest.mocked(materializeRecurrences).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  await mount(); expect(context.loading).toBe(true);
+  expect(registration).not.toHaveBeenCalled(); expect(getTasks).not.toHaveBeenCalled();
+  expect(materializeRecurrences).toHaveBeenCalledTimes(1);
+  await act(async () => finish());
+  expect(context.loading).toBe(false); expect(registration).toHaveBeenCalledTimes(1);
+  expect(materializeRecurrences).toHaveBeenCalledTimes(1); expect(getTasks).toHaveBeenCalledTimes(1);
+});

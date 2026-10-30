@@ -192,3 +192,10 @@ test('navegar além do horizonte mostra apenas Tasks reais e informa limite de c
   expect(mockTasks).toEqual([occurrence]);
   expect(labels()).toContain('Nenhuma tarefa carregada neste mês.');
 });
+
+test('ocorrência usa dia canônico, conta uma Task e abre seu ID real', async () => {
+  await update([task({ id: 'occurrence-real', title: 'REC-DIARIA', dueDate: '2026-10-05', dueDateKey: '2026-10-04', recurrenceSeriesId: 'series', occurrenceKey: '2026-10-04', recurrence: { frequency: 'DAILY', timeZone: 'UTC', anchorDate: '2026-10-04', materializedThrough: '2026-11-04', updatedAt: '2026-10-04T10:00:00Z' } })]);
+  expect(controls().filter(node => node.props.accessibilityLabel === '4 de outubro, 1 tarefas, hoje')).toHaveLength(1);
+  await press('Abrir tarefa REC-DIARIA');
+  expect(mockNavigate).toHaveBeenCalledWith('DetalheTarefa', { taskId: 'occurrence-real' });
+});

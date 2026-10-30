@@ -136,3 +136,21 @@ it('retorno nativo inválido não produz confirmação nem apaga journal', async
   expect((await scheduler.reconcile([task])).state).toBe('error'); expect(bridge.schedule).not.toHaveBeenCalled();
   expect(stored.has(REMINDER_JOURNAL_KEY)).toBe(true);
 });
+
+it('ocorrências reconciliam IDs próprios e conservam offset expirado sem bloquear reminders futuros', async () => {
+  now = Date.parse('2026-10-27T12:50:00Z');
+  const recurrence = { frequency: 'DAILY' as const, timeZone: 'America/Sao_Paulo', anchorDate: '2026-10-27', materializedThrough: '2026-11-27', updatedAt: '2026-10-27T12:00:00Z' };
+  const first: Task = { ...task, recurrenceSeriesId: 'series', occurrenceKey: '2026-10-27', recurrence,
+    reminders: [task.reminders![0], { ...task.reminders![0], id: 'at-time', offsetMinutes: 0, triggerAt: '2026-10-27T13:00:00Z' }] };
+  const second: Task = { ...first, id: 'next-task', remoteId: 'next-task', occurrenceKey: '2026-10-28', dueDateKey: '2026-10-28', dueDate: '2026-10-28',
+    reminders: first.reminders!.map(item => ({ ...item, id: 'next-' + item.id, taskId: 'next-task', triggerAt: item.offsetMinutes ? '2026-10-28T12:45:00Z' : '2026-10-28T13:00:00Z' })) };
+  const snapshot = JSON.stringify([first, second]);
+  expect((await scheduler.reconcile([first, second], true)).state).toBe('scheduled');
+  expect(bridge.schedule).toHaveBeenCalledTimes(3);
+  expect(records.has(notificationId(first.id, 'reminder'))).toBe(false);
+  expect(records.has(notificationId(first.id, 'at-time'))).toBe(true);
+  expect(records.has(notificationId(second.id, 'next-reminder'))).toBe(true);
+  expect([...records.values()].every(triggerAt => triggerAt > now)).toBe(true);
+  await scheduler.reconcile([first, second], true);
+  expect(bridge.schedule).toHaveBeenCalledTimes(3); expect(JSON.stringify([first, second])).toBe(snapshot);
+});
