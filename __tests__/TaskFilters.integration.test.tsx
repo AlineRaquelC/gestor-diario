@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import React from 'react';
 import { Modal, Text } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
@@ -151,6 +153,7 @@ const metrics = () =>
     )
     .map(node => ({ ...node.props }));
 beforeEach(async () => {
+  jest.mocked(materializeRecurrences).mockResolvedValue(undefined);
   jest.useFakeTimers().setSystemTime(new Date(2026, 9, 20, 12));
   storage.clear();
   storage.set('@taskflow:tasks', JSON.stringify(tasks));

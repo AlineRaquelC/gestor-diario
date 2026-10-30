@@ -1,3 +1,4 @@
+jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
 import { API_BASE_URL } from '../src/services/api';
 import { updateTask, toApiTaskUpdate } from '../src/services/taskService';
 import type { ApiTask } from '../src/services/taskService';

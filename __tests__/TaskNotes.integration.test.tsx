@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import React from 'react';
 import { Alert, TextInput, AppState } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
@@ -31,7 +33,7 @@ async function mount() {
   await act(async () => { renderer = ReactTestRenderer.create(<ProjectProvider><TaskProvider><Probe /><TaskDetailsScreen /></TaskProvider></ProjectProvider>); });
 }
 beforeEach(() => {
-  jest.resetAllMocks(); jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() }); storage.clear(); storage.set('@taskflow:tasks', JSON.stringify([task]));
+  jest.resetAllMocks(); jest.mocked(materializeRecurrences).mockResolvedValue(undefined); jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() }); storage.clear(); storage.set('@taskflow:tasks', JSON.stringify([task]));
   jest.mocked(AsyncStorage.getItem).mockImplementation(async key => storage.get(key) ?? null);
   jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => { storage.set(key, value); });
   jest.mocked(getTasks).mockResolvedValue([task]); jest.mocked(getTaskHistory).mockResolvedValue([]);

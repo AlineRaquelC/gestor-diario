@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import { normalizeReminderCache } from '../src/models/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { synchronize, preserveTask, SYNC_LEDGER_KEY } from '../src/services/syncService';
@@ -14,7 +16,7 @@ const project: Project = { id: 'local-p', name: 'Mesmo nome', color: '#fff', ico
 const task: Task = { reminders: [], id: 'local-t', projectId: project.id, project: project.name, title: 'Legado', priority: 'high', status: 'todo', done: false, startDate: '2020-01-01', dueDate: '2020-01-02' };
 let projects: Project[], tasks: Task[];
 beforeEach(() => {
-  jest.resetAllMocks(); storage.clear(); projects = []; tasks = [];
+  jest.resetAllMocks(); jest.mocked(materializeRecurrences).mockResolvedValue(undefined); storage.clear(); projects = []; tasks = [];
   jest.mocked(AsyncStorage.getItem).mockImplementation(async key => storage.get(key) ?? null);
   jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => {storage.set(key, value);});
   jest.mocked(listProjects).mockImplementation(async () => [...projects]);
@@ -199,4 +201,38 @@ it('comparação usa o mesmo dia civil para cache ISO antigo e chaves canônicas
   const { taskFields } = require('../src/services/syncService') as typeof import('../src/services/syncService');
   const legacy = { ...task, startDate: new Date(2026, 9, 26).toISOString(), dueDate: new Date(2026, 9, 27).toISOString() };
   expect(taskFields(legacy)).toBe(taskFields({ ...legacy, startDateKey: '2026-10-26', dueDateKey: '2026-10-27' }));
+});
+
+it('materializa antes de baixar snapshots e sync repetida preserva IDs e tombstone', async () => {
+  const recurrence = { frequency: 'DAILY' as const, timeZone: 'America/Sao_Paulo', anchorDate: '2026-10-29', materializedThrough: '2026-11-29', updatedAt: '2026-10-29T13:00:00Z' };
+  projects = [{ ...project, id: 'rp' }];
+  const occurrence = { ...task, id: 'occurrence', projectId: 'rp', recurrenceSeriesId: 'series', occurrenceKey: '2026-10-29', recurrence };
+  const deleted = { ...occurrence, id: 'deleted', occurrenceKey: '2026-10-30', deletedAt: '2026-10-29T14:00:00Z' };
+  tasks = [occurrence, deleted];
+  let materialized = false;
+  jest.mocked(materializeRecurrences).mockImplementation(async () => {materialized = true;});
+  jest.mocked(getTasksForSync).mockImplementation(async () => {expect(materialized).toBe(true); return tasks;});
+  const first = await synchronize(projects, [occurrence, { ...deleted, deletedAt: undefined }]);
+  const second = await synchronize(first.projects, first.tasks);
+  expect(first.tasks.map(value => value.id)).toEqual(['occurrence']);
+  expect(second.tasks.map(value => value.id)).toEqual(['occurrence']);
+  expect(importLocalTask).not.toHaveBeenCalled(); expect(createProject).not.toHaveBeenCalled();
+  expect(materializeRecurrences).toHaveBeenCalledTimes(2);
+  expect(first.reminderSnapshot).toEqual(tasks);
+});
+it('falha/offline na materialização preserva entrada e não baixa nem fabrica Tasks', async () => {
+  jest.mocked(materializeRecurrences).mockRejectedValue(new Error('Não foi possível atualizar as recorrências.'));
+  const local = [{ ...task }], before = JSON.stringify(local);
+  await expect(synchronize([project], local)).rejects.toThrow(/recorrências/);
+  expect(JSON.stringify(local)).toBe(before);
+  expect(getTasksForSync).not.toHaveBeenCalled(); expect(importLocalTask).not.toHaveBeenCalled();
+  expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+});
+it('ocorrência ausente remotamente não é recriada por importação local', async () => {
+  projects = [{ ...project, id: 'rp' }];
+  const recurrence = { frequency: 'DAILY' as const, timeZone: 'UTC', anchorDate: '2026-10-29', materializedThrough: '2026-11-29', updatedAt: '2026-10-29T13:00:00Z' };
+  const local = { ...task, id: 'missing', projectId: 'rp', recurrenceSeriesId: 'series', occurrenceKey: '2026-10-29', recurrence };
+  const result = await synchronize(projects, [local]);
+  expect(result.tasks[0]).toMatchObject({ id: local.id, recurrenceSeriesId: 'series', syncPending: expect.any(String) });
+  expect(importLocalTask).not.toHaveBeenCalled();
 });

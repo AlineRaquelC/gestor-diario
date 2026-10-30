@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import { normalizeReminderCache } from '../src/models/reminder';
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
@@ -18,6 +20,7 @@ async function mount() {
   await act(async () => { renderer = ReactTestRenderer.create(<ProjectProvider><TaskProvider><Probe /></TaskProvider></ProjectProvider>); });
 }
 beforeEach(async () => {
+  jest.mocked(materializeRecurrences).mockResolvedValue(undefined);
   storage.clear();
   storage.set('@taskflow:tasks', '[]');
   jest.mocked(AsyncStorage.getItem).mockImplementation(async key => storage.get(key) ?? null);

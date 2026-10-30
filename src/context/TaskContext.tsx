@@ -1,3 +1,7 @@
+import { normalizeRecurrenceCache, recurrenceSummary } from '../models/recurrence';
+import type { RecurrenceFields, RecurrenceSeries, RecurrenceFrequency } from '../models/recurrence';
+import { materializeRecurrences, getRecurrenceSeries, updateRecurrenceSeries, activateRecurrence } from '../services/recurrenceService';
+import { fromApiTask } from '../services/taskService';
 import React, {
   createContext,
   useContext,
@@ -40,7 +44,7 @@ export type Subtask = {
   remote?: boolean;
 };
 
-export type Task = {
+export type Task = RecurrenceFields & {
   id: string;
   remoteId?: string;
   localId?: string;
@@ -83,6 +87,9 @@ export type Task = {
 };
 
 type TaskContextType = {
+  loadRecurrenceSeries: (id: string) => Promise<RecurrenceSeries>;
+  changeRecurrenceRule: (taskId: string, seriesId: string, expectedUpdatedAt: string, frequency: RecurrenceFrequency) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
+  activateTaskRecurrence: (taskId: string, frequency: RecurrenceFrequency, timeZone: string, requestId: string) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
   tasks: Task[];
   loading: boolean;
   reminderScheduling: Record<string, SchedulingResult>;
@@ -184,6 +191,7 @@ export function TaskProvider({
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (undoTimer.current) {clearTimeout(undoTimer.current);} }, []);
   const creating = useRef(false);
+  const refreshing = useRef(false);
   const updating = useRef(new Set<string>());
   // Confirmed notes are kept separately from Task and its persisted cache.
   const [taskNotes, setTaskNotes] = useState<Record<string, Note[]>>({});
@@ -275,7 +283,7 @@ export function TaskProvider({
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         const raw: Task[] = stored ? JSON.parse(stored) : [];
-        const cached = Array.isArray(raw) ? raw.map(task => normalizeReminderCache(task)) : raw;
+        const cached = Array.isArray(raw) ? raw.map(task => normalizeRecurrenceCache(normalizeReminderCache(task))) : raw;
         if (!Array.isArray(cached) || cached.some(task => !task || typeof task.id !== 'string')) {
           throw new Error('Cache inválido.');
         }
@@ -291,16 +299,25 @@ export function TaskProvider({
       setReadError(cacheError);
       try {
         const revision = mutationRevision.current;
+        await materializeRecurrences();
         const remote = await getTasks();
-        if (!active) {return;}
-        tasksRef.current = mergeReadTasks(tasksRef.current, remote.filter(task => !deletedIds.current.has(task.id)));
-        setTasks(tasksRef.current);
+        if (!active || dataGuard.activeTasks || dataGuard.syncing || revision !== mutationRevision.current) {return;}
+        const next = mergeReadTasks(tasksRef.current, remote.filter(task => !deletedIds.current.has(task.id)));
         if (cacheWritable.current) {
-          await persistTasks(tasksRef.current);
+          await persistTasks(next);
+          if (!active || dataGuard.activeTasks || dataGuard.syncing || revision !== mutationRevision.current) {
+            if (active && revision !== mutationRevision.current) {await persistTasks(tasksRef.current);}
+            return;
+          }
+          tasksRef.current = next;
+          setTasks(next);
           if (dataGuard.activeTasks || dataGuard.syncing) {return;}
           const snapshot = tasksRef.current.filter(task => remote.some(item => item.id === task.id));
           const scheduling = await reminderScheduler.reconcile(snapshot, revision === mutationRevision.current);
           if (active) {reportScheduling(Object.fromEntries(snapshot.map(task => [task.id, scheduling])));}
+        } else {
+          // A confirmed response can be displayed without replacing unreadable storage.
+          tasksRef.current = next; setTasks(next);
         }
       } catch (error) {
         if (cacheWritable.current) {await reminderScheduler.retry();}
@@ -317,20 +334,26 @@ export function TaskProvider({
     if (!hydrated || loading || !cacheWritable.current) {return;}
     let active = true;
     const subscription = AppState.addEventListener('change', state => {
-      if (state !== 'active' || dataGuard.syncing || dataGuard.activeTasks || undoRef.current) {return;}
+      if (state !== 'active' || refreshing.current || dataGuard.syncing || dataGuard.activeTasks || undoRef.current) {return;}
+      refreshing.current = true;
       const revision = mutationRevision.current;
       (async () => {
         try {
+          await materializeRecurrences();
           const remote = await getTasks();
           if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {return;}
           const next = mergeReadTasks(tasksRef.current, remote);
           await persistTasks(next);
-          if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {return;}
+          if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {
+            if (active && revision !== mutationRevision.current) {await persistTasks(tasksRef.current);}
+            return;
+          }
           tasksRef.current = next; setTasks(next);
           const snapshot = next.filter(task => remote.some(item => item.id === task.id));
           const result = await reminderScheduler.reconcile(snapshot, true);
           if (active) {reportScheduling(Object.fromEntries(snapshot.map(task => [task.id, result])));}
         } catch {if (active && !dataGuard.syncing && !dataGuard.activeTasks) {await reminderScheduler.retry();}}
+        finally {refreshing.current = false;}
       })();
     });
     return () => {active = false; subscription.remove();};
@@ -382,7 +405,7 @@ export function TaskProvider({
     if (!hydrated || !projectsHydrated || loading || !cacheWritable.current || projectReadError) {
       throw new Error('Aguarde o carregamento seguro dos dados antes de sincronizar.');
     }
-    if (creating.current || updating.current.size || deletionBusy.current || undoRef.current) {
+    if (refreshing.current || creating.current || updating.current.size || deletionBusy.current || undoRef.current) {
       throw new Error('Aguarde as operações e a janela de desfazer antes de sincronizar.');
     }
     dataGuard.syncing = true;
@@ -479,7 +502,7 @@ export function TaskProvider({
       const remoteId = await resolveProject(project);
       if (remoteId !== project.remoteId) {updateProject(project.id, { remoteId });}
       const task = await createTask(draft, remoteId);
-      const nextTasks = [...tasksRef.current.filter(item => item.id !== task.id), task];
+      const nextTasks = [...tasksRef.current.filter(item => item.id !== task.id), ...(task.deletedAt ? [] : [task])];
       tasksRef.current = nextTasks;
       setTasks(nextTasks);
       mutationRevision.current++;
@@ -488,6 +511,41 @@ export function TaskProvider({
       creating.current = false;
       dataGuard.activeTasks--;
     }
+  }
+
+  async function mutateRule(taskId: string, operation: (task: Task) => Promise<{ series: RecurrenceSeries; task?: Task }>) {
+    assertDataAvailable();
+    if (!hydrated || loading) {throw new Error('Aguarde o carregamento dos dados.');}
+    const current = tasksRef.current.find(task => task.id === taskId);
+    if (!current) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(taskId)) {throw new Error('Uma operação já está em andamento.');}
+    updating.current.add(taskId); dataGuard.activeTasks++;
+    try {
+      const result = await operation(current);
+      const summary = recurrenceSummary(result.series);
+      const next = tasksRef.current.map(task => {
+        if (task.id === taskId && result.task) {return { ...task, ...result.task, legacyReminders: task.legacyReminders, subtasks: mergeSubtasks(result.task.subtasks, task.subtasks) };}
+        return task.recurrenceSeriesId === result.series.id ? { ...task, recurrence: summary } : task;
+      });
+      mutationRevision.current++;
+      tasksRef.current = next; setTasks(next);
+      let cacheSaved = true;
+      if (result.task) {cacheSaved = (await persistConfirmed(next, next.find(task => task.id === taskId)!, current)).cacheSaved;}
+      else {try {await persistTasks(next);} catch {cacheSaved = false;}}
+      return { series: result.series, cacheSaved };
+    } finally {updating.current.delete(taskId); dataGuard.activeTasks--;}
+  }
+  function changeRecurrenceRule(taskId: string, seriesId: string, expectedUpdatedAt: string, frequency: RecurrenceFrequency) {
+    return mutateRule(taskId, async task => {
+      if (task.recurrenceSeriesId !== seriesId) {throw new Error('A série desta tarefa não foi confirmada.');}
+      return { series: await updateRecurrenceSeries(seriesId, { taskId, expectedUpdatedAt, frequency }) };
+    });
+  }
+  function activateTaskRecurrence(taskId: string, frequency: RecurrenceFrequency, timeZone: string, requestId: string) {
+    return mutateRule(taskId, async current => {
+      const result = await activateRecurrence(taskId, { frequency, timeZone }, requestId);
+      return { series: result.series, task: fromApiTask(result.firstOccurrence, current) };
+    });
   }
 
   async function updateTask(id: string, changes: TaskUpdate) {
@@ -617,6 +675,9 @@ export function TaskProvider({
     <TaskContext.Provider
       value={{
         tasks,
+        loadRecurrenceSeries: getRecurrenceSeries,
+        changeRecurrenceRule,
+        activateTaskRecurrence,
         loading,
         reminderScheduling,
         syncing,

@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import React from 'react';
 import { Alert, TextInput } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
@@ -53,6 +55,7 @@ function expectState(done: boolean, progress: number, status: Task['status']) {
   expect(remote!.subtasks!.every(child => child.done === done)).toBe(true);
 }
 beforeEach(async () => {
+  jest.mocked(materializeRecurrences).mockResolvedValue(undefined);
   storage.clear(); serial = 0; remote = undefined; selectedScreen = 'new';
   storage.set('@taskflow:tasks', '[]');
   storage.set('@taskflow:projects', JSON.stringify([{ id: 'p', remoteId: 'remote-p', name: 'Projeto', color: '#fff', icon: 'P' }]));

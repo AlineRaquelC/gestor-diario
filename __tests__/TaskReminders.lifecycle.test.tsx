@@ -1,3 +1,5 @@
+import { materializeRecurrences, updateRecurrenceSeries } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn(), updateRecurrenceSeries: jest.fn() }));
 import { AppState } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 import React from 'react';
@@ -26,7 +28,7 @@ const storage = new Map<string, string>();
 function Probe() {context = useTasks(); return null;}
 async function mount() {await act(async () => {renderer = ReactTestRenderer.create(<ProjectProvider><TaskProvider><Probe /></TaskProvider></ProjectProvider>);});}
 beforeEach(async () => {
-  jest.resetAllMocks(); storage.clear();
+  jest.resetAllMocks(); jest.mocked(materializeRecurrences).mockResolvedValue(undefined); storage.clear();
   jest.mocked(resolveProject).mockResolvedValue('p');
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {foreground = listener; return { remove: jest.fn() };});
   storage.set('@taskflow:tasks', '[]');
@@ -195,4 +197,71 @@ it('DELETE confirmado não aguarda nova reconciliação durante a janela de undo
   jest.mocked(reminderScheduler.reconcile).mockRejectedValueOnce(new Error('Não chamar após DELETE'));
   await act(async () => {await expect(context.deleteTask('t')).resolves.toMatchObject({ scheduling: { state: 'not_required' } });});
   expect(reminderScheduler.reconcile).not.toHaveBeenCalled(); expect(context.undo?.id).toBe('t');
+});
+
+it('startup materializa uma vez antes de fetch/cache e scheduler usa snapshot confirmado', async () => {
+  await act(async () => renderer.unmount()); jest.mocked(materializeRecurrences).mockClear(); jest.mocked(getTasks).mockClear();
+  let materialized = false;
+  jest.mocked(materializeRecurrences).mockImplementationOnce(async () => {materialized = true;});
+  jest.mocked(getTasks).mockImplementationOnce(async () => {expect(materialized).toBe(true); return [task];});
+  jest.mocked(reminderScheduler.reconcile).mockImplementationOnce(async snapshot => {
+    expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(snapshot); return { state: 'scheduled' };
+  });
+  await mount(); expect(materializeRecurrences).toHaveBeenCalledTimes(1); expect(getTasks).toHaveBeenCalledTimes(1);
+});
+it('foreground concorrente tem guard, preserva cache durante materialização e reconcilia após persistir', async () => {
+  jest.mocked(materializeRecurrences).mockClear(); jest.mocked(getTasks).mockClear();
+  let finish!: () => void;
+  jest.mocked(materializeRecurrences).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  const cached = storage.get('@taskflow:tasks');
+  await act(async () => {foreground('active'); foreground('active');});
+  expect(materializeRecurrences).toHaveBeenCalledTimes(1); expect(getTasks).not.toHaveBeenCalled();
+  expect(storage.get('@taskflow:tasks')).toBe(cached); expect(reminderScheduler.reconcile).not.toHaveBeenCalled();
+  await act(async () => finish()); expect(getTasks).toHaveBeenCalledTimes(1);
+  expect(reminderScheduler.reconcile).toHaveBeenCalledWith([task], true);
+});
+it('startup offline preserva Tasks recorrentes cacheadas sem inventar slots', async () => {
+  await act(async () => renderer.unmount()); jest.mocked(getTasks).mockClear();
+  const occurrence = { ...task, recurrenceSeriesId: 's', occurrenceKey: '2026-10-27', recurrence: { frequency: 'DAILY', timeZone: 'America/Sao_Paulo', anchorDate: '2026-10-27', materializedThrough: '2026-11-27', updatedAt: '2026-10-26T13:00:00Z' } };
+  storage.set('@taskflow:tasks', JSON.stringify([occurrence]));
+  jest.mocked(materializeRecurrences).mockRejectedValueOnce(new Error('offline'));
+  await mount(); expect(context.tasks).toEqual([occurrence]); expect(getTasks).not.toHaveBeenCalled();
+  expect(context.readError).toContain('offline');
+});
+it('mudar regra atualiza só resumo, mantém Tasks/IDs/reminders e não chama materialização/scheduler', async () => {
+  await act(async () => renderer.unmount());
+  const summary = { frequency: 'DAILY' as const, timeZone: 'America/Sao_Paulo', anchorDate: '2026-10-27', materializedThrough: '2026-11-27', updatedAt: '2026-10-26T13:00:00Z' };
+  const occurrence = { ...task, recurrenceSeriesId: 's', occurrenceKey: summary.anchorDate, recurrence: summary };
+  jest.mocked(getTasks).mockResolvedValue([occurrence, { ...occurrence, id: 't2', occurrenceKey: '2026-10-28' }]);
+  await mount(); jest.mocked(materializeRecurrences).mockClear(); jest.mocked(reminderScheduler.reconcile).mockClear();
+  const updated = { ...summary, id: 's', clientId: 'c', firstOccurrenceKey: summary.anchorDate, createdAt: summary.updatedAt, frequency: 'NONE' as const, updatedAt: '2026-10-26T14:00:00Z', template: { title: task.title, description: null, projectId: 'p', priority: 'HIGH' as const, time: task.time, startOffsetDays: 1, subtasks: [], reminders: [{ offsetMinutes: 15 }] } };
+  jest.mocked(updateRecurrenceSeries).mockResolvedValue(updated);
+  await act(async () => {await context.changeRecurrenceRule('t', 's', summary.updatedAt, 'NONE');});
+  expect(context.tasks.map(value => value.id)).toEqual(['t', 't2']);
+  expect(context.tasks.every(value => value.recurrence?.frequency === 'NONE')).toBe(true);
+  expect(context.tasks[0].reminders).toEqual(task.reminders);
+  expect(materializeRecurrences).not.toHaveBeenCalled(); expect(reminderScheduler.reconcile).not.toHaveBeenCalled();
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(context.tasks);
+});
+it('concluir/reabrir/excluir/desfazer ocorrência preserva identidade sem gerar outra Task', async () => {
+  await act(async () => renderer.unmount());
+  const summary = { frequency: 'DAILY' as const, timeZone: 'America/Sao_Paulo', anchorDate: '2026-10-27', materializedThrough: '2026-11-27', updatedAt: '2026-10-26T13:00:00Z' };
+  const occurrence = { ...task, recurrenceSeriesId: 's', occurrenceKey: summary.anchorDate, recurrence: summary };
+  jest.mocked(getTasks).mockResolvedValue([occurrence]); await mount();
+  jest.mocked(materializeRecurrences).mockClear();
+  jest.mocked(updateTask).mockResolvedValueOnce({ ...occurrence, status: 'completed', done: true }).mockResolvedValueOnce(occurrence);
+  await act(async () => {await context.toggleTask('t');}); expect(context.tasks[0].recurrenceSeriesId).toBe('s');
+  await act(async () => {await context.toggleTask('t');});
+  jest.mocked(restoreTask).mockResolvedValueOnce(occurrence);
+  await act(async () => {await context.deleteTask('t');}); expect(context.tasks).toEqual([]);
+  await act(async () => {await context.restoreTask('t');});
+  expect(context.tasks).toHaveLength(1); expect(context.tasks[0]).toMatchObject(occurrence); expect(materializeRecurrences).not.toHaveBeenCalled();
+});
+it('falha de foreground mantém cache confirmado e libera guard para nova atualização', async () => {
+  const cached = storage.get('@taskflow:tasks'); jest.mocked(getTasks).mockClear();
+  jest.mocked(materializeRecurrences).mockRejectedValueOnce(new Error('offline'));
+  await act(async () => foreground('active'));
+  expect(getTasks).not.toHaveBeenCalled(); expect(storage.get('@taskflow:tasks')).toBe(cached);
+  await act(async () => foreground('active'));
+  expect(getTasks).toHaveBeenCalledTimes(1);
 });

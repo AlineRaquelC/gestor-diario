@@ -1,3 +1,5 @@
+import { normalizeRecurrenceCache, preserveRecurrence } from '../models/recurrence';
+import { materializeRecurrences } from './recurrenceService';
 import { normalizeReminderCache } from '../models/reminder';
 import type { SchedulingResult } from './reminderScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,11 +20,14 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function taskFields(task: Task) {
   return JSON.stringify([task.title, task.description ?? '', task.projectId, task.startDateKey ?? localDay(task.startDate), task.dueDateKey ?? localDay(task.dueDate),
     task.time ?? '', task.priority, task.status, task.done, task.reminderTimeZone ?? null,
+    task.recurrenceSeriesId ?? null, task.occurrenceKey ?? null, task.recurrence?.frequency ?? 'NONE',
+    task.recurrence?.timeZone ?? null, task.recurrence?.anchorDate ?? null,
     [...(task.reminders ?? [])].sort((a, b) => a.offsetMinutes - b.offsetMinutes).map(item => [item.id, item.taskId, item.offsetMinutes])]);
 }
 export function preserveTask(remote: Task, local?: Task): Task {
   if (!local) {return remote;}
-  local = normalizeReminderCache(local);
+  remote = preserveRecurrence(remote, local);
+  local = normalizeRecurrenceCache(normalizeReminderCache(local));
   const { syncSnapshot, syncSnapshots, ...snapshot } = local;
   const versions = [...(syncSnapshots ?? (syncSnapshot ? [syncSnapshot] : []))];
   if (taskFields(local) !== taskFields(remote) && !versions.some(version => JSON.stringify(version) === JSON.stringify(snapshot))) {versions.push(snapshot);}
@@ -32,7 +37,8 @@ export function preserveTask(remote: Task, local?: Task): Task {
 }
 
 export async function synchronize(projects: Project[], tasks: Task[]): Promise<SyncResult> {
-  tasks = tasks.map(task => normalizeReminderCache(task));
+  tasks = tasks.map(task => normalizeRecurrenceCache(normalizeReminderCache(task)));
+  await materializeRecurrences();
   // Complete both initial downloads before preparing any upload.
   const remoteProjects = await listProjects();
   const remoteTasks = await getTasksForSync();
@@ -95,7 +101,7 @@ export async function synchronize(projects: Project[], tasks: Task[]): Promise<S
     const remoteId = local.remoteId ?? entry?.remoteId;
     let remote = remoteTasks.find(item => item.id === (remoteId ?? local.id) ||
       (!!(entry?.clientId ?? local.clientId) && item.clientId === (entry?.clientId ?? local.clientId)));
-    if (!remote && (remoteId || uuid.test(local.id))) {
+    if (!remote && (remoteId || uuid.test(local.id) || local.recurrenceSeriesId || local.occurrenceKey)) {
       nextTasks.push({ ...local, remoteId, syncPending: 'Tarefa remota indisponível; não recriada.' }); continue;
     }
     if (!remote) {
