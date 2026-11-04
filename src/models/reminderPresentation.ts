@@ -19,6 +19,7 @@ export function taskSavedFeedback(
   cacheSaved: boolean,
   scheduling: SchedulingResult,
   recurring = false,
+  recurrenceRefreshFailed = false,
 ): string {
   const message =
     scheduling.state === 'scheduled'
@@ -34,7 +35,9 @@ export function taskSavedFeedback(
       : 'Tarefa salva, mas o lembrete não foi agendado neste aparelho.';
   return (
     (recurring
-      ? 'Tarefa recorrente criada.' +
+      ? (recurrenceRefreshFailed
+        ? 'Tarefa recorrente criada, mas não foi possível atualizar as próximas ocorrências agora.'
+        : 'Tarefa recorrente criada.') +
         (scheduling.state === 'scheduled'
           ? ' Lembrete agendado neste aparelho.'
           : scheduling.state === 'not_required'

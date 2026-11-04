@@ -821,3 +821,20 @@ mudar o relógio real ou editar cobertura do banco usado pelo aplicativo.
 
 Cada resultado de T08 será registrado após execução real com a usuária. T08
 continua pendente; não abrir PR final, fechar #40, iniciar #41 ou promover dev → main.
+
+### Correções encontradas na validação manual Android T08
+
+Nova Tarefa usa o próximo minuto como horário automático, com atualização alinhada
+à mudança de minuto e ao retorno ao foreground. A primeira edição manual interrompe
+a atualização e preserva o valor escolhido. Editar Tarefa não foi alterada.
+
+Após confirmar a criação recorrente, o aplicativo preserva a primeira ocorrência,
+materializa a janela vigente no backend e busca o snapshot remoto. O snapshot é
+consolidado com os dados locais, persistido e publicado no Context antes da
+reconciliação única dos lembretes. O calendário continua lendo Tasks reais e
+priorizando dueDateKey; o horizonte permanece hoje até hoje + 31 dias, inclusive.
+Falhas na materialização ou leitura são informadas como criação confirmada com
+atualização das próximas ocorrências pendente, sem repetir o POST. Falhas no cache
+mantêm as Tasks confirmadas em memória e informam a pendência local, sem gerar
+novamente. Startup, foreground e sincronização podem completar a janela de forma
+idempotente. A validação manual T08 permanece pendente de retomada.

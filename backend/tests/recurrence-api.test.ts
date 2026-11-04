@@ -61,6 +61,7 @@ it('DAILY inclui limite +31; segunda execução zero e avanço do dia só estend
   expect(rows().filter(task => task.occurrenceKey === draft.anchorDate).map(task => task.id)).toEqual([firstOccurrence.id]);
   expect(first.body.created.at(-1).occurrenceKey).toBe('2026-11-29');
   const before = snapshot(); expect((await generate(series.id)).body.created).toEqual([]); expect(snapshot()).toEqual(before);
+  expect(new Set(rows().map(task => `${task.recurrenceSeriesId}:${task.occurrenceKey}`)).size).toBe(32);
   vi.setSystemTime(new Date('2026-10-30T13:20:00Z'));
   const next = await generate(series.id); expect(next.body.created.map((task: { occurrenceKey: string }) => task.occurrenceKey)).toEqual(['2026-11-30']);
 });

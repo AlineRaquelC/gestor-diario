@@ -1,8 +1,9 @@
+import { nextMinuteTime, millisecondsToNextMinute } from '../utils/automaticTaskTime';
 import RecurrenceFrequencySelector from '../components/RecurrenceFrequencySelector';
 import { deviceRecurrenceTimeZone } from '../models/recurrence';
 import type { RecurrenceFrequency } from '../models/recurrence';
 import { newRecurrenceRequestId } from '../services/recurrenceService';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +15,7 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  AppState,
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -99,12 +101,24 @@ export default function NewTaskScreen() {
 
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
-  const [time, setTime] = useState(() => {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2, '0')}:${String(
-      now.getMinutes(),
-    ).padStart(2, '0')}`;
-  });
+  const [time, setTime] = useState(() => nextMinuteTime(new Date()));
+  const timeTouched = useRef(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    function refresh() {
+      clearTimeout(timer);
+      if (timeTouched.current) {return;}
+      const now = new Date();
+      setTime(nextMinuteTime(now));
+      timer = setTimeout(refresh, millisecondsToNextMinute(now));
+    }
+    refresh();
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {refresh();}
+      else {clearTimeout(timer);}
+    });
+    return () => {clearTimeout(timer); subscription.remove();};
+  }, []);
 
   const [priority, setPriority] = useState<Priority>('medium');
 
@@ -271,7 +285,7 @@ export default function NewTaskScreen() {
 
       Alert.alert(
         'Tarefa criada',
-        taskSavedFeedback(false, result.cacheSaved, result.scheduling, frequency !== 'NONE'),
+        taskSavedFeedback(false, result.cacheSaved, result.scheduling, frequency !== 'NONE', result.recurrenceRefreshFailed),
         [
           {
             text: 'OK',
@@ -449,7 +463,7 @@ export default function NewTaskScreen() {
             <TextInput
               style={styles.input}
               value={time}
-              onChangeText={setTime}
+              onChangeText={value => {timeTouched.current = true; setTime(value);}}
               accessibilityLabel="Horário"
               placeholder="10:00"
               placeholderTextColor={COLORS.textSecondary}
