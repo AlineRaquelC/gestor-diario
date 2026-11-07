@@ -406,6 +406,7 @@ export default function TaskDetailsScreen() {
           {!!task.recurrenceSeriesId && task.recurrence && <View style={styles.card}>
             <Text accessibilityRole="header" style={styles.cardTitle}>Recorrência</Text>
             <Text style={styles.reminderText}>{recurrenceLabel(task.recurrence.frequency)}</Text>
+            {task.recurrence.frequency === 'NONE' && <Text style={styles.reminderText}>Novas ocorrências não serão criadas. As tarefas existentes permanecem.</Text>}
             <Text style={styles.reminderCaption}>Esta tarefa faz parte de uma série.</Text>
           </View>}
           {!!task.reminders?.length && (

@@ -417,3 +417,96 @@ it('editar ocorrência mantém regra informativa e PATCH somente da Task atual',
   expect(patch.mock.calls[0][1]).not.toHaveProperty('recurrenceSeriesId');
   expect(changeRule).not.toHaveBeenCalled(); expect(activate).not.toHaveBeenCalled();
 });
+
+
+it('DAILY → WEEKLY salva no botão principal sem PATCH da ocorrência', async () => {
+  const loadRecurrenceSeries = jest.fn().mockResolvedValue({ id: 'series', frequency: 'DAILY', updatedAt: '2026-09-01T13:00:00Z', timeZone: 'America/Sao_Paulo' });
+  const changeRecurrenceRule = jest.fn().mockResolvedValue({ series: { id: 'series', frequency: 'WEEKLY', updatedAt: '2026-11-07T13:00:00Z', timeZone: 'America/Sao_Paulo' }, cacheSaved: true });
+  jest.mocked(useTasks).mockReturnValue({ tasks: [{ ...task, recurrenceSeriesId: 'series', recurrence: { frequency: 'DAILY' } }], updateTask: patch, loadRecurrenceSeries, changeRecurrenceRule } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => renderer.update(<EditTaskScreen />));
+  await clickReminder('Alterar regra de repetição');
+  await clickReminder('Semanalmente');
+  await act(async () => { await button('✓ Salvar alterações').props.onPress(); });
+  expect(patch).not.toHaveBeenCalled();
+  expect(changeRecurrenceRule).toHaveBeenCalledWith('task', 'series', '2026-09-01T13:00:00Z', 'WEEKLY');
+});
+
+async function prepareRule(frequency = 'WEEKLY') {
+  const summary = { frequency: 'DAILY', timeZone: 'America/Sao_Paulo', updatedAt: '2026-09-01T13:00:00Z' };
+  const change = jest.fn().mockResolvedValue({ series: { ...summary, frequency, id: 'series', updatedAt: '2026-11-07T14:00:00Z' }, cacheSaved: true });
+  const load = jest.fn().mockResolvedValue({ ...summary, id: 'series' });
+  jest.mocked(useTasks).mockReturnValue({ tasks: [{ ...task, recurrenceSeriesId: 'series', recurrence: summary }], updateTask: patch, loadRecurrenceSeries: load, changeRecurrenceRule: change } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => renderer.update(<EditTaskScreen />));
+  await clickReminder('Alterar regra de repetição');
+  await clickReminder(frequency === 'NONE' ? 'Não repetir' : 'Semanalmente');
+  return change;
+}
+async function editTitle() {
+  await act(async () => renderer.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === 'Título')!.props.onChangeText('Alterado'));
+}
+async function saveForm() { await act(async () => { await button('✓ Salvar alterações').props.onPress(); }); }
+it('ambos mudaram: confirma ocorrência e depois série sem misturar contratos', async () => {
+  const change = await prepareRule(); await editTitle(); await saveForm();
+  expect(patch).toHaveBeenCalledTimes(1); expect(change).toHaveBeenCalledTimes(1);
+  expect(patch.mock.invocationCallOrder[0]).toBeLessThan(change.mock.invocationCallOrder[0]);
+  expect(patch.mock.calls[0][1]).not.toHaveProperty('recurrence');
+});
+it('Task confirma, regra falha: retry não repete PATCH confirmado', async () => {
+  const change = await prepareRule(); await editTitle();
+  change.mockRejectedValueOnce(new Error('Conflito'));
+  await saveForm();
+  expect(alert.mock.calls.at(-1)?.[1]).toContain('As alterações da tarefa foram salvas, mas não foi possível alterar a recorrência.');
+  expect(mockNavigation.goBack).not.toHaveBeenCalled();
+  await saveForm();
+  expect(patch).toHaveBeenCalledTimes(1); expect(change).toHaveBeenCalledTimes(2);
+});
+it('regra confirma, Task falha: retry não repete regra confirmada', async () => {
+  const change = await prepareRule(); await editTitle();
+  patch.mockRejectedValueOnce(new Error('Offline'));
+  await saveForm();
+  expect(alert.mock.calls.at(-1)?.[1]).toContain('A recorrência foi alterada, mas as demais alterações da tarefa não foram salvas.');
+  await saveForm();
+  expect(change).toHaveBeenCalledTimes(1); expect(patch).toHaveBeenCalledTimes(2);
+});
+it('NONE confirma sem PATCH da Task e informa preservação', async () => {
+  const change = await prepareRule('NONE'); await saveForm();
+  expect(change).toHaveBeenCalledWith('task', 'series', '2026-09-01T13:00:00Z', 'NONE');
+  expect(patch).not.toHaveBeenCalled();
+  expect(alert.mock.calls.at(-1)?.[1]).toContain('As tarefas existentes permanecem');
+});
+it('cache falha depois da confirmação: revisão avança e regra não é reenviada', async () => {
+  const change = await prepareRule();
+  change.mockResolvedValue({ series: { id: 'series', frequency: 'WEEKLY', updatedAt: '2026-11-07T14:00:00Z', timeZone: 'America/Sao_Paulo' }, cacheSaved: false });
+  await saveForm();
+  expect(alert.mock.calls.at(-1)?.[1]).toContain('cache local falhou');
+  await saveForm(); expect(change).toHaveBeenCalledTimes(1); expect(patch).not.toHaveBeenCalled();
+});
+
+it('nova edição da regra usa revisão confirmada, mesmo após falha de cache', async () => {
+  const change = await prepareRule(); await saveForm();
+  await clickReminder('Mensalmente'); await saveForm();
+  expect(change).toHaveBeenLastCalledWith('task', 'series', '2026-11-07T14:00:00Z', 'MONTHLY');
+  expect(patch).not.toHaveBeenCalled();
+});
+it('ambos falham: preserva pendências e não navega', async () => {
+  const change = await prepareRule(); await editTitle();
+  patch.mockRejectedValueOnce(new Error('Task offline')); change.mockRejectedValueOnce(new Error('Regra offline'));
+  await saveForm();
+  expect(alert.mock.calls.at(-1)?.[1]).not.toContain('foram salvas');
+  expect(mockNavigation.goBack).not.toHaveBeenCalled();
+  await saveForm(); expect(patch).toHaveBeenCalledTimes(2); expect(change).toHaveBeenCalledTimes(2);
+});
+it('ativação no formulário mantém identidade estável em retry sem PATCH de Task', async () => {
+  const activate = jest.fn().mockRejectedValueOnce(new Error('Resposta perdida')).mockResolvedValue({ series: { id: 'series', frequency: 'DAILY', updatedAt: '2026-11-07T14:00:00Z', timeZone: 'America/Sao_Paulo' }, cacheSaved: true });
+  jest.mocked(useTasks).mockReturnValue({ tasks: [task], updateTask: patch, activateTaskRecurrence: activate } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => renderer.update(<EditTaskScreen />));
+  await clickReminder('Configurar repetição'); await clickReminder('Diariamente');
+  await saveForm(); const requestId = activate.mock.calls[0][3];
+  await saveForm(); expect(activate.mock.calls[1][3]).toBe(requestId);
+  expect(patch).not.toHaveBeenCalled();
+});
+it('cancelar seleção pendente não altera a série', async () => {
+  const change = await prepareRule(); await clickReminder('Cancelar alteração da regra');
+  await editTitle(); await saveForm();
+  expect(change).not.toHaveBeenCalled(); expect(patch).toHaveBeenCalledTimes(1);
+});

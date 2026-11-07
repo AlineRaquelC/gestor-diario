@@ -1,5 +1,9 @@
-import { materializeRecurrences } from '../src/services/recurrenceService';
-jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
+import { updateRecurrenceSeries, materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn(), updateRecurrenceSeries: jest.fn() }));
+import TaskDetailsScreen from '../src/screens/TaskDetailsScreen';
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn(), reset: jest.fn() }), useRoute: () => ({ params: { taskId: 'server-uuid' } }) }));
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
+jest.mock('../src/components/TaskNotesSection', () => () => null);
 import { normalizeReminderCache } from '../src/models/reminder';
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
@@ -599,4 +603,24 @@ it('reconcilia lembretes uma única vez com snapshot final após persistência',
     expect(reconcile).toHaveBeenCalledTimes(1);
     expect(reconcile).toHaveBeenCalledWith(context.tasks, true);
   } finally {reconcile.mockRestore();}
+});
+
+
+it.each([['WEEKLY', true], ['WEEKLY', false], ['NONE', true], ['NONE', false]] as const)('auditoria B: %s propaga a Context e Details (cache %s)', async (frequency, cacheSaved) => {
+  const first = { ...saved, recurrence: dailySummary, recurrenceSeriesId: 'series', occurrenceKey: '2026-11-04' };
+  const second = { ...first, id: 'next', occurrenceKey: '2026-11-05', title: 'Individual' };
+  await act(async () => renderer.unmount());
+  storage.set('@taskflow:tasks', JSON.stringify([first, second])); await mount();
+  await act(async () => renderer.update(<ProjectProvider><TaskProvider><Probe /><TaskDetailsScreen /></TaskProvider></ProjectProvider>));
+  expect(JSON.stringify(renderer.toJSON())).toContain('Diariamente');
+  const before = context.tasks;
+  const summary = { ...dailySummary, frequency, updatedAt: '2026-11-07T14:00:00Z', materializedThrough: '2026-12-08' };
+  jest.mocked(updateRecurrenceSeries).mockResolvedValue({ ...summary, id: 'series' } as Awaited<ReturnType<typeof updateRecurrenceSeries>>);
+  if (!cacheSaved) { jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('disk')); }
+  const calls = jest.mocked(materializeRecurrences).mock.calls.length;
+  await act(async () => { expect(await context.changeRecurrenceRule(first.id, 'series', dailySummary.updatedAt, frequency)).toMatchObject({ cacheSaved }); });
+  expect(context.tasks).toEqual(before.map(item => ({ ...item, recurrence: summary })));
+  expect(JSON.stringify(renderer.toJSON())).toContain(frequency === 'WEEKLY' ? 'Semanalmente' : 'Novas ocorrências não serão criadas. As tarefas existentes permanecem.');
+  expect(JSON.stringify(renderer.toJSON())).not.toContain('Diariamente');
+  expect(materializeRecurrences).toHaveBeenCalledTimes(calls);
 });

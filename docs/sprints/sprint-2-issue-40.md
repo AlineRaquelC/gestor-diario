@@ -838,3 +838,85 @@ atualização das próximas ocorrências pendente, sem repetir o POST. Falhas no
 mantêm as Tasks confirmadas em memória e informam a pendência local, sem gerar
 novamente. Startup, foreground e sincronização podem completar a janela de forma
 idempotente. A validação manual T08 permanece pendente de retomada.
+
+### Correção de edição da regra e indicação da janela — T08 pausada
+
+Auditoria automatizada antes da refatoração:
+
+- A: selecionar DAILY → WEEKLY no editor e pressionar somente Salvar alterações
+  executava o PATCH da ocorrência, sem chamar changeRecurrenceRule. A regra
+  permanecia DAILY porque a frequência escolhida existia apenas no estado local
+  de TaskRecurrenceEditor; EditTaskScreen desconhecia essa pendência.
+- B: Salvar regra executava a operação própria da série. Os testes anteriores do
+  editor confirmaram a chamada; o teste adicional com TaskProvider real confirmou
+  propagação imediata do resumo a todas as Tasks carregadas da mesma série,
+  inclusive com falha no cache. Não foi identificado defeito adicional nessa
+  propagação. A auditoria inicial passou: 39 testes de tela/editor e 56 de Context.
+
+Agora EditTaskScreen possui o rascunho controlado: frequência original/escolhida,
+seriesId, expectedUpdatedAt, timeZone e identidade estável de ativação. O editor
+carrega a regra, permite seleção/cancelamento e recarga explícita em caso de
+conflito; o botão interno Salvar regra foi removido. O indicador Não salvo também
+considera a regra pendente. Salvar alterações é a confirmação única da tela.
+
+Somente regra alterada chama apenas changeRecurrenceRule, sem PATCH da Task.
+Somente campos normais usam o contrato anterior, sem endpoint da série. Quando
+ambos mudam, tenta-se primeiro a Task e depois a regra, sequencialmente. A falha
+da primeira operação não impede a tentativa independente da segunda; não há
+transação nem rollback entre endpoints. O feedback distingue as duas falhas
+parciais e mantém a tela aberta. Cada confirmação avança seu estado local:
+repetir Salvar alterações envia apenas a operação ainda pendente. Uma nova
+edição de campos normais permite um novo PATCH; uma nova edição da frequência
+usa a revisão da série já confirmada. Ativação mantém requestId estável no retry.
+
+O Context existente publica recurrenceSummary para todas as Tasks carregadas com
+recurrenceSeriesId correspondente, antes de persistir cache. Testes com Details
+montado demonstram WEEKLY imediatamente, sem restart/foreground/sync. O resumo
+confirmado inclui frequency, updatedAt, materializedThrough, timeZone e anchorDate;
+IDs, occurrenceKey, conteúdo individual, status e reminders permanecem iguais.
+Cache indisponível é aviso de confirmação remota, não motivo para reenviar.
+NONE também propaga imediatamente; Details explica que não serão criadas novas
+ocorrências e que as Tasks existentes permanecem. RECURRENCE_SCOPE foi preservado.
+
+CalendarScreen continua leitura pura. O aviso condicionado é: “Ocorrências
+futuras ainda não carregadas. As próximas tarefas recorrentes serão
+disponibilizadas conforme a janela avançar.” A evidência vem exclusivamente dos
+resumos canônicos das Tasks carregadas, agrupados por série com preferência pela
+revisão mais recente. Exige série ativa (frequência diferente de NONE), cobertura
+confirmada não nula, início do período inteiro posterior à cobertura e igual ou
+posterior à âncora. Dia usa o dia selecionado; semana/mês usam seu início. Durante
+loading/erro de leitura, o aviso é omitido. Não usa “hoje + 31” estimado nem a
+última data de Task como evidência. Se não houver ocorrência carregada que exponha
+o resumo de uma série (por exemplo, só ocorrências excluídas), a cobertura é
+desconhecida e nenhum aviso é inferido. O texto não garante que um dia vazio
+contenha uma ocorrência. Um mês parcialmente coberto também omite o aviso.
+Navegar não materializa, não amplia a janela de 31 dias e não modifica Tasks.
+
+Cobertura automatizada adicionada/atualizada: DAILY → WEEKLY no botão principal;
+somente regra; somente Task; ambos; ambas as falhas parciais e retry; ambos falham;
+NONE; cancelar; ativação com retry estável; revisão confirmada para nova alteração;
+cache failure; Context e Details reais com WEEKLY/NONE; igualdade das Tasks fora
+do summary; nenhuma materialização extra; calendário dentro/fora da cobertura,
+dia/semana/mês, ausência de série, cobertura desconhecida, NONE, âncora futura,
+erro de leitura e resumo mais recente prevalecendo sobre resumo antigo.
+
+Validação local:
+
+| Verificação | Resultado |
+|---|---|
+| npm run test:ci-scripts | 16 aprovados |
+| npm run lint:ci | Sem regressão; 10 diagnósticos conhecidos / baseline 13 |
+| npm run typecheck:ci | Sem regressão; 11 diagnósticos conhecidos / baseline 11 |
+| npm run test:ci | 604 testes, 31 suítes aprovadas |
+| Backend npm run typecheck / npm test / npm run build | Aprovados; 435 testes, 16 arquivos |
+| Android assembleDebug / assembleRelease | Aprovados |
+| git diff --check | Aprovado |
+
+Os bloqueios locais de subprocessos Node, portas de testes HTTP e escrita no
+cache Gradle exigiram repetir essas verificações fora do sandbox. Nenhum contrato
+ou código do backend foi alterado. A CI remota será executada por workflow_dispatch
+na própria feature/40-recurrence, pois push nessa branch não dispara o workflow.
+
+T08 permanece pausada: esta correção e as verificações automatizadas não a
+concluem nem a retomam. Não iniciar #41, abrir PR final, fechar #40 ou promover
+dev → main.

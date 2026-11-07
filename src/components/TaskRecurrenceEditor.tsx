@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTasks } from '../context/TaskContext';
 import type { Task } from '../context/TaskContext';
 import {
@@ -7,31 +7,37 @@ import {
   RECURRENCE_SCOPE,
   recurrenceLabel,
 } from '../models/recurrence';
-import type {
-  RecurrenceFrequency,
-  RecurrenceSeries,
-} from '../models/recurrence';
+import type { RecurrenceFrequency } from '../models/recurrence';
 import { newRecurrenceRequestId } from '../services/recurrenceService';
 import RecurrenceFrequencySelector from './RecurrenceFrequencySelector';
 import { COLORS, SPACING } from '../styles/theme';
 
+export type RecurrenceDraft = {
+  originalFrequency: RecurrenceFrequency;
+  frequency: RecurrenceFrequency;
+  seriesId: string | null;
+  expectedUpdatedAt: string | null;
+  timeZone: string;
+  requestId: string;
+};
+export const recurrenceChanged = (draft: RecurrenceDraft | null) =>
+  !!draft && draft.frequency !== draft.originalFrequency;
+
 export default function TaskRecurrenceEditor({
   task,
   disabled = false,
+  draft,
+  onChange,
 }: {
   task: Task;
   disabled?: boolean;
+  draft: RecurrenceDraft | null;
+  onChange: (draft: RecurrenceDraft | null) => void;
 }) {
-  const { loadRecurrenceSeries, changeRecurrenceRule, activateTaskRecurrence } =
-    useTasks();
+  const { loadRecurrenceSeries } = useTasks();
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false);
-  const [series, setSeries] = useState<RecurrenceSeries | null>(null);
-  const [frequency, setFrequency] = useState<RecurrenceFrequency>(
-    task.recurrence?.frequency ?? 'NONE',
-  );
-  const [zone, setZone] = useState<string | null>(null),
-    [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const lock = useRef(false),
     requestId = useRef<string | null>(null);
   async function editRule() {
@@ -44,15 +50,26 @@ export default function TaskRecurrenceEditor({
     try {
       if (task.recurrenceSeriesId) {
         const current = await loadRecurrenceSeries(task.recurrenceSeriesId);
-        setSeries(current);
-        setFrequency(current.frequency);
-        setZone(current.timeZone);
+        onChange({
+          originalFrequency: current.frequency,
+          frequency: current.frequency,
+          seriesId: current.id,
+          expectedUpdatedAt: current.updatedAt,
+          timeZone: current.timeZone,
+          requestId: '',
+        });
       } else {
-        setFrequency('NONE');
-        setZone(task.reminderTimeZone ?? deviceRecurrenceTimeZone());
         if (!requestId.current) {
           requestId.current = newRecurrenceRequestId();
         }
+        onChange({
+          originalFrequency: 'NONE',
+          frequency: 'NONE',
+          seriesId: null,
+          expectedUpdatedAt: null,
+          timeZone: task.reminderTimeZone ?? deviceRecurrenceTimeZone(),
+          requestId: requestId.current,
+        });
       }
       setOpen(true);
     } catch (failure) {
@@ -60,54 +77,6 @@ export default function TaskRecurrenceEditor({
         failure instanceof Error
           ? failure.message
           : 'Não foi possível carregar a regra.',
-      );
-    } finally {
-      lock.current = false;
-      setBusy(false);
-    }
-  }
-  async function saveRule() {
-    if (lock.current || disabled || !zone) {
-      return;
-    }
-    if (!task.recurrenceSeriesId && frequency === 'NONE') {
-      setOpen(false);
-      return;
-    }
-    lock.current = true;
-    setBusy(true);
-    setError(null);
-    try {
-      const result =
-        task.recurrenceSeriesId && series
-          ? await changeRecurrenceRule(
-              task.id,
-              series.id,
-              series.updatedAt,
-              frequency,
-            )
-          : await activateTaskRecurrence(
-              task.id,
-              frequency,
-              zone,
-              requestId.current!,
-            );
-      setSeries(result.series);
-      setOpen(false);
-      Alert.alert(
-        'Regra salva',
-        (frequency === 'NONE'
-          ? 'Novas ocorrências não serão criadas. As tarefas existentes permanecem.'
-          : RECURRENCE_SCOPE) +
-          (result.cacheSaved
-            ? ''
-            : ' O cache local falhou. A regra foi salva no servidor; não envie novamente.'),
-      );
-    } catch (failure) {
-      setError(
-        failure instanceof Error
-          ? failure.message
-          : 'Não foi possível confirmar a alteração da regra.',
       );
     } finally {
       lock.current = false;
@@ -126,11 +95,11 @@ export default function TaskRecurrenceEditor({
           </Text>
         </>
       )}
-      {open && (
+      {open && draft && (
         <>
           <RecurrenceFrequencySelector
-            value={frequency}
-            onChange={setFrequency}
+            value={draft.frequency}
+            onChange={frequency => onChange({ ...draft, frequency })}
             disabled={busy || disabled}
           />
           <Text style={styles.note}>{RECURRENCE_SCOPE}</Text>
@@ -138,25 +107,30 @@ export default function TaskRecurrenceEditor({
             As tarefas já criadas permanecem, inclusive ao selecionar Não
             repetir.
           </Text>
-          <Text style={styles.note}>Fuso da série: {zone}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Salvar regra de repetição"
-            accessibilityState={{ disabled: busy || disabled }}
-            disabled={busy || disabled}
-            style={styles.button}
-            onPress={saveRule}
-          >
-            <Text style={styles.link}>
-              {busy ? 'Salvando regra…' : 'Salvar regra'}
-            </Text>
-          </Pressable>
+          <Text style={styles.note}>Fuso da série: {draft.timeZone}</Text>
+          <Text style={styles.note}>
+            Use Salvar alterações para confirmar a recorrência.
+          </Text>
+          {task.recurrenceSeriesId && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Recarregar regra de repetição"
+              disabled={busy || disabled}
+              style={styles.button}
+              onPress={editRule}
+            >
+              <Text style={styles.link}>Recarregar regra</Text>
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Cancelar alteração da regra"
-            disabled={busy}
+            disabled={busy || disabled}
             style={styles.button}
-            onPress={() => setOpen(false)}
+            onPress={() => {
+              onChange(null);
+              setOpen(false);
+            }}
           >
             <Text>Cancelar</Text>
           </Pressable>

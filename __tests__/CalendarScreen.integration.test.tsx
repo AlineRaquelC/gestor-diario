@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ materializeRecurrences: jest.fn() }));
 import React from 'react';
 import { Text } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
@@ -187,9 +189,10 @@ test('loading and errors preserve accessible real tasks', async () => {
 test('navegar além do horizonte mostra apenas Tasks reais e informa limite de cobertura', async () => {
   const occurrence = task({ recurrenceSeriesId: 's', occurrenceKey: '2026-10-04', dueDateKey: '2026-10-04', recurrence: { frequency: 'DAILY', timeZone: 'UTC', anchorDate: '2026-10-04', materializedThrough: '2026-11-04', updatedAt: '2026-10-04T13:00:00Z' } });
   await update([occurrence]);
-  expect(labels().some(label => typeof label === 'string' && label.includes('apenas tarefas já criadas'))).toBe(true);
+  expect(labels()).not.toContain(futureNotice);
   await press('›'); await press('›');
   expect(mockTasks).toEqual([occurrence]);
+  expect(labels()).toContain(futureNotice);
   expect(labels()).toContain('Nenhuma tarefa carregada neste mês.');
 });
 
@@ -198,4 +201,43 @@ test('ocorrência usa dia canônico, conta uma Task e abre seu ID real', async (
   expect(controls().filter(node => node.props.accessibilityLabel === '4 de outubro, 1 tarefas, hoje')).toHaveLength(1);
   await press('Abrir tarefa REC-DIARIA');
   expect(mockNavigate).toHaveBeenCalledWith('DetalheTarefa', { taskId: 'occurrence-real' });
+});
+
+
+const futureNotice = 'Ocorrências futuras ainda não carregadas. As próximas tarefas recorrentes serão disponibilizadas conforme a janela avançar.';
+const recurring = (changes = {}) => task({ recurrenceSeriesId: 's', occurrenceKey: '2026-10-04', recurrence: { frequency: 'MONTHLY', timeZone: 'America/Sao_Paulo', anchorDate: '2026-10-04', updatedAt: '2026-10-04T13:00:00Z', materializedThrough: '2026-11-04', ...changes } });
+test('aviso depende da cobertura confirmada; navegar não solicita geração', async () => {
+  await update([recurring()]);
+  expect(labels()).not.toContain(futureNotice);
+  await press('Próximo período');
+  expect(labels()).not.toContain(futureNotice);
+  await press('Próximo período');
+  expect(labels()).toContain(futureNotice);
+  expect(mockTasks).toHaveLength(1);
+  expect(materializeRecurrences).not.toHaveBeenCalled();
+  await press('Período anterior');
+  expect(labels()).not.toContain(futureNotice);
+});
+test.each([{ frequency: 'NONE' }, { materializedThrough: null }, { anchorDate: '2027-01-01' }])('não sugere recorrência sem evidência aplicável: %j', async changes => {
+  await update([recurring(changes)]);
+  await press('Próximo período'); await press('Próximo período');
+  expect(labels()).not.toContain(futureNotice);
+});
+test('mês vazio sem série e erro de leitura não exibem aviso', async () => {
+  await press('Próximo período'); await press('Próximo período');
+  expect(labels()).not.toContain(futureNotice);
+  mockError = 'Offline'; await update([recurring()]);
+  expect(labels()).not.toContain(futureNotice);
+});
+test('dia e semana usam início do período consultado', async () => {
+  await update([recurring()]); await press('Próximo período'); await press('Próximo período');
+  await press('Dia'); expect(labels()).toContain(futureNotice);
+  await press('Semana'); expect(labels()).toContain(futureNotice);
+  await press('Hoje'); expect(labels()).not.toContain(futureNotice);
+});
+
+test('resumo mais recente de NONE prevalece sobre ocorrência com resumo antigo', async () => {
+  await update([recurring(), { ...recurring({ frequency: 'NONE', updatedAt: '2026-10-05T13:00:00Z' }), id: 'next' }]);
+  await press('Próximo período'); await press('Próximo período');
+  expect(labels()).not.toContain(futureNotice);
 });
