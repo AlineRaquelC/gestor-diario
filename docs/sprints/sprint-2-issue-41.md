@@ -5,11 +5,13 @@
 Base auditada: `dev` limpa/atualizada em `3fa5970`; #39 e #40 CLOSED/completed,
 integradas pelos PRs #46/#48. [CI de dev aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42404995166).
 [#41](https://github.com/AlineRaquelC/gestor-diario/issues/41) OPEN, **Planning Poker 8**,
-T01–T04 implementados. T05: regressão/builds aprovados e Android preparado;
-aceite dos dez cenários manuais ainda pendente de confirmação da usuária.
+T01–T04 implementados. **T05 Android manual aprovada em 07/11/2026 pela usuária**,
+com regressão/builds já aprovados. Onze cenários funcionais registrados abaixo;
+homônimos permanecem cobertos automaticamente por projectId, sem massa artificial.
 O refinamento original está preservado abaixo; o registro de execução ao final
-descreve o estado atual. PR final para dev autorizado após checks verdes e preparação Android;
-Issue permanece OPEN até integração, sem merge automático.
+descreve o estado atual. [PR #50](https://github.com/AlineRaquelC/gestor-diario/pull/50)
+OPEN para dev, aguardando revisão/merge. Issue permanece OPEN até integração,
+sem merge automático.
 Prazo máximo de commit/push: **08/11/2026**. #42 não iniciada; sem `dev → main`.
 Fontes: Issue #41, [Sprint 2](sprint-2.md), [Entrega 2/PBI-14](../backlog/entregas.md#42-escopo-funcional)
 e [RF13/RF49/RF51 oficiais](../requisitos/requisitos-oficiais.md#rf13--página-3).
@@ -290,7 +292,7 @@ prioridade, projeto, período, sorting e Favoritas; Task somente local pesquisá
 por título/descrição com aviso, sem inventar correspondência de Notes; cache com
 ID canônico sem remoteId não é confundido com legado local.
 
-## T05 — regressão aprovada, Android preparado, aceite manual pendente
+## T05 — regressão e Android manual aprovados (07/11/2026)
 
 ### Verificações executadas
 
@@ -309,8 +311,9 @@ ID canônico sem remoteId não é confundido com legado local.
 A suíte mobile cobre criação, edição, Details, calendário, projetos, recorrência,
 reminders, sync, filtros/ordenação, conclusão e delete/undo. Baselines, migrations,
 dependências e workflows não foram ampliados/alterados. Regressão automatizada
-não equivale ao aceite dos cenários manuais. CI do head final será confirmada
-antes de abrir o PR, com evidência vinculada na descrição do PR.
+não substitui o aceite manual: a aprovação Android abaixo foi informada pela
+usuária em 07/11/2026. CI Mobile/Backend do head anterior confirmada; a CI do novo
+commit exclusivamente documental será conferida no PR #50 após o push.
 
 ### Ambiente Android e preservação
 
@@ -321,32 +324,50 @@ Porta Metro 8081 encaminhada por adb reverse. App abre; Home e painel de tarefas
 renderizam no aparelho. Cópias preventivas do SQLite e dos dados privados do app
 ficam em /tmp, fora do Git, junto das capturas/hierarquias usadas no smoke visual.
 
-Após instalação, a comparação de todas as linhas por ID com o backup confirmou
+Na preparação anterior à validação manual, após instalação, a comparação de
+todas as linhas por ID com o backup confirmou
 preservação de **18 Projects, 151 Tasks, 5 Notes, 22 Subtasks e 34 Reminders**;
 foreign_key_check vazio. Há dois grupos de projetos homônimos no banco vigente;
 não foi criada massa nova nem feita exclusão em lote. Busca e abertura de controles
 no smoke são ações de leitura; nenhuma estrela ou configuração salva foi alterada
 para aparentar aprovação dos testes de persistência.
 
-### Roteiro pronto para validação manual com a usuária
+### T05 Android manual aprovada em 07/11/2026
 
-| Cenário | Procedimento / aceite esperado | Estado |
+**Fonte do aceite:** validação executada e concluída pela usuária, conforme
+resultados informados nesta sessão. Este registro não apresenta automação ou
+smoke do agente como substitutos da execução manual.
+
+| Cenário | Resultado manual informado | Estado |
 |---|---|---|
-| 1 — Título | Digitar trecho de título existente; resultado correto durante digitação; limpar retorna à lista normal. | Pendente de confirmação manual |
-| 2 — Descrição | Usar termo somente da descrição; abrir a Task correta por ID. | Pendente de confirmação manual |
-| 3 — Observação | Usar Note persistida real e termo só nela; Task aparece sem carregar todas as Notes no frontend. | Pendente de confirmação manual |
-| 4 — Busca + filtro | Aplicar status/prioridade/projeto/período e buscar; conferir interseção e sorting. | Pendente de confirmação manual |
-| 5 — Favorito | Favoritar, conferir estrela e Favoritas; desfavoritar e conferir saída da seção; toque não abre Details. | Pendente de confirmação manual |
-| 6 — Reabertura | Favoritar, fechar/reabrir e confirmar persistência; preservar estado desejado da massa existente. | Pendente de confirmação manual |
-| 7 — Salvar filtro | Prioridade alta + semana, nome Urgentes da semana; reabrir e confirmar registro. | Pendente de confirmação manual |
-| 8 — Aplicar | Limpar filtros atuais, aplicar snapshot salvo; query/sorting/Favoritas devem permanecer como estavam. | Pendente de confirmação manual |
-| 9 — Excluir | Excluir somente filtro de teste; Tasks intactas e critérios já aplicados preservados. | Pendente de confirmação manual |
-| 10 — Homônimos | Com massa segura existente, escolher cada projeto pelo registro correto; não trocar referências por nome. Cobertura automatizada complementa. | Pendente de confirmação manual |
+| 1 — Busca por título | Task encontrada por trecho do título. | Aprovado |
+| 2 — Busca por descrição | Task encontrada por termo da descrição. | Aprovado |
+| 3 — Busca por observação | Task encontrada por termo de Note real persistida. | Aprovado |
+| 4 — Busca + filtro | Combinação da busca com filtro existente validada. | Aprovado |
+| 5 — Favoritar/desfavoritar | Marcação e remoção de favorito validadas. | Aprovado |
+| 6 — Acesso Favoritas | Acesso rápido às Tasks favoritas validado. | Aprovado |
+| 7 — Persistência de favorito | Favorito mantido após fechar/reabrir o app. | Aprovado |
+| 8 — Criar filtro salvo | Combinação de TaskFilters nomeada e salva. | Aprovado |
+| 9 — Aplicar filtro salvo | Snapshot salvo aplicado posteriormente. | Aprovado |
+| 10 — Persistência de filtro salvo | Configuração mantida após reabrir o app. | Aprovado |
+| 11 — Excluir filtro salvo | Configuração salva excluída. | Aprovado |
 
-Também conferir teclado/foco, loading/nenhum resultado e falha de rede com cache
-preservado e aviso de cobertura local. Não limpar dados em massa. T05 tem automação,
-builds e preparação concluídos; o aceite manual permanece explícito, sem declarar
-#41 concluída antes de revisão/merge e validação necessária.
+**Projetos homônimos:** o cenário manual específico não foi reproduzido com massa
+artificial. A cobertura permanece automatizada por projectId estável, preservando
+IDs locais/remotos e distinguindo projetos de mesmo nome. Não foram criados
+projetos fictícios apenas para esse teste final; não registrar esse cenário como
+aprovação manual que não ocorreu.
+
+**Descrição não é Note:** Nova Tarefa possui o campo Description/Descrição.
+Notes/Observações persistidas são entidades separadas, adicionadas após a criação
+na tela de Detalhes. Busca em descrição e em observação real foram aprovadas
+separadamente. O fluxo não foi alterado nesta Issue. O placeholder atual da
+descrição ainda diz “Adicione detalhes, contexto ou observações...”; ajustar essa
+redação pode ser melhoria futura de UX, sem implementação ou nova feature agora.
+
+T05 concluída no recorte validado. A Issue #41 continua OPEN, aguardando revisão
+e merge do PR #50 em dev. Este fechamento documental da validação não autoriza
+merge, início da #42 ou promoção dev → main.
 
 ### Escopo e encaminhamento
 
@@ -361,7 +382,7 @@ ou faz upload automático. Tasks canônicas continuam restritas à resposta da A
 SavedFilters não sincronizam, não incluem query/sorting/Favoritas e não
 são modelos de Task. PBI-14 inteiro e RF14/drag and drop não estão concluídos.
 
-PR final autorizado: feature/41-search-favorites-filters → dev, com Closes #41 e
-estado manual descrito honestamente. Não fechar #41 antes do merge, habilitar
+PR #50 OPEN: feature/41-search-favorites-filters → dev, com Closes #41 e
+T05 Android manual aprovada em 07/11/2026 registrada na descrição. Não fechar #41 antes do merge, habilitar
 merge automático, remover a branch, iniciar #42 ou promover dev → main.
 Prazo máximo de commit/push mantido em 08/11/2026.
