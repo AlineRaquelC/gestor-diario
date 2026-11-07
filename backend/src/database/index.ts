@@ -1,3 +1,4 @@
+import { containsSearch } from '../domain/search/index.js';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
@@ -14,6 +15,8 @@ export function openDatabase(path = databasePath) {
   const sqlite = new Database(path);
   try {
     sqlite.pragma('foreign_keys = ON');
+    sqlite.function('task_contains', { deterministic: true }, (value, query) =>
+      Number(containsSearch(typeof value === 'string' ? value : '', String(query ?? ''))));
     const db = drizzle(sqlite, { schema });
     return { db, sqlite };
   } catch (error) {

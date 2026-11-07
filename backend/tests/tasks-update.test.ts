@@ -67,7 +67,7 @@ describe('PATCH /tasks/:id', () => {
     { priority: 'URGENT' }, { status: 'INVALID' }, { time: '25:00' }, { time: '10:70' },
     { startDate: '2026-02-30' }, { dueDate: '2026-13-01' }, { startDate: '2026-10-03T12:00:00Z' },
     { title: null }, { projectId: null }, { description: 42 }, { time: 42 },
-    { id: 'other' }, { done: true }, { progress: 100 }, { favorite: true },
+    { id: 'other' }, { done: true }, { progress: 100 }, { favorite: 1 },
     { createdAt: 'now' }, { updatedAt: 'now' }, { subtasks: [] }, { unknown: 'x', title: 'Outra' },
   ])('payload inválido %j retorna 400 sem alterar tarefa/histórico', async body => {
     const response = await patch(body);

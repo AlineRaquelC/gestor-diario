@@ -36,6 +36,8 @@ export class TasksService {
     return this.repository.findAll(includeDeleted);
   }
 
+  search(query: string) { return this.repository.findAll(false, query); }
+
   findById(id: string) {
     const task = this.repository.findById(id);
     if (!task) throw new TaskNotFoundError();

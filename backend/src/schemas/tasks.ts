@@ -25,6 +25,9 @@ export type CreateTask = z.infer<typeof createTaskSchema>;
 // Avoid creation defaults in a partial update (especially status).
 export const updateTaskSchema = createTaskSchema.omit({ status: true, time: true, subtasks: true, clientId: true }).partial().extend({
   status: z.enum(['PENDING', 'PARTIAL', 'COMPLETED']).optional(),
+  favorite: z.boolean().optional(),
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional(),
 }).refine(value => Object.values(value).some(field => field !== undefined), 'Informe ao menos um campo.');
 export type UpdateTask = z.infer<typeof updateTaskSchema>;
+
+export const searchTasksSchema = z.strictObject({ q: z.string().trim().optional() });
