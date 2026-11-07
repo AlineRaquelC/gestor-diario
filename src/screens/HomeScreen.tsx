@@ -9,6 +9,7 @@ import {
   StatusBar,
   Alert,
   AppState,
+  ActivityIndicator,
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -58,6 +59,9 @@ export default function HomeScreen() {
   const { retry: retrySearch, cancel: cancelSearch } = search;
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState<Set<string>>(new Set());
+  const searchInputRef =
+    React.useRef<React.ComponentRef<typeof TextInput>>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const favoriteRequests = React.useRef(new Set<string>());
   useEffect(() => {
     const focus = navigation.addListener?.('focus', retrySearch);
@@ -183,6 +187,8 @@ export default function HomeScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Cabeçalho */}
         <View style={styles.header}>
@@ -306,37 +312,107 @@ export default function HomeScreen() {
         )}
 
         {/* Tarefas pendentes */}
-        <TextInput
-          accessibilityLabel="Buscar tarefas"
-          placeholder="Buscar tarefas..."
-          value={search.query}
-          onChangeText={search.changeQuery}
-          style={styles.searchInput}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Favoritas"
-          accessibilityState={{ selected: favoriteOnly }}
-          onPress={() => setFavoriteOnly(value => !value)}
-          style={styles.seeAllButton}
-        >
-          <Text style={styles.seeAll}>
-            {favoriteOnly ? '★ Favoritas' : 'Favoritas'}
+        <View style={styles.discoveryPanel}>
+          <View
+            style={[styles.searchField, searchFocused && styles.focusedField]}
+          >
+            <TextInput
+              ref={searchInputRef}
+              accessibilityLabel="Buscar tarefas"
+              placeholder="Buscar tarefas..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={search.query}
+              onChangeText={search.changeQuery}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              style={styles.searchInput}
+            />
+            {search.query.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Limpar busca"
+                style={styles.clearSearch}
+                onPress={() => {
+                  search.changeQuery('');
+                  searchInputRef.current?.focus();
+                }}
+              >
+                <Text style={styles.clearSearchText}>×</Text>
+              </Pressable>
+            )}
+          </View>
+          <View style={styles.quickActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Favoritas"
+              accessibilityState={{ selected: favoriteOnly }}
+              onPress={() => setFavoriteOnly(value => !value)}
+              style={[
+                styles.favoriteChip,
+                favoriteOnly && styles.favoriteChipSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.quickActionText,
+                  favoriteOnly && styles.favoriteSelectedText,
+                ]}
+              >
+                Favoritas
+              </Text>
+            </Pressable>
+            <SavedTaskFilters
+              filters={filters}
+              projects={projects}
+              onApply={setFilters}
+            />
+          </View>
+          <TaskListControls
+            filters={filters}
+            sorting={sorting}
+            projects={projectOptions}
+            onApply={(nextFilters, nextSorting) => {
+              setFilters(nextFilters);
+              setSorting(nextSorting);
+            }}
+          />
+          <Text
+            style={styles.searchStatus}
+            accessibilityLiveRegion="polite"
+            accessibilityRole={
+              search.phase === 'typing' || search.phase === 'loading'
+                ? 'progressbar'
+                : 'text'
+            }
+          >
+            {search.phase === 'typing' || search.phase === 'loading'
+              ? 'Atualizando resultados…'
+              : search.active && !search.error
+              ? `${visibleTasks.length} ${
+                  visibleTasks.length === 1
+                    ? 'tarefa encontrada'
+                    : 'tarefas encontradas'
+                }`
+              : 'Busque por título, descrição ou observação.'}
           </Text>
-        </Pressable>
-        <SavedTaskFilters
-          filters={filters}
-          projects={projects}
-          onApply={setFilters}
-        />
-        {(search.phase === 'typing' || search.phase === 'loading') && (
-          <Text accessibilityRole="progressbar">Buscando tarefas…</Text>
+        </View>
+        {search.localOnlyMatches && (
+          <Text style={styles.searchStatus} accessibilityLiveRegion="polite">
+            Tarefas apenas neste aparelho são pesquisadas por título e
+            descrição.
+          </Text>
         )}
         {search.error && (
           <View accessibilityRole="alert">
             <Text style={styles.errorText}>
               {search.error} Busca local em título e descrição. Observações
-              indisponíveis sem conexão.
+              indisponíveis sem conexão.{' '}
+              {search.retained
+                ? 'Os últimos resultados confirmados desta busca foram mantidos.'
+                : ''}
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -348,15 +424,6 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         )}
-        <TaskListControls
-          filters={filters}
-          sorting={sorting}
-          projects={projectOptions}
-          onApply={(nextFilters, nextSorting) => {
-            setFilters(nextFilters);
-            setSorting(nextSorting);
-          }}
-        />
         <Text style={styles.sectionTitle}>
           {favoriteOnly
             ? 'Favoritas'
@@ -607,24 +674,6 @@ function TaskCard({
         </View>
       </Pressable>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${
-          task.favorite ? 'Remover dos favoritos' : 'Favoritar'
-        }: ${task.title}`}
-        accessibilityState={{
-          selected: !!task.favorite,
-          disabled: favoriteBusy,
-        }}
-        disabled={favoriteBusy}
-        style={styles.checkboxTarget}
-        onPress={event => {
-          event?.stopPropagation();
-          onFavorite(task.id);
-        }}
-      >
-        <Text style={styles.seeAll}>{task.favorite ? '★' : '☆'}</Text>
-      </Pressable>
       {/* Conteúdo */}
       <View style={styles.taskContent}>
         <Text style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
@@ -636,19 +685,99 @@ function TaskCard({
           {task.time ? ` · ${task.time}` : ''}
         </Text>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${
+          task.favorite ? 'Remover dos favoritos' : 'Favoritar'
+        }: ${task.title}`}
+        accessibilityState={{
+          selected: !!task.favorite,
+          disabled: favoriteBusy,
+          busy: favoriteBusy,
+        }}
+        disabled={favoriteBusy}
+        style={styles.checkboxTarget}
+        onPress={event => {
+          event?.stopPropagation();
+          onFavorite(task.id);
+        }}
+      >
+        {favoriteBusy ? (
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        ) : (
+          <Text
+            style={[
+              styles.favoriteStar,
+              task.favorite && styles.favoriteStarSelected,
+            ]}
+          >
+            {task.favorite ? '★' : '☆'}
+          </Text>
+        )}
+      </Pressable>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  searchInput: {
-    minHeight: 44,
+  discoveryPanel: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginVertical: SPACING.md,
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.background,
+  },
+  focusedField: { borderColor: COLORS.primary },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
     paddingHorizontal: SPACING.md,
+    fontSize: 15,
     color: COLORS.textPrimary,
   },
+  clearSearch: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearSearchText: { color: COLORS.textSecondary, fontSize: 24 },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  favoriteChip: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.sm,
+  },
+  favoriteChipSelected: {
+    backgroundColor: COLORS.primarySoft,
+    borderColor: COLORS.primary,
+  },
+  quickActionText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  favoriteSelectedText: { color: COLORS.primary, fontWeight: '700' },
+  searchStatus: { minHeight: 20, color: COLORS.textSecondary, fontSize: 12 },
+  favoriteStar: { color: COLORS.textSecondary, fontSize: 24 },
+  favoriteStarSelected: { color: COLORS.primary },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: {
     paddingHorizontal: SPACING.lg,

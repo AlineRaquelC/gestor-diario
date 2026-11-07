@@ -9,8 +9,15 @@ type SearchState = {
   phase: 'idle' | 'typing' | 'loading' | 'results' | 'error';
   ids: Set<string>;
   error: string | null;
+  confirmedQuery: string | null;
 };
-const initial: SearchState = { phase: 'idle', ids: new Set(), error: null };
+const canonicalTaskId = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+const initial: SearchState = {
+  phase: 'idle',
+  ids: new Set(),
+  error: null,
+  confirmedQuery: null,
+};
 export function useTaskSearch() {
   const { tasks, searchTasks, searchRevision } = useTasks();
   const [query, setQuery] = useState('');
@@ -26,7 +33,11 @@ export function useTaskSearch() {
     queryRef.current = value;
     sequence.current++;
     setQuery(value);
-    setState({ ...initial, phase: normalizeSearch(value) ? 'typing' : 'idle' });
+    setState(previous =>
+      normalizeSearch(value)
+        ? { ...previous, phase: 'typing', error: null }
+        : initial,
+    );
   }, []);
   const retry = useCallback(() => {
     sequence.current++;
@@ -41,14 +52,14 @@ export function useTaskSearch() {
       setState(initial);
       return;
     }
-    setState({ ...initial, phase: 'typing' });
+    setState(previous => ({ ...previous, phase: 'typing', error: null }));
     let active = true;
     const current = () => active && request === sequence.current;
     const timer = setTimeout(async () => {
       if (!current()) {
         return;
       }
-      setState({ ...initial, phase: 'loading' });
+      setState(previous => ({ ...previous, phase: 'loading', error: null }));
       try {
         const result = await searchTasks(normalized, current);
         if (current() && result !== null) {
@@ -56,18 +67,19 @@ export function useTaskSearch() {
             phase: 'results',
             ids: new Set(result.map(task => task.id)),
             error: null,
+            confirmedQuery: normalized,
           });
         }
       } catch (error) {
         if (current()) {
-          setState({
-            ...initial,
+          setState(previous => ({
+            ...previous,
             phase: 'error',
             error:
               error instanceof Error
                 ? error.message
                 : 'Não foi possível buscar tarefas.',
-          });
+          }));
         }
       }
     }, 300);
@@ -76,17 +88,31 @@ export function useTaskSearch() {
       clearTimeout(timer);
     };
   }, [normalized, query, refresh, searchRevision, searchTasks]);
+  const localMatches = normalized
+    ? tasks.filter(
+        task =>
+          !task.remoteId &&
+          !task.recurrenceSeriesId &&
+          !canonicalTaskId.test(task.id) &&
+          (containsSearch(task.title, normalized) ||
+            containsSearch(task.description, normalized)),
+      )
+    : [];
+  const localIds = new Set(localMatches.map(task => task.id));
   const allowed = !normalized
     ? tasks
     : state.phase === 'results'
-    ? tasks.filter(task => state.ids.has(task.id))
+    ? tasks.filter(task => state.ids.has(task.id) || localIds.has(task.id))
     : state.phase === 'error'
     ? tasks.filter(
         task =>
+          (state.confirmedQuery === normalized && state.ids.has(task.id)) ||
           containsSearch(task.title, normalized) ||
           containsSearch(task.description, normalized),
       )
-    : [];
+    : state.confirmedQuery !== null
+    ? tasks.filter(task => state.ids.has(task.id))
+    : tasks;
   return {
     query,
     changeQuery,
@@ -96,5 +122,10 @@ export function useTaskSearch() {
     error: state.error,
     tasks: allowed,
     active: !!normalized,
+    localOnlyMatches: state.phase === 'results' && localMatches.length > 0,
+    retained:
+      state.phase === 'error' &&
+      state.confirmedQuery === normalized &&
+      state.ids.size > 0,
   };
 }

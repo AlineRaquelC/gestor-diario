@@ -58,7 +58,8 @@ it('debounce, Note remota, mapper/Context parcial e navegação pelo ID correto'
   const schedules = jest.mocked(reminderScheduler.reconcile).mock.calls.length;
   jest.mocked(searchTasks).mockResolvedValueOnce([tasks[1]]);
   await type('cli'); await tick(150); await type('cliente'); await tick(299);
-  expect(searchTasks).not.toHaveBeenCalled(); expect(ids()).toEqual([]);
+  expect(searchTasks).not.toHaveBeenCalled(); expect(ids()).toEqual(['a', 'b']);
+  expect(text()).toContain('Atualizando resultados');
   await tick(1); expect(searchTasks).toHaveBeenCalledWith('cliente'); expect(ids()).toEqual(['b']);
   expect(context.tasks).toHaveLength(2); expect(JSON.parse(storage.get('@taskflow:tasks')!)).toHaveLength(2);
   await press('Abrir tarefa: Beta'); expect(mockNavigation.navigate).toHaveBeenCalledWith('DetalheTarefa', { taskId: 'b' });
@@ -190,4 +191,57 @@ it('sair da Home invalida debounce e retorno repete a consulta ativa', async () 
   const focus = mockNavigation.addListener.mock.calls.find(([event]) => event === 'focus') as unknown as [string, () => void];
   await act(async () => blur[1]()); await tick(); expect(searchTasks).not.toHaveBeenCalled();
   await act(async () => focus[1]()); await tick(); expect(searchTasks).toHaveBeenCalledWith('cliente'); expect(ids()).toEqual(['a', 'b']);
+});
+
+it('limpar busca restaura lista normal e mantém filtros/sorting/favoritas', async () => {
+  await press('Favoritas');
+  await type('nota'); await tick(); expect(ids()).toEqual(['b']);
+  await press('Limpar busca'); expect(ids()).toEqual(['b']);
+  expect(renderer.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === 'Buscar tarefas')!.props.value).toBe('');
+  expect(controls('Favoritas')[0].props.accessibilityState.selected).toBe(true);
+});
+it('atualização mantém lista confirmada e erro da mesma query preserva resultado vindo de Note', async () => {
+  jest.mocked(searchTasks).mockResolvedValueOnce([tasks[1]]);
+  await type('apenas observação'); await tick(); expect(ids()).toEqual(['b']);
+  let reject!: (error: Error) => void;
+  jest.mocked(searchTasks).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  const focus = mockNavigation.addListener.mock.calls.find(([event]) => event === 'focus') as unknown as [string, () => void];
+  await act(async () => focus[1]()); expect(ids()).toEqual(['b']); await tick(); expect(ids()).toEqual(['b']);
+  await act(async () => reject(new Error('Offline'))); expect(ids()).toEqual(['b']);
+  expect(text()).toContain('últimos resultados confirmados desta busca foram mantidos');
+  expect(text()).toContain('Observações indisponíveis sem conexão');
+  jest.mocked(searchTasks).mockRejectedValueOnce(new Error('Offline'));
+  await type('outra busca sem match'); await tick(); expect(ids()).toEqual([]);
+});
+it('favorito não abre Details por propagação; card continua navegando', async () => {
+  const stopPropagation = jest.fn();
+  await act(async () => controls('Favoritar: Marketing alpha')[0].props.onPress({ stopPropagation }));
+  expect(stopPropagation).toHaveBeenCalled(); expect(mockNavigation.navigate).not.toHaveBeenCalled();
+  await press('Abrir tarefa: Marketing alpha'); expect(mockNavigation.navigate).toHaveBeenCalledWith('DetalheTarefa', { taskId: 'a' });
+});
+it('busca compõe todos os filtros e sorting simultaneamente', async () => {
+  await type('nota real'); await tick(); await press('Filtrar tarefas');
+  await press('Status: Pendentes'); await press('Prioridade: Alta'); await press('Período: Hoje');
+  await press('Selecionar projeto: Todos os projetos'); await press('Projeto: Mesmo nome', 0); await pressText('Aplicar filtros');
+  await press('Ordenar tarefas'); await press('Ordenação: Prazo'); await pressText('Aplicar ordenação');
+  expect(ids()).toEqual(['a']);
+  await press('Favoritar: Marketing alpha'); await tick(); await press('Favoritas'); expect(ids()).toEqual(['a']);
+});
+
+it('Task apenas local pode corresponder por título sem inventar resultado de Notes', async () => {
+  await act(async () => renderer.unmount());
+  const local = { ...tasks[0], id: 'legacy', remoteId: undefined, title: 'Cliente apenas local', projectId: undefined };
+  storage.set('@taskflow:tasks', JSON.stringify([local, ...tasks]));
+  await mount(); jest.mocked(searchTasks).mockResolvedValueOnce([]);
+  await type('cliente'); await tick(); expect(ids()).toEqual(['legacy']);
+  expect(text()).toContain('apenas neste aparelho são pesquisadas por título e descrição');
+  expect(getTaskNotes).not.toHaveBeenCalled(); expect(context.tasks).toHaveLength(3);
+});
+
+it('cache antigo com ID canônico sem remoteId não é tratado como legado local', async () => {
+  await act(async () => renderer.unmount());
+  const canonical = { ...tasks[0], id: 'cf4af3a6-6058-4a51-9d3f-9fb1387fbcee', remoteId: undefined, title: 'Cliente remoto indisponível' };
+  storage.set('@taskflow:tasks', JSON.stringify([canonical, ...tasks]));
+  await mount(); jest.mocked(searchTasks).mockResolvedValueOnce([]);
+  await type('cliente'); await tick(); expect(ids()).toEqual([]);
 });
