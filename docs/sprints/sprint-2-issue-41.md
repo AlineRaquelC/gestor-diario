@@ -5,9 +5,11 @@
 Base auditada: `dev` limpa/atualizada em `3fa5970`; #39 e #40 CLOSED/completed,
 integradas pelos PRs #46/#48. [CI de dev aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42404995166).
 [#41](https://github.com/AlineRaquelC/gestor-diario/issues/41) OPEN, **Planning Poker 8**,
-T01–T03 autorizados e implementados nesta execução; T04/T05 ainda pendentes.
+T01–T04 implementados. T05: regressão/builds aprovados e Android preparado;
+aceite dos dez cenários manuais ainda pendente de confirmação da usuária.
 O refinamento original está preservado abaixo; o registro de execução ao final
-descreve o estado atual. Não há PR final nem fechamento da Issue.
+descreve o estado atual. PR final para dev autorizado após checks verdes e preparação Android;
+Issue permanece OPEN até integração, sem merge automático.
 Prazo máximo de commit/push: **08/11/2026**. #42 não iniciada; sem `dev → main`.
 Fontes: Issue #41, [Sprint 2](sprint-2.md), [Entrega 2/PBI-14](../backlog/entregas.md#42-escopo-funcional)
 e [RF13/RF49/RF51 oficiais](../requisitos/requisitos-oficiais.md#rf13--página-3).
@@ -250,3 +252,116 @@ A CI será executada na própria branch por workflow_dispatch após o push, sem 
 PR final. A aprovação destes checks não equivale à validação Android/T05 ou ao
 polimento T04. Pendências: revisão/ajustes finais de UX em T04, regressão/Android,
 documentação final e PR em T05, somente após nova autorização.
+
+
+## T04 — integração e polimento final (07/11/2026)
+
+Home preserva dashboard, Projetos Ativos e navegação. A área de tarefas agrupa
+campo de busca, chips Favoritas/Filtros salvos e controles Filtrar/Ordenar em um
+painel compacto, com quebra de linha e alvos de toque de pelo menos 44 dp.
+Busca tem foco destacado, teclado adequado, placeholder e Limpar busca; limpar
+restaura imediatamente as Tasks normais sem alterar filtros/sorting/Favoritas.
+ScrollView mantém ações tocáveis com teclado aberto e permite dispensá-lo ao rolar.
+
+Durante debounce/requisição, a lista anterior permanece visível com “Atualizando
+resultados…”, sem ser anunciada como resposta confirmada da nova consulta. Tokens
+continuam ignorando respostas/erros antigos. Falha mantém Context/cache; fallback
+local limita-se a título/descrição. Se a mesma query já teve resposta confirmada,
+inclusive por Note, esses resultados são preservados com aviso explícito. Uma
+query diferente que falha não herda os resultados da anterior como correspondências.
+
+Favoritas é acesso visível, com selected claro; estrela preenchida/vazia fica à
+direita do card e tem spinner/busy por Task. Toque na estrela interrompe propagação;
+card continua abrindo o ID correto. API falhou preserva estado; cache falhou após
+confirmação não exige reenviar. Uma ocorrência favorita não altera série/vizinhas.
+
+Modal de filtros salvos tem cabeçalho/fechar, resumo dos critérios atuais e de cada
+snapshot, nome com trim/limite 80, ações Aplicar/Excluir separadas e estados de
+carregamento/erro. Sem critérios, Salvar filtro atual permanece indisponível.
+Somente status/priority/projectId/period persistem; aplicar/excluir não modifica
+query/sorting/Favoritas nem Tasks/Projects. Projetos homônimos continuam por ID;
+referência indisponível não troca por nome e pode ser aplicada/excluída com aviso.
+Nomes iguais continuam permitidos e distinguíveis por IDs estáveis.
+
+Seis testes integrados adicionais cobrem limpar preservando preferências,
+retenção de resultados confirmados inclusive por Note durante atualização/falha,
+favorito sem navegação acidental e busca combinada simultaneamente com status,
+prioridade, projeto, período, sorting e Favoritas; Task somente local pesquisável
+por título/descrição com aviso, sem inventar correspondência de Notes; cache com
+ID canônico sem remoteId não é confundido com legado local.
+
+## T05 — regressão aprovada, Android preparado, aceite manual pendente
+
+### Verificações executadas
+
+| Verificação | Resultado final |
+|---|---|
+| npm run test:ci-scripts | 16 aprovados |
+| npm run lint:ci | Sem regressão: 3 erros/7 warnings conhecidos, 10 diagnósticos / baseline 13 |
+| npm run typecheck:ci | Sem regressão: 11 diagnósticos conhecidos / baseline 11 |
+| npm run test:ci | **649 testes / 34 suítes aprovadas** |
+| Backend npm run typecheck | Aprovado |
+| Backend npm test | **456 testes / 17 suítes aprovadas** |
+| Backend npm run build | Aprovado |
+| Android assembleDebug / assembleRelease | Aprovados, Hermes/New Architecture habilitados e tarefas Codegen verificadas |
+| git diff --check | Aprovado |
+
+A suíte mobile cobre criação, edição, Details, calendário, projetos, recorrência,
+reminders, sync, filtros/ordenação, conclusão e delete/undo. Baselines, migrations,
+dependências e workflows não foram ampliados/alterados. Regressão automatizada
+não equivale ao aceite dos cenários manuais. CI do head final será confirmada
+antes de abrir o PR, com evidência vinculada na descrição do PR.
+
+### Ambiente Android e preservação
+
+Pixel_7 existente, emulator-5554, boot concluído. API /health e Metro /status
+respondem; endpoint real /tasks/search responde 200. APK debug atualizado por
+`adb install -r`, sem uninstall, pm clear, limpeza de AsyncStorage ou userdata.
+Porta Metro 8081 encaminhada por adb reverse. App abre; Home e painel de tarefas
+renderizam no aparelho. Cópias preventivas do SQLite e dos dados privados do app
+ficam em /tmp, fora do Git, junto das capturas/hierarquias usadas no smoke visual.
+
+Após instalação, a comparação de todas as linhas por ID com o backup confirmou
+preservação de **18 Projects, 151 Tasks, 5 Notes, 22 Subtasks e 34 Reminders**;
+foreign_key_check vazio. Há dois grupos de projetos homônimos no banco vigente;
+não foi criada massa nova nem feita exclusão em lote. Busca e abertura de controles
+no smoke são ações de leitura; nenhuma estrela ou configuração salva foi alterada
+para aparentar aprovação dos testes de persistência.
+
+### Roteiro pronto para validação manual com a usuária
+
+| Cenário | Procedimento / aceite esperado | Estado |
+|---|---|---|
+| 1 — Título | Digitar trecho de título existente; resultado correto durante digitação; limpar retorna à lista normal. | Pendente de confirmação manual |
+| 2 — Descrição | Usar termo somente da descrição; abrir a Task correta por ID. | Pendente de confirmação manual |
+| 3 — Observação | Usar Note persistida real e termo só nela; Task aparece sem carregar todas as Notes no frontend. | Pendente de confirmação manual |
+| 4 — Busca + filtro | Aplicar status/prioridade/projeto/período e buscar; conferir interseção e sorting. | Pendente de confirmação manual |
+| 5 — Favorito | Favoritar, conferir estrela e Favoritas; desfavoritar e conferir saída da seção; toque não abre Details. | Pendente de confirmação manual |
+| 6 — Reabertura | Favoritar, fechar/reabrir e confirmar persistência; preservar estado desejado da massa existente. | Pendente de confirmação manual |
+| 7 — Salvar filtro | Prioridade alta + semana, nome Urgentes da semana; reabrir e confirmar registro. | Pendente de confirmação manual |
+| 8 — Aplicar | Limpar filtros atuais, aplicar snapshot salvo; query/sorting/Favoritas devem permanecer como estavam. | Pendente de confirmação manual |
+| 9 — Excluir | Excluir somente filtro de teste; Tasks intactas e critérios já aplicados preservados. | Pendente de confirmação manual |
+| 10 — Homônimos | Com massa segura existente, escolher cada projeto pelo registro correto; não trocar referências por nome. Cobertura automatizada complementa. | Pendente de confirmação manual |
+
+Também conferir teclado/foco, loading/nenhum resultado e falha de rede com cache
+preservado e aviso de cobertura local. Não limpar dados em massa. T05 tem automação,
+builds e preparação concluídos; o aceite manual permanece explícito, sem declarar
+#41 concluída antes de revisão/merge e validação necessária.
+
+### Escopo e encaminhamento
+
+RF13 parcial: **título, descrição e observações atendidos; etiquetas não
+implementadas**. RF49 com preferências locais em AsyncStorage; RF51 com favorito
+por Task, sem favorito de série. Busca literal sem ranking/fuzzy ou remoção de
+acentos; Notes dependem do backend, com resultados anteriores identificados quando
+retidos. No smoke visual, foi identificado legado somente local, visível na Home
+mas ausente no backend. Tasks reconhecidamente locais (sem remoteId, vínculo de série ou ID canônico UUID)
+também podem corresponder por título/descrição, com aviso explícito; não se inventa busca em Notes nem se muda vínculo
+ou faz upload automático. Tasks canônicas continuam restritas à resposta da API.
+SavedFilters não sincronizam, não incluem query/sorting/Favoritas e não
+são modelos de Task. PBI-14 inteiro e RF14/drag and drop não estão concluídos.
+
+PR final autorizado: feature/41-search-favorites-filters → dev, com Closes #41 e
+estado manual descrito honestamente. Não fechar #41 antes do merge, habilitar
+merge automático, remover a branch, iniciar #42 ou promover dev → main.
+Prazo máximo de commit/push mantido em 08/11/2026.
