@@ -1,0 +1,164 @@
+# Refinamento técnico curto — Issue #41
+
+## Estado e recorte — 07/11/2026
+
+Base auditada: `dev` limpa/atualizada em `3fa5970`; #39 e #40 CLOSED/completed,
+integradas pelos PRs #46/#48. [CI de dev aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42404995166).
+[#41](https://github.com/AlineRaquelC/gestor-diario/issues/41) OPEN, **Planning Poker 8**,
+apenas em refinamento; implementação depende da revisão/autorização seguinte.
+Prazo máximo de commit/push: **08/11/2026**. #42 não iniciada; sem `dev → main`.
+Fontes: Issue #41, [Sprint 2](sprint-2.md), [Entrega 2/PBI-14](../backlog/entregas.md#42-escopo-funcional)
+e [RF13/RF49/RF51 oficiais](../requisitos/requisitos-oficiais.md#rf13--página-3).
+
+Entregar busca em título/descrição/observações persistidas, favoritos por Task e
+salvar/nomear/aplicar/excluir combinações dos filtros existentes. RF13 terá título,
+descrição e observações atendidos; **etiquetas continuam fora**. RF14/drag and drop,
+busca avançada/natural, novos filtros e PBI-14 completo não são entregues.
+
+## Auditoria que determina as decisões
+
+| Área real | Estado encontrado / consequência |
+|---|---|
+| `src/screens/HomeScreen.tsx` | Sem busca/favoritas; usa `sortTasks(filterTasks(...))`. Métricas do dashboard são independentes da lista. TaskCard funcional é interno à Home; `src/components/TaskCard.tsx` está vazio. Alterar o card usado, sem extração obrigatória/redesenho. |
+| `src/utils/taskFilters.ts` e `TaskListControls.tsx` | TaskFilters = status, priority, projectId, period. TaskSorting está no mesmo utilitário e permanece separado. projectId aceita null (todos), string vazia (legado sem projeto) e ID; filterTasks resolve project.id ou remoteId e, sem projeto disponível, compara o ID exato. |
+| `backend/drizzle/0000_legal_the_captain.sql` / schema/tasks | favorite já existe: integer/boolean, default false, CHECK 0/1; coluna permite null. **Sem migration nova.** Normalizar null histórico como false na saída, sem reescrever dados. |
+| Backend Tasks repository/service/schema | Repository seleciona/spread da Task, incluindo favorite; atualização genérica suporta campos tipados. `updateTaskSchema` estrito ainda **não aceita favorite**; create define false. API já expõe o campo. History usa UPDATED com metadata.fields. |
+| TaskContext / taskService / syncService | ApiTask declara favorite:boolean, mas Task/fromApiTask/toApiTaskUpdate/taskFields ainda o ignoram. Cache `@taskflow:tasks` e merges canônicos devem passar a preservá-lo; ausência em cache antigo significa false, sem PATCH automático. |
+| Notes / noteService | Notes são tabela/CRUD separados; Context mantém Notes confirmadas por Task, fora do cache persistido de Tasks. Ler Notes por Task durante busca causaria N+1 e cobertura parcial. Mutação de Note atualiza updatedAt da Task. |
+
+## Busca e contrato escolhido
+
+**GET `/tasks/search?q=<texto>` → 200 `ApiTask[]` canônicas**, sem Notes no payload,
+um resultado por Task; rota literal registrada antes de `/:id`. q deve ser string
+escalar; array/objeto inválido → 400 no padrão atual. Trim; omitido/vazio retorna
+Tasks ativas como GET /tasks. No mobile, vazio não faz requisição: remove somente
+a restrição textual. Nenhum GET gera ocorrências ou modifica dados.
+
+Uma consulta parametrizada combina title, description (null como vazio) e
+**EXISTS em notes por notes.taskId = tasks.id**; sempre tasks.deletedAt IS NULL.
+Notes de Tasks excluídas não participam. Reutilizar montagem canônica e consultas
+em lote de subtarefas/reminders do repository; não chamar findById/GET Notes por
+resultado. EXISTS evita duplicatas quando várias Notes correspondem. Sem FTS,
+ranking, dependência ou migration; adotar varredura simples e verificar custo
+com o volume real nos testes de T01.
+
+Normalização mínima compartilhada: `trim().toLowerCase()` e substring literal,
+sem remover acentos (AÇÃO corresponde a ação; acao não precisa corresponder).
+A auditoria em SQLite :memory: confirmou que LOWER nativo transforma AÇÃO em
+`aÇÃo`; sozinho não atende essa comparação. Registrar função determinística
+simples de comparação (retorno 0/1) no `openDatabase`, com normalização JavaScript e includes,
+usada no predicado SQL/EXISTS com parâmetros. `%`/`_` são caracteres literais;
+não montar SQL com o texto. Fallback local reutiliza a mesma normalização.
+
+Serviço mobile mapeia ApiTask[] por fromApiTask; resultado mantém IDs para limitar
+a lista. Context mescla apenas Tasks retornadas, preservando revisões mais novas,
+exclusões locais e filhos; **nunca substitui a coleção/cache inteiro pelo subconjunto**
+nem reconcilia o scheduler com snapshot parcial. A Task encontrada por Note abre
+Detalhes por Task ID. Atualizar busca ao retornar à Home e após mutação confirmada
+de Task/Note ou sync; não criar ciclo de novas consultas pelo próprio merge.
+
+**Debounce 300 ms**, com sequência da intenção incrementada imediatamente a cada
+mudança de texto, limpeza, saída da tela ou invalidação. Antes de publicar resultado,
+erro ou merge, conferir sequência/query/revisão; resposta de “mar” não substitui
+“marketing”. Não exigir cancelamento HTTP para garantir correção; apiRequest já
+tem timeout. Queries iguais após trim podem reutilizar o estado confirmado.
+
+Ordem: Tasks permitidas pela busca ∩ Favoritas (quando ativo) → **filterTasks()**
+com TaskFilters atuais → **sortTasks()** atual. Não duplicar filtros/ordenação;
+sem alterar métricas nem agrupamento padrão de pendentes/concluídas da Home.
+
+Estados: vazio, digitando/debounce, carregando, resultados, nenhum resultado e
+falha. Na nova query, não apresentar resultado antigo como confirmado para ela.
+Erro nunca limpa Tasks/cache nem é apresentado como “nenhuma tarefa encontrada”.
+Sem API, permitir fallback explícito em título/descrição das Tasks carregadas:
+“Busca local em título e descrição. Observações indisponíveis sem conexão.”
+Não usar Notes parciais para prometer busca offline completa; sem fila offline
+complexa. Se fallback não encontrar, indicar “Nenhuma tarefa local encontrada”,
+com aviso de cobertura limitada e ação Tentar novamente.
+
+## Favoritos
+
+Reutilizar **PATCH `/tasks/:id` `{favorite: boolean}` → ApiTask**. Estender somente
+o schema de update, tipagem/mapping/payload e fingerprint de sync. `false` também
+precisa ser serializado; rejeitar tipo inválido. Reutilizar History **UPDATED**,
+metadata.fields contendo favorite, sem action novo; operação sem mudança não
+gera evento extra. Não alterar create/template de RecurrenceSeries: favoritar
+uma ocorrência muda apenas essa Task; novas ocorrências continuam não favoritas.
+
+UI chama updateTask do Context e aguarda confirmação; bloquear repetição por Task.
+API falhou: preservar estrela anterior e informar erro. API confirmou/cache falhou:
+mostrar estrela confirmada e aviso de cache, sem repetir PATCH. getTasks, detalhe,
+restore, respostas de filhos, reabertura e sync devem manter favorite canônico;
+cache antigo sem campo → false. Task apenas local sem identidade confirmada:
+explicar necessidade de sincronizar antes de favoritar, sem associar por nome.
+
+Chip **Favoritas** na Home, selected e título de seção dedicado, restringe a mesma
+lista e combina com busca/filtros; não integra TaskFilters nem filtros salvos.
+Estrela funcional monocromática (não emoji) no TaskCard interno, selecionada/não
+selecionada, label “Favoritar/Remover dos favoritos: <título>”, alvo ≥44 dp,
+stopPropagation para não abrir Detalhes. Não exigir mudança adicional em Details.
+
+## Filtros salvos, identidade e persistência
+
+`SavedTaskFilter = {id, name, filters: TaskFilters, createdAt, updatedAt}`.
+**Somente TaskFilters**: não salvar query, TaskSorting ou chip Favoritas. ID local
+opaco gerado uma vez, independente do nome, seguindo o padrão local existente
+(timestamp + aleatoriedade, verificar colisão); sem dependência nova. Nome com
+trim, obrigatório; nomes iguais permitidos, registros distintos por ID.
+
+AsyncStorage **`@taskflow:saved-task-filters:v1`**, envelope `{version:1, items:[]}`,
+serviço/hook dedicado. Preferência local, fora do sync/backup de Tasks; sem tabela
+ou endpoint. Validar versão, enums, IDs/timestamps e snapshot; não gravar antes da
+hidratação nem sobrescrever conteúdo inválido silenciosamente. Serializar escritas;
+confirmar salvar/excluir somente após persistência; falha mantém estado anterior.
+
+Salvar snapshot dos filtros aplicados; desabilitar **Salvar filtro** se
+activeFilterCount = 0. Períodos today/week/month continuam relativos ao momento de
+aplicação, não viram datas fixas. Aplicar substitui TaskFilters por uma cópia do
+snapshot, mantendo query, sorting e Favoritas. Excluir remove apenas o registro;
+não altera Tasks/Projects nem filtros ativos, mesmo se aquele snapshot foi aplicado.
+
+projectId armazena o ID selecionado, nunca nome. Preservar IDs locais/remotos e
+os significados null/''; resolver rótulo/seleção por project.id **ou remoteId**
+(o seletor atual só procura seu options.id). Homônimos não se fundem. Referência
+não resolvida: mostrar “Projeto indisponível”, permitir aplicar o ID exato/excluir;
+nunca substituir por nome ou por Todos. Tasks com esse mesmo ID ainda podem ser
+filtradas; nenhuma correspondência produz vazio explícito.
+
+## UX, testes e execução
+
+Home: campo **Buscar tarefas**, chip **Favoritas**, controles atuais **Filtrar /
+Ordenar** e acesso compacto **Filtros salvos** (modal com nome, Salvar, Aplicar,
+Excluir). Manter polimento/BottomNavigation. Limpar filtros/ordenação preserva seu
+comportamento atual; query e Favoritas têm ações próprias, sem resets implícitos.
+
+| Bloco | Entrega e testes planejados |
+|---|---|
+| T01 — Busca backend + mobile | Título, descrição, Note real, trim, substring, caixa/acentos, literais %/_, q inválido/vazio, sem resultado, Tasks excluídas, sem N+1/duplicação; debounce, resposta/erro antigo ignorado, cache preservado, falha/fallback e invalidação após Notes. |
+| T02 — Favoritos end-to-end | false→true→false, UPDATED, repetição sem evento, erro API/cache, reabertura/sync/merges, somente uma ocorrência da série; fixtures antigas normalizadas sem upload. |
+| T03 — Filtros salvos locais | Criar/nomear/persistir/reabrir/aplicar/excluir; ID estável, nomes iguais, storage inválido/falha, hidratação, snapshot copiado, filtro vazio, período relativo, IDs local/remoto, homônimos e projeto indisponível; query/sorting/Favoritas intactos. |
+| T04 — Home integrada | Busca + cada status/prioridade/projeto/período, sortTasks preservado, chip Favoritas, controles salvos/estrela acessíveis, navegação para Task correta, nenhum resultado distinto de erro; dashboard/calendário/#39/#40 preservados. |
+| T05 — Regressão, Android e fechamento | Validadores/lint/typecheck/test mobile, backend typecheck/test/build, debug/release, diff check e CI sem ampliar baselines. Android: título, descrição, Note real, busca+filtro, favorito, reabrir, Favoritas, salvar/aplicar/excluir filtro e homônimos se massa segura. Não limpar dados em lote; PR final só após aceite. |
+
+Camadas reais prováveis (nomes novos são proposta):
+
+- **[BACK]** database/index.ts; schemas/tasks.ts, routes/tasks.ts, controllers/tasks.ts,
+  services/tasks.ts, repositories/tasks.ts; reutilizar schema/notes.ts e Notes existentes.
+- **[MOBILE]** context/TaskContext.tsx, services/taskService.ts, services/syncService.ts;
+  novo hook de busca; preservar services/noteService.ts e semântica de Notes.
+- **[UI]** screens/HomeScreen.tsx (inclui TaskCard), components/TaskListControls.tsx;
+  modal compacto novo para filtros salvos; utils/taskFilters.ts reutilizado.
+- **[PERSISTÊNCIA LOCAL]** novos models/savedTaskFilter.ts e services/savedTaskFilterService.ts;
+  normalização de favorite no cache vigente de Tasks, sem migration SQL.
+- **[TEST]** backend/tests/tasks.test.ts, task-history.test.ts, notes.test.ts e busca;
+  __tests__/TaskFilters.integration.test.tsx, DashboardHome.integration.test.tsx,
+  TaskContext.integration.test.tsx, taskService/taskUpdateService/syncService e testes dos novos hooks/serviço local.
+- **[DOC]** este registro e sprint-2.md; resultado Android/DoD somente após execução.
+
+**8 pontos continuam defensáveis** pelo reuso do schema, filtros, History e cache;
+busca em Notes, concorrência, estado canônico e testes são o trabalho principal.
+O prazo 08/11 é risco de capacidade, não motivo para omitir Notes ou validação.
+Observar custo da varredura/volume e falhas de rede/storage, sem introduzir FTS,
+sync de preferências ou arquitetura offline agora. Nenhuma alteração de estimativa
+ou da Issue remota, migration, dependência, Task/Issue adicional ou código funcional
+foi feita neste refinamento. Revisar este documento antes de autorizar T01–T05.
