@@ -37,7 +37,7 @@ it.each(['empty', 'upgrade'])('B08 %s usa SQLite temporário, preserva dados e r
     if (mode === 'upgrade') {
       const after = tables.map(table => connection.sqlite.prepare(`SELECT * FROM ${table}`).all().map(row => {
         const fields = { ...(row as Record<string, unknown>) };
-        if (table === 'tasks') { expect(fields.reminder_time_zone).toBeNull(); delete fields.reminder_time_zone; }
+        if (table === 'tasks') { expect(fields.recurrence_series_id).toBeNull(); expect(fields.occurrence_key).toBeNull(); delete fields.recurrence_series_id; delete fields.occurrence_key; expect(fields.reminder_time_zone).toBeNull(); delete fields.reminder_time_zone; }
         return fields;
       }));
       expect(after).toEqual(before);

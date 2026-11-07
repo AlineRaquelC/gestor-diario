@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { resolveReminderSchedule } from '../domain/reminders/index.js';
 import type { openDatabase } from '../database/index.js';
 import { and, asc, eq, isNull, inArray } from 'drizzle-orm';
-import { tasks, projects, subtasks, taskHistory, taskReminders } from '../database/schema/index.js';
+import { tasks, projects, subtasks, taskHistory, taskReminders, recurrenceSeries } from '../database/schema/index.js';
 import type { UpdateTask } from '../schemas/tasks.js';
 
 type Database = ReturnType<typeof openDatabase>['db'];
@@ -11,7 +11,7 @@ export class TasksRepository {
 
   findByClientId(clientId: string) {
     const row = this.db.select().from(tasks).where(eq(tasks.clientId, clientId)).get();
-    return row ? this.findIncludingDeleted(row.id) : undefined;
+    return row ? this.findDetailedIncludingDeleted(row.id) : undefined;
   }
 
   create(task: typeof tasks.$inferInsert) {
@@ -19,8 +19,12 @@ export class TasksRepository {
   }
 
   private query() {
-    return this.db.select({ task: tasks, project: projects }).from(tasks)
-      .leftJoin(projects, eq(tasks.projectId, projects.id));
+    return this.db.select({ task: tasks, project: projects, recurrence: {
+      frequency: recurrenceSeries.frequency, timeZone: recurrenceSeries.timeZone,
+      anchorDate: recurrenceSeries.anchorDate, materializedThrough: recurrenceSeries.materializedThrough,
+      updatedAt: recurrenceSeries.updatedAt,
+    } }).from(tasks).leftJoin(projects, eq(tasks.projectId, projects.id))
+      .leftJoin(recurrenceSeries, eq(tasks.recurrenceSeriesId, recurrenceSeries.id));
   }
 
   findAll(includeDeleted = false) {
@@ -44,7 +48,7 @@ export class TasksRepository {
       list.push(item);
       remindersByTask.set(item.taskId, list);
     }
-    return rows.map(row => ({ ...row.task, project: row.project, subtasks: byTask.get(row.task.id) ?? [],
+    return rows.map(row => ({ ...row.task, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}), subtasks: byTask.get(row.task.id) ?? [],
       reminders: this.withTriggers(row.task, remindersByTask.get(row.task.id) ?? []) }));
   }
 
@@ -53,7 +57,7 @@ export class TasksRepository {
     if (!row) return undefined;
     const children = this.db.select().from(subtasks).where(eq(subtasks.taskId, id))
       .orderBy(asc(subtasks.createdAt), asc(subtasks.id)).all();
-    return { ...row.task, project: row.project, subtasks: children, reminders: this.remindersFor(row.task) };
+    return { ...row.task, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}), subtasks: children, reminders: this.remindersFor(row.task) };
   }
 
   updateById(id: string, changes: Omit<UpdateTask, 'reminders'> & { done?: boolean; progress?: number }, updatedAt: string) {
@@ -64,6 +68,32 @@ export class TasksRepository {
   findIncludingDeleted(id: string) {
     const row = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
     return row ? { ...row, reminders: this.remindersFor(row) } : undefined;
+  }
+
+  findDetailedIncludingDeleted(id: string) {
+    const row = this.query().where(eq(tasks.id, id)).get();
+    if (!row) {return undefined;}
+    const children = this.db.select().from(subtasks).where(eq(subtasks.taskId, id))
+      .orderBy(asc(subtasks.createdAt), asc(subtasks.id)).all();
+    return { ...row.task, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}),
+      subtasks: children, reminders: this.remindersFor(row.task) };
+  }
+
+  findOccurrence(seriesId: string, occurrenceKey: string) {
+    const row = this.db.select({ id: tasks.id }).from(tasks)
+      .where(and(eq(tasks.recurrenceSeriesId, seriesId), eq(tasks.occurrenceKey, occurrenceKey))).get();
+    return row ? this.findDetailedIncludingDeleted(row.id) : undefined;
+  }
+
+  linkOccurrence(id: string, seriesId: string, occurrenceKey: string, updatedAt: string) {
+    return this.db.update(tasks).set({ recurrenceSeriesId: seriesId, occurrenceKey, updatedAt })
+      .where(and(eq(tasks.id, id), isNull(tasks.deletedAt), isNull(tasks.recurrenceSeriesId))).returning().get();
+  }
+
+  createOccurrence(task: typeof tasks.$inferInsert) {
+    return this.db.insert(tasks).values(task).onConflictDoNothing({
+      target: [tasks.recurrenceSeriesId, tasks.occurrenceKey],
+    }).returning().get();
   }
 
   private withTriggers(task: typeof tasks.$inferSelect, items: (typeof taskReminders.$inferSelect)[]) {

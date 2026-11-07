@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { synchronize } from '../src/services/syncService';
 import { fromApiTask } from '../src/services/taskService';
@@ -18,6 +20,7 @@ const schedule = jest.fn(async (id: string, at: number) => {records.set(id, at);
 const cancel = jest.fn(async (id: string) => {records.delete(id); return '{}';});
 const fetchMock = jest.fn();
 beforeEach(() => {
+  jest.mocked(materializeRecurrences).mockResolvedValue(undefined);
   jest.clearAllMocks(); storage.clear(); records.clear(); snapshot = [remote];
   jest.mocked(AsyncStorage.getItem).mockImplementation(async key => storage.get(key) ?? null);
   jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => {storage.set(key, value);});

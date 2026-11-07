@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import React from 'react';
 import { Modal, Text } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
@@ -151,6 +153,7 @@ const metrics = () =>
     )
     .map(node => ({ ...node.props }));
 beforeEach(async () => {
+  jest.mocked(materializeRecurrences).mockResolvedValue(undefined);
   jest.useFakeTimers().setSystemTime(new Date(2026, 9, 20, 12));
   storage.clear();
   storage.set('@taskflow:tasks', JSON.stringify(tasks));
@@ -463,4 +466,15 @@ test('sorting panel hides filters and shows direction only for selected criteria
   ).toHaveLength(0);
   await press('Aplicar ordenação');
   expect(labels()).toContain('Para fazer');
+});
+
+test('filtros e ordenação tratam ocorrência como Task normal sem alterar série', async () => {
+  const recurrence = { frequency: 'DAILY' as const, timeZone: 'UTC', anchorDate: '2026-10-20', materializedThrough: '2026-11-20', updatedAt: '2026-10-20T10:00:00Z' };
+  await act(async () => context.updateTaskLocal('Alta pendente A', { recurrenceSeriesId: 'series', occurrenceKey: '2026-10-20', recurrence }));
+  const confirmed = context.tasks;
+  await apply('Prioridade: Alta');
+  expect(titles()).toEqual(['Alta pendente A', 'Alta parcial B']);
+  await apply('Ordenação: Prazo', 'Direção do prazo: Mais distante → mais próximo');
+  expect(titles()).toEqual(['Alta parcial B', 'Alta pendente A']);
+  expect(context.tasks).toBe(confirmed); expect(context.tasks[0].recurrence).toEqual(recurrence);
 });

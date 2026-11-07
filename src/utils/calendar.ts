@@ -39,7 +39,7 @@ export function weekDays(date: Date): string[] {
   );
 }
 export function taskCalendarDay(task: Task): string | undefined {
-  return localDay(task.dueDate) ?? localDay(task.startDate);
+  return localDay(task.dueDateKey) ?? localDay(task.dueDate) ?? localDay(task.startDate);
 }
 export function validTime(time?: string): string | undefined {
   return time && /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : undefined;

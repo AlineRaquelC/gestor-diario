@@ -143,3 +143,9 @@ describe('native local calendar', () => {
     });
   });
 });
+
+it('prioriza dueDateKey confirmado para ocorrências e mantém fallback legado', () => {
+  const occurrence = { id: 'occ', title: 'Real', project: 'P', priority: 'low' as const, status: 'todo' as const, done: false, recurrenceSeriesId: 's', occurrenceKey: '2026-10-29', dueDateKey: '2026-10-29', dueDate: '2026-10-30T00:00:00Z' };
+  expect(taskCalendarDay(occurrence)).toBe('2026-10-29');
+  expect(taskCalendarDay({ ...occurrence, dueDateKey: 'invalid', dueDate: '2026-10-30' })).toBe('2026-10-30');
+});

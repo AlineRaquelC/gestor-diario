@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import BottomNavigation from '../components/BottomNavigation';
 import { useTasks } from '../context/TaskContext';
 import type { Task } from '../context/TaskContext';
+import type { RecurrenceSeriesSummary } from '../models/recurrence';
 import { isCompleted, isOverdue, periodBounds } from '../utils/dashboard';
 import {
   calendarKey,
@@ -66,6 +67,20 @@ export default function CalendarScreen() {
   const bounds = periodBounds(mode === 'month' ? 'month' : 'week', date);
   const periodHasTasks = Object.keys(counts).some(
     key => key >= bounds.start && key <= bounds.end,
+  );
+  // Only loaded canonical summaries are evidence; absent/deleted-only series are unknown.
+  const periodStart = mode === 'day' ? selected : bounds.start;
+  const confirmedSeries = new Map<string, RecurrenceSeriesSummary>();
+  for (const task of tasks) {
+    if (!task.recurrenceSeriesId || !task.recurrence) { continue; }
+    const previous = confirmedSeries.get(task.recurrenceSeriesId);
+    if (!previous || Date.parse(task.recurrence.updatedAt) > Date.parse(previous.updatedAt)) {
+      confirmedSeries.set(task.recurrenceSeriesId, task.recurrence);
+    }
+  }
+  const beyondPlanningWindow = [...confirmedSeries.values()].some(summary =>
+    summary.frequency !== 'NONE' && !!summary.materializedThrough &&
+    periodStart > summary.materializedThrough && periodStart >= summary.anchorDate,
   );
   const monthLabel = date.toLocaleDateString('pt-BR', {
     month: 'long',
@@ -166,6 +181,11 @@ export default function CalendarScreen() {
             <Text style={styles.todayText}>Hoje</Text>
           </Pressable>
         </View>
+        {!loading && !readError && beyondPlanningWindow && (
+          <Text style={styles.subtitle}>
+            Ocorrências futuras ainda não carregadas. As próximas tarefas recorrentes serão disponibilizadas conforme a janela avançar.
+          </Text>
+        )}
         <View style={styles.modes}>
           {(
             [
@@ -270,8 +290,8 @@ export default function CalendarScreen() {
               {!loading && !periodHasTasks && (
                 <Text style={styles.empty}>
                   {mode === 'month'
-                    ? 'Nenhuma tarefa neste mês.'
-                    : 'Nenhuma tarefa nesta semana.'}
+                    ? 'Nenhuma tarefa carregada neste mês.'
+                    : 'Nenhuma tarefa carregada nesta semana.'}
                 </Text>
               )}
             </>
@@ -292,7 +312,7 @@ export default function CalendarScreen() {
           </Text>
         )}
         {!loading && selectedTasks.length === 0 && (
-          <Text style={styles.empty}>Nenhuma tarefa para este dia.</Text>
+          <Text style={styles.empty}>Nenhuma tarefa carregada para este dia.</Text>
         )}
         {mode === 'day'
           ? groupDayTasks(selectedTasks)

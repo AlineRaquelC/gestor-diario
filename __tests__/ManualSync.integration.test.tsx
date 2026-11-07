@@ -1,3 +1,5 @@
+import { materializeRecurrences } from '../src/services/recurrenceService';
+jest.mock('../src/services/recurrenceService', () => ({ ...jest.requireActual('../src/services/recurrenceService'), materializeRecurrences: jest.fn() }));
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { Text, StyleSheet } from 'react-native';
@@ -30,6 +32,7 @@ async function mount() {await act(async () => {renderer = ReactTestRenderer.crea
 const button = () => renderer.root.findAll(node => node.props.accessibilityLabel === 'Sincronizar' && typeof node.props.onPress === 'function')[0];
 const screenText = () => renderer.root.findAllByType(Text).map(node => node.props.children).join(' ');
 beforeEach(async () => {
+  jest.mocked(materializeRecurrences).mockResolvedValue(undefined);
   jest.clearAllMocks();
   jest.mocked(synchronize).mockReset();
   jest.mocked(AsyncStorage.setItem).mockReset();

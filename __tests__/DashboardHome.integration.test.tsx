@@ -241,3 +241,13 @@ test('read failure is contained in an alert and retains available task cards', a
     ).length,
   ).toBeGreaterThan(0);
 });
+
+test('Home conta ocorrências reais como Tasks comuns sem duplicação visual', async () => {
+  const recurrence = { frequency: 'DAILY' as const, timeZone: 'UTC', anchorDate: '2026-10-04', materializedThrough: '2026-11-04', updatedAt: '2026-10-04T10:00:00Z' };
+  await update([task({ id: 'occurrence', title: 'REC-DIARIA', recurrenceSeriesId: 'series', occurrenceKey: '2026-10-04', recurrence }), task({ id: 'normal', title: 'Comum' })]);
+  expect(cards()).toContainEqual({ label: 'Pendentes', value: 2 });
+  const rows = renderer.root.findAll(node => typeof node.props.onPress === 'function' && node.props.accessibilityLabel === 'Abrir tarefa: REC-DIARIA');
+  expect(rows).toHaveLength(1);
+  await act(async () => rows[0].props.onPress());
+  expect(mockNavigate).toHaveBeenCalledWith('DetalheTarefa', { taskId: 'occurrence' });
+});

@@ -4,3 +4,5 @@ export { subtasks } from './subtasks.js';
 export { notes } from './notes.js';
 export { taskHistory } from './task-history.js';
 export { taskReminders } from './task-reminders.js';
+
+export { recurrenceSeries } from './recurrence-series.js';

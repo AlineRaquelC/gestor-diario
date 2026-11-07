@@ -1,3 +1,8 @@
+import TaskRecurrenceEditor, {
+  recurrenceChanged,
+} from '../components/TaskRecurrenceEditor';
+import type { RecurrenceDraft } from '../components/TaskRecurrenceEditor';
+import { RECURRENCE_SCOPE } from '../models/recurrence';
 import React, { useState, useRef } from 'react';
 
 import {
@@ -93,6 +98,8 @@ export default function EditTaskScreen() {
   const {
     tasks,
     updateTask,
+    changeRecurrenceRule,
+    activateTaskRecurrence,
     addSubtask: createChild,
     toggleSubtask: toggleChild,
     removeSubtask: removeChild,
@@ -106,6 +113,9 @@ export default function EditTaskScreen() {
 
   const task = tasks.find(item => item.id === taskId);
 
+  const [recurrenceDraft, setRecurrenceDraft] =
+    useState<RecurrenceDraft | null>(null);
+  const taskConfirmed = useRef(false);
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
   const [subtaskSaving, setSubtaskSaving] = useState<string | null>(null);
@@ -196,6 +206,7 @@ export default function EditTaskScreen() {
   }
 
   function markDirty() {
+    taskConfirmed.current = false;
     setDirty(true);
   }
 
@@ -249,7 +260,7 @@ export default function EditTaskScreen() {
   }
 
   async function saveChanges() {
-    if (submitting.current || subtaskRequest.current) {
+    if (!task || submitting.current || subtaskRequest.current) {
       return;
     }
     if (!title.trim()) {
@@ -313,38 +324,124 @@ export default function EditTaskScreen() {
     }
     submitting.current = true;
     setSaving(true);
+    const ruleChanged = recurrenceChanged(recurrenceDraft);
+    const normalChanged =
+      title.trim() !== task.title ||
+      description.trim() !== (task.description ?? '') ||
+      time !== (task.time ?? '') ||
+      priority !== task.priority ||
+      status !== task.status ||
+      startDay !==
+        (task.startDateKey ??
+          (task.startDate ? calendarDate(task.startDate) : startDay)) ||
+      dueDay !==
+        (task.dueDateKey ??
+          (task.dueDate ? calendarDate(task.dueDate) : dueDay)) ||
+      (chosenProjectId !== null &&
+        project !== (linkedProject?.id ?? task.projectId)) ||
+      remindersDirty;
+    const taskChanged =
+      !taskConfirmed.current &&
+      (normalChanged || (!ruleChanged && !recurrenceDraft));
+    let taskFailure: unknown, ruleFailure: unknown;
+    let feedback = '';
+    let cacheWarning = false;
     try {
-      const result = await updateTask(taskId, {
-        ...(remindersDirty
-          ? {
-              reminders,
-              reminderTimeZone: reminders.length ? reminderTimeZone : null,
-            }
-          : {}),
-        title: title.trim(),
-        description: description.trim(),
-        ...(chosenProjectId !== null && selectedProject
-          ? { projectId: selectedProject.id }
-          : {}),
-        time,
-        priority,
-        status,
-        startDate: startDate.toISOString(),
-        dueDate: dueDate.toISOString(),
-      });
-      setDirty(false);
-      Alert.alert(
-        'Alterações salvas',
-        taskSavedFeedback(true, result.cacheSaved, result.scheduling),
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
-    } catch (error) {
-      Alert.alert(
-        'Não foi possível salvar',
-        error instanceof Error
-          ? error.message
-          : 'Verifique a conexão e tente novamente.',
-      );
+      if (taskChanged) {
+        try {
+          const result = await updateTask(taskId, {
+            ...(remindersDirty
+              ? {
+                  reminders,
+                  reminderTimeZone: reminders.length ? reminderTimeZone : null,
+                }
+              : {}),
+            title: title.trim(),
+            description: description.trim(),
+            ...(chosenProjectId !== null && selectedProject
+              ? { projectId: selectedProject.id }
+              : {}),
+            time,
+            priority,
+            status,
+            startDate: startDate.toISOString(),
+            dueDate: dueDate.toISOString(),
+          });
+          taskConfirmed.current = true;
+          setDirty(false);
+          setRemindersDirty(false);
+          feedback = taskSavedFeedback(
+            true,
+            result.cacheSaved,
+            result.scheduling,
+          );
+          cacheWarning = !result.cacheSaved;
+        } catch (error) {
+          taskFailure = error;
+        }
+      }
+      if (ruleChanged && recurrenceDraft) {
+        try {
+          const draft = recurrenceDraft;
+          const result =
+            draft.seriesId && draft.expectedUpdatedAt
+              ? await changeRecurrenceRule(
+                  taskId,
+                  draft.seriesId,
+                  draft.expectedUpdatedAt,
+                  draft.frequency,
+                )
+              : await activateTaskRecurrence(
+                  taskId,
+                  draft.frequency,
+                  draft.timeZone,
+                  draft.requestId,
+                );
+          setRecurrenceDraft({
+            ...draft,
+            seriesId: result.series.id,
+            expectedUpdatedAt: result.series.updatedAt,
+            originalFrequency: result.series.frequency,
+            frequency: result.series.frequency,
+            timeZone: result.series.timeZone,
+          });
+          cacheWarning = cacheWarning || !result.cacheSaved;
+          feedback +=
+            ' ' +
+            (result.series.frequency === 'NONE'
+              ? 'Novas ocorrências não serão criadas. As tarefas existentes permanecem.'
+              : RECURRENCE_SCOPE);
+        } catch (error) {
+          ruleFailure = error;
+        }
+      }
+      const warning = cacheWarning
+        ? ' O cache local falhou. Os dados confirmados foram salvos no servidor; não envie novamente.'
+        : '';
+      if (taskFailure || ruleFailure) {
+        const partial =
+          taskChanged && ruleChanged && !(taskFailure && ruleFailure);
+        const message = partial
+          ? taskFailure
+            ? 'A recorrência foi alterada, mas as demais alterações da tarefa não foram salvas.'
+            : 'As alterações da tarefa foram salvas, mas não foi possível alterar a recorrência.'
+          : '';
+        const failure = ruleFailure ?? taskFailure;
+        Alert.alert(
+          'Não foi possível salvar',
+          (message ? message + ' ' : '') +
+            (failure instanceof Error
+              ? failure.message
+              : 'Verifique a conexão e tente novamente.') +
+            warning,
+        );
+      } else {
+        Alert.alert(
+          'Alterações salvas',
+          (feedback.trim() || 'As alterações já foram confirmadas.') + warning,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
+      }
     } finally {
       submitting.current = false;
       setSaving(false);
@@ -372,7 +469,7 @@ export default function EditTaskScreen() {
 
           <Text style={styles.headerTitle}>Editar Tarefa</Text>
 
-          {dirty ? (
+          {dirty || recurrenceChanged(recurrenceDraft) ? (
             <View style={styles.unsavedBadge}>
               <Text style={styles.unsavedText}>Não salvo</Text>
             </View>
@@ -746,6 +843,14 @@ export default function EditTaskScreen() {
             </View>
           </Field>
 
+          <Field label="Repetição">
+            <TaskRecurrenceEditor
+              task={task}
+              draft={recurrenceDraft}
+              onChange={setRecurrenceDraft}
+              disabled={saving || subtaskSaving !== null}
+            />
+          </Field>
           <Field label="Lembretes">
             <TaskReminderSelector
               value={reminders}

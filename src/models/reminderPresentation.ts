@@ -18,6 +18,8 @@ export function taskSavedFeedback(
   edit: boolean,
   cacheSaved: boolean,
   scheduling: SchedulingResult,
+  recurring = false,
+  recurrenceRefreshFailed = false,
 ): string {
   const message =
     scheduling.state === 'scheduled'
@@ -32,6 +34,16 @@ export function taskSavedFeedback(
       ? 'Alterações salvas, mas o lembrete não foi agendado neste aparelho.'
       : 'Tarefa salva, mas o lembrete não foi agendado neste aparelho.';
   return (
-    message + (cacheSaved ? '' : ' O cache local falhou. Não envie novamente.')
+    (recurring
+      ? (recurrenceRefreshFailed
+        ? 'Tarefa recorrente criada, mas não foi possível atualizar as próximas ocorrências agora.'
+        : 'Tarefa recorrente criada.') +
+        (scheduling.state === 'scheduled'
+          ? ' Lembrete agendado neste aparelho.'
+          : scheduling.state === 'not_required'
+          ? ''
+          : ' O lembrete não foi agendado neste aparelho.')
+      : message) +
+    (cacheSaved ? '' : ' O cache local falhou. Não envie novamente.')
   );
 }

@@ -129,3 +129,15 @@ it('concluída mantém configuração com cancelamento; restauração usa estado
   await showReminders([15], { state: 'pending' }); expect(text()).toContain('Agendamento pendente');
   await showReminders([15], { state: 'scheduled' }); expect(text()).toContain('Lembrete agendado neste aparelho'); expect(text()).not.toContain('Agendamento pendente');
 });
+
+it.each([['DAILY', 'Diariamente'], ['WEEKLY', 'Semanalmente'], ['MONTHLY', 'Mensalmente'], ['NONE', 'Não repetir']])('Detalhes mostra regra %s sem IDs técnicos', async (frequency, label) => {
+  await mount();
+  const current = jest.mocked(useTasks).mock.results.at(-1)!.value;
+  jest.mocked(useTasks).mockReturnValue({ ...current, tasks: [{ ...task, recurrenceSeriesId: 'series-private', occurrenceKey: '2026-10-29', recurrence: { frequency, timeZone: 'UTC', anchorDate: '2026-10-29', materializedThrough: '2026-11-29', updatedAt: task.updatedAt } }] } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => renderer.update(<TaskDetailsScreen />));
+  expect(text()).toContain('Recorrência'); expect(text()).toContain(label);
+  expect(text()).not.toContain('series-private');
+});
+it('Task comum não mostra seção vazia de recorrência', async () => {
+  await mount(); expect(text()).not.toContain('Recorrência');
+});

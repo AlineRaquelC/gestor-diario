@@ -1,3 +1,10 @@
+import { recurrenceFields } from '../models/recurrence';
+import type { RecurrenceFields, RecurrenceInput } from '../models/recurrence';
+import { civilDate, civilDuration } from '../../backend/src/domain/recurrence/calendar';
+import { referenceDay, validateRecurrenceTimeZone } from '../models/recurrence';
+import { resolveTaskInstant } from '../domain/reminders';
+import { durableRecurrenceRequest, checkedSeries } from './recurrenceService';
+import type { SeriesCreationResult } from './recurrenceService';
 import { canonicalReminders, reminderInputs, validateReminderTimeZone } from '../models/reminder';
 import { validateReminderChange } from '../domain/reminders';
 import type { ApiReminder, ReminderInput, VisualReminderDraft } from '../models/reminder';
@@ -6,14 +13,14 @@ import type { Project } from '../context/ProjectContext';
 import { apiRequest, ApiError } from './api';
 import type { LegacyTaskStatus } from '../models/taskStatus';
 
-export type NewTask = Omit<Task, 'id' | 'status' | 'reminders'> & { status: LegacyTaskStatus; reminders?: ReminderInput[] | VisualReminderDraft; projectId: string; startDate: string; dueDate: string };
-export type TaskUpdate = Omit<Partial<Task>, 'status' | 'reminders'> & { status?: LegacyTaskStatus; reminders?: ReminderInput[] };
+export type NewTask = Omit<Task, 'id' | 'status' | 'reminders' | keyof RecurrenceFields> & { status: LegacyTaskStatus; recurrenceInput?: RecurrenceInput; recurrenceRequestId?: string; reminders?: ReminderInput[] | VisualReminderDraft; projectId: string; startDate: string; dueDate: string };
+export type TaskUpdate = Omit<Partial<Task>, 'status' | 'reminders' | keyof RecurrenceFields> & { status?: LegacyTaskStatus; reminders?: ReminderInput[] };
 export type TaskHistoryEvent = {
   id: string; taskId: string;
   action: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'COMPLETED' | 'REOPENED' | 'DELETE' | 'RESTORE' | 'DELETED' | 'RESTORED';
   metadata: Record<string, unknown> | null; createdAt: string;
 };
-export type ApiTask = {
+export type ApiTask = RecurrenceFields & {
   clientId?: string | null;
   id: string; title: string; description: string | null; projectId: string;
   startDate: string; dueDate: string; time: string | null;
@@ -66,6 +73,7 @@ export function toApiTask(input: NewTask, projectId: string) {
 
 export function fromApiTask(task: ApiTask, draft?: CachedTask): Task {
   return {
+    ...recurrenceFields(task),
     id: task.id, remoteId: task.id, clientId: task.clientId ?? undefined, deletedAt: task.deletedAt, title: task.title, description: task.description ?? undefined,
     project: task.project?.name ?? draft?.project ?? 'Projeto indisponível',
     projectId: task.projectId, time: task.time ?? undefined,
@@ -156,7 +164,48 @@ export async function resolveProject(project: Project): Promise<string> {
   return created.id;
 }
 
+export function recurrenceCreationPayload(input: NewTask, projectId: string) {
+  const recurrence = input.recurrenceInput;
+  if (!recurrence || !['DAILY', 'WEEKLY', 'MONTHLY'].includes(recurrence.frequency)) {throw new Error('Frequência de recorrência inválida.');}
+  validateRecurrenceTimeZone(recurrence.timeZone);
+  const task = toApiTask(input, projectId);
+  civilDate(task.startDate); civilDate(task.dueDate);
+  if (input.reminders?.length && task.reminders === undefined) {throw new Error('Use offsets canônicos para os lembretes da série.');}
+  if (task.reminders?.length && task.reminderTimeZone !== recurrence.timeZone) {throw new Error('A série e seus lembretes devem usar o mesmo fuso.');}
+  if (task.status !== 'PENDING') {throw new Error('A primeira ocorrência deve iniciar com status A fazer.');}
+  return { frequency: recurrence.frequency, timeZone: recurrence.timeZone, anchorDate: task.dueDate,
+    template: { title: task.title, description: task.description || null, projectId,
+      priority: task.priority, time: task.time || null, startOffsetDays: civilDuration(task.startDate, task.dueDate),
+      subtasks: task.subtasks ?? [], reminders: task.reminders ?? [] } };
+}
+export function validateNewRecurrence(input: NewTask, projectId: string, checkFuture = true) {
+  const payload = recurrenceCreationPayload(input, projectId);
+  if (checkFuture) {
+    const now = Date.now();
+    if (calendarDate(input.startDate) < referenceDay(payload.timeZone, () => now)) {throw new Error('A data de início não pode ser anterior à data atual.');}
+    if (payload.template.time && resolveTaskInstant(payload.anchorDate, payload.template.time, payload.timeZone) <= now) {
+      throw new Error('O horário da tarefa já passou. Escolha um horário futuro.');
+    }
+    validateReminderChange({ dueDate: payload.anchorDate, time: payload.template.time ?? '', timeZone: payload.timeZone,
+      offsets: payload.template.reminders.map(item => item.offsetMinutes) }, undefined, () => now);
+  }
+  return payload;
+}
 export async function createTask(input: NewTask, projectId: string): Promise<Task> {
+  if (input.recurrenceInput && input.recurrenceInput.frequency !== 'NONE') {
+    const payload = validateNewRecurrence(input, projectId, false);
+    return durableRecurrenceRequest(input.recurrenceRequestId ?? '', { path: '/recurrence-series', ...payload }, async (clientId, retry) => {
+      if (!retry) {
+        try {validateNewRecurrence(input, projectId);} catch (error) {throw new ApiError((error as Error).message, 400, 'VALIDATION_ERROR');}
+      }
+      const result = await apiRequest<SeriesCreationResult>('/recurrence-series', 'POST', { ...payload, clientId });
+      checkedSeries(result.series);
+      const confirmed = fromApiTask(result.firstOccurrence, { ...input, subtasks: undefined });
+      if (confirmed.recurrenceSeriesId !== result.series.id || confirmed.occurrenceKey !== result.series.firstOccurrenceKey) {throw new Error('Identidade da primeira ocorrência inválida.');}
+      return confirmed;
+    });
+  }
+
   const payload = toApiTask(input, projectId);
   // A keyed retry may refer to a persisted configuration that has now expired.
   // Only the backend can distinguish that retry from a new keyed creation.
@@ -191,6 +240,7 @@ export async function getTasksForSync(): Promise<Task[]> {
 }
 
 export async function importLocalTask(task: Task, projectId: string, clientId: string): Promise<Task> {
+  if (task.recurrenceSeriesId || task.occurrenceKey) {throw new Error('Ocorrências são criadas somente pelo backend.');}
   if (!task.startDate || !task.dueDate) {throw new Error('Tarefa legada sem datas válidas; dados preservados.');}
   const input = { ...task, projectId, startDate: task.startDate, dueDate: task.dueDate, subtasks: undefined };
   const response = await apiRequest<ApiTask>('/tasks', 'POST', { ...toApiTask(input, projectId), clientId });

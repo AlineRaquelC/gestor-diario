@@ -1,3 +1,4 @@
+jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
 import { fromApiTask, toApiTask, toApiTaskUpdate, createTask, getTasks, getTaskById, getTasksForSync, importLocalTask, updateTask } from '../src/services/taskService';
 import type { ApiTask, NewTask } from '../src/services/taskService';
 import { normalizeReminderCache, deviceReminderTimeZone } from '../src/models/reminder';
