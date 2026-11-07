@@ -19,7 +19,7 @@ import { COLORS, RADIUS, SPACING } from '../styles/theme';
 type Props = {
   filters: TaskFilters;
   sorting: TaskSorting;
-  projects: { id: string; name: string }[];
+  projects: { id: string; name: string; remoteId?: string }[];
   onApply: (filters: TaskFilters, sorting: TaskSorting) => void;
 };
 type Panel = 'filters' | 'sorting' | 'projects';
@@ -103,8 +103,8 @@ export default function TaskListControls({
       ? 'Todos os projetos'
       : id === ''
       ? 'Sem projeto'
-      : projects.find(project => project.id === id)?.name ??
-        'Projeto indisponível';
+      : projects.find(project => project.id === id || project.remoteId === id)
+          ?.name ?? 'Projeto indisponível';
   const activeLabels = [
     filters.status !== 'all' &&
       STATUS.find(([id]) => id === filters.status)?.[1],
@@ -114,6 +114,9 @@ export default function TaskListControls({
     filters.period !== 'all' &&
       PERIOD.find(([id]) => id === filters.period)?.[1],
   ].filter((label): label is string => typeof label === 'string');
+  const selectedProjectId =
+    projects.find(project => project.remoteId === draftFilters.projectId)?.id ??
+    draftFilters.projectId;
   function open(nextPanel: Panel) {
     setDraftFilters({ ...filters });
     setDraftSorting({ ...sorting });
@@ -233,11 +236,11 @@ export default function TaskListControls({
                     accessibilityRole="button"
                     accessibilityLabel={`Projeto: ${project.name}`}
                     accessibilityState={{
-                      selected: draftFilters.projectId === project.id,
+                      selected: selectedProjectId === project.id,
                     }}
                     style={[
                       styles.projectRow,
-                      draftFilters.projectId === project.id && styles.selected,
+                      selectedProjectId === project.id && styles.selected,
                     ]}
                     onPress={() => {
                       setDraftFilters({
@@ -250,13 +253,12 @@ export default function TaskListControls({
                     <Text
                       style={[
                         styles.projectName,
-                        draftFilters.projectId === project.id &&
-                          styles.selectedText,
+                        selectedProjectId === project.id && styles.selectedText,
                       ]}
                     >
                       {project.name}
                     </Text>
-                    {draftFilters.projectId === project.id && (
+                    {selectedProjectId === project.id && (
                       <Text style={styles.selectedText}>✓</Text>
                     )}
                   </Pressable>

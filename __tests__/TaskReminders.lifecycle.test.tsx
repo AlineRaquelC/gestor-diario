@@ -21,7 +21,7 @@ jest.mock('../src/services/syncService', () => ({ ...jest.requireActual('../src/
 const reminder = { id: 'r', taskId: 't', offsetMinutes: 15, createdAt: '2026-10-26T12:00:00Z', updatedAt: '2026-10-26T12:00:00Z', triggerAt: '2026-10-27T12:45:00Z' };
 const draft = { title: 'Task', projectId: 'p7', project: 'P', startDate: '2026-10-26', dueDate: '2026-10-27', time: '10:00',
   priority: 'high' as const, status: 'todo' as const, done: false, reminderTimeZone: 'America/Sao_Paulo', reminders: [{ offsetMinutes: 15 }] };
-const task = { ...draft, id: 't', remoteId: 't', projectId: 'p', dueDateKey: draft.dueDate, reminders: [reminder], remindersConfirmed: true };
+const task = { ...draft, favorite: false, id: 't', remoteId: 't', projectId: 'p', dueDateKey: draft.dueDate, reminders: [reminder], remindersConfirmed: true };
 let foreground: (state: AppStateStatus) => void;
 let context: ReturnType<typeof useTasks>, renderer: ReactTestRenderer.ReactTestRenderer;
 const storage = new Map<string, string>();

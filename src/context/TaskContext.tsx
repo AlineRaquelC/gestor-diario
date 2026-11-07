@@ -19,7 +19,7 @@ import { reminderScheduler, schedulingFingerprint } from '../services/reminderSc
 import type { SchedulingResult } from '../services/reminderScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProjects } from './ProjectContext';
-import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask } from '../services/taskService';
+import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask, searchTasks as fetchSearchTasks } from '../services/taskService';
 import { getTaskHistory, createSubtask, updateSubtask, deleteSubtask, mergeSubtasks } from '../services/taskService';
 import type { NewTask, TaskHistoryEvent, TaskUpdate } from '../services/taskService';
 import { deleteTask as remoteDeleteTask, restoreTask as remoteRestoreTask } from '../services/taskService';
@@ -55,6 +55,7 @@ export type Task = RecurrenceFields & {
   syncSnapshots?: Omit<Task, 'syncSnapshot' | 'syncSnapshots'>[];
   projectId?: string;
   progress?: number;
+  favorite?: boolean;
   createdAt?: string;
   updatedAt?: string;
 
@@ -91,6 +92,9 @@ type TaskContextType = {
   changeRecurrenceRule: (taskId: string, seriesId: string, expectedUpdatedAt: string, frequency: RecurrenceFrequency) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
   activateTaskRecurrence: (taskId: string, frequency: RecurrenceFrequency, timeZone: string, requestId: string) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
   tasks: Task[];
+  searchRevision: number;
+  searchTasks: (query: string, isCurrent: () => boolean) => Promise<Task[] | null>;
+  toggleFavorite: (id: string) => ReturnType<TaskContextType['updateTask']>;
   loading: boolean;
   reminderScheduling: Record<string, SchedulingResult>;
   syncing: boolean;
@@ -139,7 +143,7 @@ const STORAGE_KEY =
 function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
   const normalize = (task: Task): Task => {
     const status = task.status ? normalizeTaskStatus(task.status) : task.done ? 'completed' : 'todo';
-    return { ...task, status, done: status === 'completed',
+    return { ...task, favorite: task.favorite === true, status, done: status === 'completed',
       progress: status === 'completed' ? 100 : task.progress === 100 ? 0 : task.progress };
   };
   const byId = new Map(current.map(task => [task.remoteId ?? task.id, normalize(task)]));
@@ -178,6 +182,7 @@ export function TaskProvider({
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
   const mutationRevision = useRef(0);
+  const [searchRevision, setSearchRevision] = useState(0);
   const [reminderScheduling, setReminderScheduling] = useState<Record<string, SchedulingResult>>({});
   const schedulingRef = useRef<Record<string, SchedulingResult>>({});
   const reportScheduling = useCallback((results: Record<string, SchedulingResult>) => {
@@ -409,6 +414,7 @@ export function TaskProvider({
       throw new Error('Aguarde as operações e a janela de desfazer antes de sincronizar.');
     }
     dataGuard.syncing = true;
+    mutationRevision.current++;
     setSyncing(true);
     try {
       await storageQueue.current;
@@ -423,7 +429,7 @@ export function TaskProvider({
       const scheduling = await reminderScheduler.reconcile(result.reminderSnapshot ?? result.tasks.filter(task => task.remindersConfirmed), true);
       reportScheduling(Object.fromEntries(result.tasks.map(task => [task.id, scheduling])));
       return { ...result, scheduling };
-    } finally {dataGuard.syncing = false; setSyncing(false);}
+    } finally {dataGuard.syncing = false; setSyncing(false); setSearchRevision(value => value + 1);}
   }
 
   async function toggleTask(id: string) {
@@ -445,6 +451,7 @@ export function TaskProvider({
       const scheduling = await prepareSuppression(task);
       try {await remoteDeleteTask(id);} catch (error) {return await compensate(task, error);}
       mutationRevision.current++;
+      setSearchRevision(value => value + 1);
       deletedIds.current.add(id);
       const next = tasksRef.current.filter(item => item.id !== id);
       tasksRef.current = next;
@@ -479,6 +486,7 @@ export function TaskProvider({
       const task = { ...opportunity.task, ...remote, reminders: remote.reminders ?? [], legacyReminders: opportunity.task.legacyReminders,
         subtasks: mergeSubtasks(remote.subtasks, opportunity.task.subtasks) };
       mutationRevision.current++;
+      setSearchRevision(value => value + 1);
       deletedIds.current.delete(id);
       const next = mergeReadTasks(tasksRef.current, [task]);
       tasksRef.current = next;
@@ -506,6 +514,7 @@ export function TaskProvider({
       tasksRef.current = nextTasks;
       setTasks(nextTasks);
       mutationRevision.current++;
+      setSearchRevision(value => value + 1);
       if (!task.recurrenceSeriesId) {return await persistConfirmed(nextTasks, task);}
       // Persist the confirmed first occurrence before the optional window refresh.
       let cacheSaved = true;
@@ -550,6 +559,7 @@ export function TaskProvider({
         return task.recurrenceSeriesId === result.series.id ? { ...task, recurrence: summary } : task;
       });
       mutationRevision.current++;
+      setSearchRevision(value => value + 1);
       tasksRef.current = next; setTasks(next);
       let cacheSaved = true;
       if (result.task) {cacheSaved = (await persistConfirmed(next, next.find(task => task.id === taskId)!, current)).cacheSaved;}
@@ -568,6 +578,29 @@ export function TaskProvider({
       const result = await activateRecurrence(taskId, { frequency, timeZone }, requestId);
       return { series: result.series, task: fromApiTask(result.firstOccurrence, current) };
     });
+  }
+
+  const searchTasks = useCallback(async (query: string, isCurrent: () => boolean) => {
+    if (!isCurrent()) { return null; }
+    assertDataAvailable();
+    if (!hydrated || loading) { throw new Error('Aguarde o carregamento das tarefas.'); }
+    if (dataGuard.syncing) { throw new Error('Aguarde a sincronização para buscar tarefas.'); }
+    const revision = mutationRevision.current;
+    const remote = await fetchSearchTasks(query);
+    if (!isCurrent() || dataGuard.syncing || revision !== mutationRevision.current) { return null; }
+    const confirmed = remote.filter(task => !deletedIds.current.has(task.id) && !task.deletedAt);
+    const next = mergeReadTasks(tasksRef.current, confirmed);
+    tasksRef.current = next;
+    setTasks(next);
+    // A search is a partial read, never an authoritative scheduler snapshot.
+    try { await persistTasks(next); } catch { /* Confirmed memory is retained. */ }
+    return confirmed;
+  }, [persistTasks, hydrated, loading]);
+
+  async function toggleFavorite(id: string) {
+    const task = tasksRef.current.find(item => item.id === id);
+    if (!task?.remoteId) { throw new Error('Sincronize esta tarefa antes de alterar os favoritos.'); }
+    return updateTask(id, { favorite: !task.favorite });
   }
 
   async function updateTask(id: string, changes: TaskUpdate) {
@@ -600,6 +633,7 @@ export function TaskProvider({
         throw error;
       }
       mutationRevision.current++;
+      setSearchRevision(value => value + 1);
       const confirmedSubtasks = mergeSubtasks(remote.subtasks, changes.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks);
       // Old cache-only children are not uploaded. A confirmed collective action
       // applies to their actual cached done values as well as remote children.
@@ -643,6 +677,7 @@ export function TaskProvider({
       const task = { ...current, ...remote, reminders: remote.reminders ?? [], legacyReminders: current.legacyReminders,
         subtasks: mergeSubtasks(remote.subtasks, current.subtasks) };
       mutationRevision.current++;
+      setSearchRevision(value => value + 1);
       const next = tasksRef.current.map(item => item.id === id ? task : item);
       tasksRef.current = next;
       setTasks(next);
@@ -669,6 +704,8 @@ export function TaskProvider({
       const confirmed = await operation();
       // Invalidate an older GET so it cannot undo the confirmed mutation.
       notesRequests.current.set(id, (notesRequests.current.get(id) ?? 0) + 1);
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
       setTaskNotes(current => ({ ...current, [id]: sortNotes([
         ...(current[id] ?? []).filter(note => note.id !== confirmed.id),
         ...(!remove && 'content' in confirmed ? [confirmed] : []),
@@ -697,6 +734,9 @@ export function TaskProvider({
     <TaskContext.Provider
       value={{
         tasks,
+        searchTasks,
+        searchRevision,
+        toggleFavorite,
         loadRecurrenceSeries: getRecurrenceSeries,
         changeRecurrenceRule,
         activateTaskRecurrence,

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
+  TextInput,
   View,
   Text,
   StyleSheet,
@@ -13,6 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
+import { useTaskSearch } from '../hooks/useTaskSearch';
+import SavedTaskFilters from '../components/SavedTaskFilters';
 import BottomNavigation from '../components/BottomNavigation';
 import { useTasks, Task } from '../context/TaskContext';
 
@@ -48,9 +51,22 @@ const priorityColors = {
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
 
-  const { tasks, toggleTask, loading, readError } = useTasks();
+  const { tasks, toggleTask, toggleFavorite, loading, readError } = useTasks();
 
   const { projects, hydrated } = useProjects();
+  const search = useTaskSearch();
+  const { retry: retrySearch, cancel: cancelSearch } = search;
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState<Set<string>>(new Set());
+  const favoriteRequests = React.useRef(new Set<string>());
+  useEffect(() => {
+    const focus = navigation.addListener?.('focus', retrySearch);
+    const blur = navigation.addListener?.('blur', cancelSearch);
+    return () => {
+      focus?.();
+      blur?.();
+    };
+  }, [navigation, retrySearch, cancelSearch]);
   const [period, setPeriod] = useState<DashboardPeriod>('today');
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -59,21 +75,35 @@ export default function HomeScreen() {
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') {
         refresh();
+        retrySearch();
       }
     });
     return () => {
       clearInterval(timer);
       subscription.remove();
     };
-  }, []);
+  }, [retrySearch]);
   const [filters, setFilters] = useState<TaskFilters>({ ...DEFAULT_FILTERS });
   const [sorting, setSorting] = useState<TaskSorting>({ ...DEFAULT_SORTING });
   const visibleTasks = useMemo(
-    () => sortTasks(filterTasks(tasks, filters, projects, now), sorting),
-    [tasks, filters, projects, now, sorting],
+    () =>
+      sortTasks(
+        filterTasks(
+          search.tasks.filter(task => !favoriteOnly || task.favorite),
+          filters,
+          projects,
+          now,
+        ),
+        sorting,
+      ),
+    [search.tasks, favoriteOnly, filters, projects, now, sorting],
   );
   const projectOptions = useMemo(
-    () => taskProjectOptions(projects, tasks),
+    () =>
+      taskProjectOptions(projects, tasks).map(option => ({
+        ...option,
+        remoteId: projects.find(project => project.id === option.id)?.remoteId,
+      })),
     [projects, tasks],
   );
   const sorted = sorting.criterion !== 'none';
@@ -82,9 +112,10 @@ export default function HomeScreen() {
     ? visibleTasks
     : visibleTasks.filter(task => !isCompleted(task));
   const noResults =
-    tasks.length > 0 &&
     visibleTasks.length === 0 &&
-    activeFilterCount(filters) > 0;
+    (search.active || favoriteOnly || activeFilterCount(filters) > 0) &&
+    search.phase !== 'typing' &&
+    search.phase !== 'loading';
   const metrics = dashboardMetrics(tasks, period, now);
   const progress = metrics.progress;
   // Context appends newly created projects; show the last three with linked tasks.
@@ -114,6 +145,33 @@ export default function HomeScreen() {
           ? error.message
           : 'Verifique a conexão e tente novamente.',
       );
+    }
+  }
+
+  async function handleFavorite(id: string) {
+    if (favoriteRequests.current.has(id)) {
+      return;
+    }
+    favoriteRequests.current.add(id);
+    setFavoriteBusy(new Set(favoriteRequests.current));
+    try {
+      const result = await toggleFavorite(id);
+      if (!result.cacheSaved) {
+        Alert.alert(
+          'Favorito salvo no servidor',
+          'O cache local falhou. Não é necessário enviar novamente.',
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Não foi possível alterar favorito',
+        error instanceof Error
+          ? error.message
+          : 'Verifique a conexão e tente novamente.',
+      );
+    } finally {
+      favoriteRequests.current.delete(id);
+      setFavoriteBusy(new Set(favoriteRequests.current));
     }
   }
 
@@ -248,6 +306,48 @@ export default function HomeScreen() {
         )}
 
         {/* Tarefas pendentes */}
+        <TextInput
+          accessibilityLabel="Buscar tarefas"
+          placeholder="Buscar tarefas..."
+          value={search.query}
+          onChangeText={search.changeQuery}
+          style={styles.searchInput}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Favoritas"
+          accessibilityState={{ selected: favoriteOnly }}
+          onPress={() => setFavoriteOnly(value => !value)}
+          style={styles.seeAllButton}
+        >
+          <Text style={styles.seeAll}>
+            {favoriteOnly ? '★ Favoritas' : 'Favoritas'}
+          </Text>
+        </Pressable>
+        <SavedTaskFilters
+          filters={filters}
+          projects={projects}
+          onApply={setFilters}
+        />
+        {(search.phase === 'typing' || search.phase === 'loading') && (
+          <Text accessibilityRole="progressbar">Buscando tarefas…</Text>
+        )}
+        {search.error && (
+          <View accessibilityRole="alert">
+            <Text style={styles.errorText}>
+              {search.error} Busca local em título e descrição. Observações
+              indisponíveis sem conexão.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tentar busca novamente"
+              onPress={search.retry}
+              style={styles.seeAllButton}
+            >
+              <Text>Tentar novamente</Text>
+            </Pressable>
+          </View>
+        )}
         <TaskListControls
           filters={filters}
           sorting={sorting}
@@ -258,7 +358,11 @@ export default function HomeScreen() {
           }}
         />
         <Text style={styles.sectionTitle}>
-          {sorted || activeFilterCount(filters) > 0 ? 'Tarefas' : 'Para fazer'}
+          {favoriteOnly
+            ? 'Favoritas'
+            : sorted || search.active || activeFilterCount(filters) > 0
+            ? 'Tarefas'
+            : 'Para fazer'}
         </Text>
 
         {loading && (
@@ -284,12 +388,18 @@ export default function HomeScreen() {
 
         {!loading && noResults && (
           <Text style={styles.emptyStateText}>
-            Nenhuma tarefa encontrada com esses filtros.
+            {search.phase === 'error'
+              ? 'Nenhuma tarefa local encontrada.'
+              : search.active || favoriteOnly
+              ? 'Nenhuma tarefa encontrada.'
+              : 'Nenhuma tarefa encontrada com esses filtros.'}
           </Text>
         )}
         {!loading &&
           !readError &&
           !noResults &&
+          !search.active &&
+          !favoriteOnly &&
           pendingTasks.length === 0 &&
           (tasks.length === 0 || activeFilterCount(filters) === 0) && (
             <View style={styles.emptyState}>
@@ -312,6 +422,8 @@ export default function HomeScreen() {
             key={task.id}
             task={task}
             onToggle={handleToggle}
+            onFavorite={handleFavorite}
+            favoriteBusy={favoriteBusy.has(task.id)}
             onPress={() =>
               navigation.navigate('DetalheTarefa', {
                 taskId: task.id,
@@ -330,6 +442,8 @@ export default function HomeScreen() {
                 key={task.id}
                 task={task}
                 onToggle={handleToggle}
+                onFavorite={handleFavorite}
+                favoriteBusy={favoriteBusy.has(task.id)}
                 onPress={() =>
                   navigation.navigate('DetalheTarefa', {
                     taskId: task.id,
@@ -450,10 +564,14 @@ function TaskCard({
   task,
   onToggle,
   onPress,
+  onFavorite,
+  favoriteBusy,
 }: {
   task: Task;
   onToggle: (id: string) => void;
   onPress: () => void;
+  onFavorite: (id: string) => void;
+  favoriteBusy: boolean;
 }) {
   return (
     <Pressable
@@ -489,6 +607,24 @@ function TaskCard({
         </View>
       </Pressable>
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${
+          task.favorite ? 'Remover dos favoritos' : 'Favoritar'
+        }: ${task.title}`}
+        accessibilityState={{
+          selected: !!task.favorite,
+          disabled: favoriteBusy,
+        }}
+        disabled={favoriteBusy}
+        style={styles.checkboxTarget}
+        onPress={event => {
+          event?.stopPropagation();
+          onFavorite(task.id);
+        }}
+      >
+        <Text style={styles.seeAll}>{task.favorite ? '★' : '☆'}</Text>
+      </Pressable>
       {/* Conteúdo */}
       <View style={styles.taskContent}>
         <Text style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
@@ -505,6 +641,14 @@ function TaskCard({
 }
 
 const styles = StyleSheet.create({
+  searchInput: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.md,
+    color: COLORS.textPrimary,
+  },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: {
     paddingHorizontal: SPACING.lg,

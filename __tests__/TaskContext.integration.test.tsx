@@ -18,7 +18,7 @@ const storage = new Map<string, string>();
 let context: ReturnType<typeof useTasks>;
 let renderer: ReactTestRenderer.ReactTestRenderer;
 const draft = { title: 'Nova', project: 'Geral', projectId: 'p7', priority: 'medium' as const, status: 'todo' as const, done: false, startDate: '2026-10-02', dueDate: '2026-10-03' };
-const saved = { ...draft, reminders: [], id: 'server-uuid', projectId: 'remote' };
+const saved = { ...draft, favorite: false, reminders: [], id: 'server-uuid', projectId: 'remote' };
 function Probe() { context = useTasks(); return null; }
 async function mount() {
   await act(async () => { renderer = ReactTestRenderer.create(<ProjectProvider><TaskProvider><Probe /></TaskProvider></ProjectProvider>); });

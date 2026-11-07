@@ -236,3 +236,15 @@ it('ocorrência ausente remotamente não é recriada por importação local', as
   expect(result.tasks[0]).toMatchObject({ id: local.id, recurrenceSeriesId: 'series', syncPending: expect.any(String) });
   expect(importLocalTask).not.toHaveBeenCalled();
 });
+
+it('favorite canônico permanece em sync dupla e não causa novo upload', async () => {
+  projects = [{ ...project, id: 'remote-p' }];
+  tasks = [{ ...task, id: 'remote-t', remoteId: 'remote-t', projectId: 'remote-p', favorite: true }];
+  const local = { ...tasks[0], favorite: false };
+  const first = await synchronize([{ ...project, remoteId: 'remote-p' }], [local]);
+  expect(first.tasks[0].favorite).toBe(true);
+  const second = await synchronize(first.projects, first.tasks);
+  expect(second.tasks[0].favorite).toBe(true);
+  expect(importLocalTask).not.toHaveBeenCalled();
+  expect(second.tasks[0].id).toBe('remote-t');
+});

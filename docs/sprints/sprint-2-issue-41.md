@@ -5,7 +5,9 @@
 Base auditada: `dev` limpa/atualizada em `3fa5970`; #39 e #40 CLOSED/completed,
 integradas pelos PRs #46/#48. [CI de dev aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42404995166).
 [#41](https://github.com/AlineRaquelC/gestor-diario/issues/41) OPEN, **Planning Poker 8**,
-apenas em refinamento; implementação depende da revisão/autorização seguinte.
+T01–T03 autorizados e implementados nesta execução; T04/T05 ainda pendentes.
+O refinamento original está preservado abaixo; o registro de execução ao final
+descreve o estado atual. Não há PR final nem fechamento da Issue.
 Prazo máximo de commit/push: **08/11/2026**. #42 não iniciada; sem `dev → main`.
 Fontes: Issue #41, [Sprint 2](sprint-2.md), [Entrega 2/PBI-14](../backlog/entregas.md#42-escopo-funcional)
 e [RF13/RF49/RF51 oficiais](../requisitos/requisitos-oficiais.md#rf13--página-3).
@@ -162,3 +164,89 @@ Observar custo da varredura/volume e falhas de rede/storage, sem introduzir FTS,
 sync de preferências ou arquitetura offline agora. Nenhuma alteração de estimativa
 ou da Issue remota, migration, dependência, Task/Issue adicional ou código funcional
 foi feita neste refinamento. Revisar este documento antes de autorizar T01–T05.
+
+
+## Execução T01–T03 — 07/11/2026
+
+Base `dev` atualizada e limpa em `68300bc` (PR documental #49), branch
+`feature/41-search-favorites-filters`. Somente T01–T03 autorizados; **T04 e T05
+não concluídos nem iniciados como etapas finais**. Controles mínimos na Home
+foram incluídos para provar os fluxos, sem redesenho. #41 continua OPEN,
+Planning Poker 8; #42 não iniciada; sem dev → main ou PR final.
+
+### T01 — busca textual end-to-end
+
+GET `/tasks/search?q=...` registrado antes de /:id. Query string escalar com trim;
+array/objeto/parâmetro desconhecido rejeitado como 400. Vazia/ausente retorna a
+lista normal ativa; o serviço mobile não chama search se vazia. Predicado SQL
+parametrizado inclui título, descrição e EXISTS em Notes reais; exclui Tasks
+soft-deleted, incluindo matches só em suas Notes. Resultados canônicos completos,
+sem duplicar Task por múltiplas Notes ou match em mais de um campo; montagem de
+subtarefas/reminders em lote, sem N+1. Função SQLite task_contains usa o helper
+compartilhado JavaScript, substring literal e lowercase Unicode, preservando acentos.
+Sem FTS, migration ou dependência nova; custo de varredura permanece limite conhecido.
+
+Mobile usa fromApiTask, debounce 300 ms e tokens de intenção/revisão para ignorar
+resposta/erro antigo antes de publicar resultados ou fazer merge. Query vazia
+retorna imediatamente às Tasks do Context. Busca parcial não substitui a coleção
+inteira/cache nem dispara materialização/reconciliação de scheduler. Atualização
+após mutações confirmadas de Task/Note, sync e retorno/foco/foreground; sair da
+Home invalida debounce. Composição: resultado permitido pela busca ∩ Favoritas →
+filterTasks → sortTasks, preservando dashboard, agrupamento e navegação por Task ID.
+Erro mantém Tasks/cache e exibe fallback claramente limitado a título/descrição;
+Notes não são anunciadas como pesquisadas offline. Etiquetas continuam fora de RF13.
+
+### T02 — favoritos end-to-end
+
+Coluna existente reutilizada, PATCH aceita apenas boolean real, resposta normaliza
+null legado como false. History usa UPDATED/fields favorite somente se mudou;
+patch repetido sem alteração não gera novo evento. Task.favorite mapeado nas
+leituras/payloads, cache antigo normalizado false e fingerprint/merge de sync
+preservando o valor canônico. toggleFavorite no Context espera PATCH antes de
+confirmar, com bloqueio por Task. API falhou: estado anterior; API confirmou/cache
+falhou: estado confirmado com aviso, sem repetir. Task somente local exige sync.
+
+Estrela funcional/acessível no card interno da Home, alvo 44 dp, selected/busy e
+stopPropagation; chip Favoritas dedicado compõe busca/filtros. Não foi necessário
+alterar Details. Favoritar ocorrência altera somente aquela Task, sem série/vizinhas.
+
+### T03 — filtros salvos locais
+
+SavedTaskFilter contém id opaco estável, name com trim obrigatório e limite 80,
+filters copiado com somente status/priority/projectId/period, createdAt e updatedAt.
+Nomes iguais são permitidos; query/sorting/Favoritas não entram no snapshot.
+AsyncStorage @taskflow:saved-task-filters:v1 com versão, validação de registros,
+IDs/enums/timestamps e escritas serializadas. JSON inválido não é sobrescrito;
+falha de gravação não anuncia sucesso nem remove configurações anteriores.
+
+Modal compacto na Home: salvar atual (bloqueado sem critério), listar, aplicar,
+excluir e erro de storage. Aplicar troca só TaskFilters, sem alterar query/sorting/
+Favoritas. Excluir remove só o registro, preservando filtro ativo e Tasks/Projects.
+Project ID é mantido, incluindo semântica null/legado vazio e aliases local/remoto;
+rótulos/seleção reconhecem ambos. Homônimos não são fundidos; indisponível permanece
+com ID exato e aviso. Preferências locais, sem endpoint/tabela/sync de filtros.
+
+### Evidências desta etapa
+
+| Verificação | Resultado |
+|---|---|
+| npm run test:ci-scripts | 16 aprovados |
+| npm run lint:ci | Sem regressão; 3 erros/7 warnings conhecidos, 10 diagnósticos / baseline 13 |
+| npm run typecheck:ci | Sem regressão; 11 diagnósticos conhecidos / baseline 11 |
+| npm run test:ci | 643 testes / 34 suítes aprovadas (39 novos testes sobre 604) |
+| Backend npm run typecheck / npm test / npm run build | Aprovados; 456 testes / 17 suítes (21 novos sobre 435) |
+| git diff --check | Aprovado |
+| Android debug/release e aceite manual | Adiados para T05; nenhuma alteração nativa |
+
+Novos testes cobrem busca por campos/Notes, caixa/acentos/literais/trim, queries
+inválidas/vazias, homônimos/tombstones/duplicação; debounce/concorrência/retorno,
+merge parcial sem scheduler, Note invalidando resultados, fallback/cache;
+favorito/PATCH/History/isolamento/reabertura/sync/API/cache/busy; filtro salvo,
+identidade/nomes iguais/snapshot/JSON/storage/projetos e aplicação/exclusão sem
+alterar query/sorting/Favoritas. Fixtures antigas explicitam favorite false; o teste
+que rejeitava favorite no PATCH foi atualizado para rejeitar tipo não booleano.
+
+A CI será executada na própria branch por workflow_dispatch após o push, sem abrir
+PR final. A aprovação destes checks não equivale à validação Android/T05 ou ao
+polimento T04. Pendências: revisão/ajustes finais de UX em T04, regressão/Android,
+documentação final e PR em T05, somente após nova autorização.
