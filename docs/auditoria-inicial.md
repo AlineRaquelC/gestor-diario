@@ -1,7 +1,7 @@
 # Auditoria inicial — 2026-10-01
 
 ## Estrutura e Git antes das alterações
-Aplicação na raiz com Android, iOS, src/screens, src/navigation, src/components e src/context. Services e backend ausentes. Documentação existente: apenas docs/prompts/setup-github-codex.md. Cópia de template em GerenciadorTarefas/, não rastreada; nenhuma estrutura foi movida ou excluída.
+Aplicação na raiz com Android, iOS, src/screens, src/navigation, src/components e src/context. Services e backend ausentes. Documentação técnica ainda não estruturada. Cópia de template em GerenciadorTarefas/, não rastreada; nenhuma estrutura foi movida ou excluída.
 
 Git inicializado, branch main, commit 02ff8fa (Initial commit), sem remotes. Alterações anteriores em App.tsx, package.json e package-lock.json; src/, docs/ e GerenciadorTarefas/ não rastreados.
 

@@ -2,14 +2,16 @@
 
 Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido em React Native e integrado progressivamente a uma API Node.js com persistência SQLite.
 
-## Status atual — 2026-10-21
+## Status atual — 08/11/2026
 
-**Sprint 1 — fechamento técnico concluído: 15/15 Issues concluídas — 100%.**
+- **Sprint 1:** 15/15 Issues concluídas, 100% ([fechamento](docs/sprints/sprint-1.md)).
+- **Sprint 2 core:** #39–#42 concluídas e integradas em `dev`, **4/4 Issues,
+  37/37 pontos, 100%** ([fechamento e evidências](docs/sprints/sprint-2.md)).
+- **Stretch #43:** gate técnico NO-GO, não implementada e OPEN. Seus 13 pontos
+  ficam fora do core entregue; adiada por segurança/integridade.
 
-A Sprint havia sido apresentada/entregue anteriormente; os gargalos técnicos
-remanescentes foram concluídos posteriormente, em 21/10/2026. Não existem Issues
-abertas no milestone Sprint 1. Rastreabilidade completa no [fechamento](docs/sprints/sprint-1.md).
-A conclusão da Sprint não implica aceite integral de todos os PBIs da Entrega 1.
+A Sprint 2 concluiu o core selecionado da Entrega 2, não a Entrega 2 inteira.
+Não houve promoção `dev → main` neste fechamento.
 
 ## Funcionalidades atuais
 
@@ -31,6 +33,17 @@ A API é canônica para registros identificados; AsyncStorage conserva cache,
 vínculos e snapshots de versões locais. Registros antigos sem projeto identificável
 ou dados válidos permanecem locais e pendentes, sem associação por nome. Consulte
 [a política e as evidências de sincronização](docs/arquitetura/sincronizacao-manual.md).
+
+Recortes da Sprint 2:
+
+- Lembretes configuráveis e notificações locais Android, conforme a
+  [política implementada](docs/sprints/sprint-2-issue-39.md).
+- Recorrência diária/semanal/mensal com ocorrências materializadas pelo backend,
+  janela até hoje + 31 dias inclusive, sem backfill (#40 / PR #48).
+- Busca por título, descrição e observações persistidas, favoritos e filtros salvos
+  (#41 / PR #50); etiquetas e drag and drop permanecem fora.
+- Metas diária/semanal/mensal por quantidade concluída e relatórios com texto e
+  barras simples (#42 / PR #52); sem tempo total de execução.
 
 ## Tecnologias
 
@@ -60,22 +73,25 @@ cache/apoio local durante a transição
 
 ## Validação e dívidas técnicas
 
-- Backend: migrations, typecheck e build aprovados; **278 testes em 11 suítes**.
-- Mobile: **322 testes em 20 suítes** no fluxo atual do CI.
-- Issue #13 concluída, PR #34 integrado. GitHub Actions executa em PR/push de
-  `dev`/`main`: **Mobile ✅ / Backend ✅** na
-  [execução real do PR #34](https://github.com/AlineRaquelC/gestor-diario/actions/runs/39618412835).
-- O CI bloqueia regressões novas em relação às dívidas explicitamente baselineadas:
-  11 diagnósticos TypeScript (9 identidades), 3 erros e 10 warnings ESLint históricos.
-  Backend permanece estrito. CI verde não significa ausência de erros no projeto.
+- Referência final da Sprint 2: **697 testes mobile / 37 suítes**, **456 backend /
+  17 suítes** e **16 validadores CI aprovados**; backend typecheck/build aprovados.
+- Android assembleDebug/assembleRelease aprovados no fechamento da #42, com
+  Hermes, New Architecture e Codegen; validação manual Android registrada.
+- [CI de dev Mobile/Backend aprovada após o PR #53](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42485415796),
+  commit `b850b5f`. GitHub Actions valida PR/push de `dev`/`main`.
+- Lint/TypeScript sem regressão nem ampliação de baselines: 3 erros/7 warnings
+  conhecidos no lint (10 diagnósticos / baseline 13); TS 11 / baseline 11.
+  Backend permanece estrito. CI verde não significa ausência de dívida técnica.
 - A dívida específica de `App.test.tsx`/Jest (imports ESM não transformados,
   AsyncStorage/React Navigation) permanece; o teste tem exclusão explícita no CI.
 - Alertas conhecidos de dependências permanecem, incluindo a cadeia Drizzle Kit.
 - Offline parcial; três Tasks legadas sem `projectId` preservadas localmente,
   com pendências informadas pela UI. Filhos legados não são migrados automaticamente.
-- Sem sincronização automática, autenticação real ou recursos da Entrega 2.
+- Sincronização automática e autenticação real permanecem fora. Login é visual,
+  sem JWT, conta online ou biometria. Recortes da Entrega 2 foram implementados,
+  mas a entrega completa continua parcial; perfis locais não foram implementados.
 
-Esses limites não são Issues abertas dentre as 15 da Sprint 1. As evidências de
+Essas dívidas não representam Issues reabertas do core concluído. As evidências de
 execução são as já registradas nos PRs/documentos; esta atualização é documental,
 sem reexecutar testes funcionais ou declarar dívidas corrigidas.
 
@@ -126,7 +142,8 @@ O planejamento inicial registrava 4/13 = 30,8%. Após a auditoria/refinamento qu
 - [Requisitos oficiais](docs/requisitos/requisitos-oficiais.md)
 - [Backlog do produto](docs/backlog/backlog-produto.md)
 - [Plano de entregas](docs/backlog/entregas.md)
-- [Sprint 1 e estado atual](docs/sprints/sprint-1.md)
+- [Sprint 1 — fechamento histórico](docs/sprints/sprint-1.md)
+- [Sprint 2 — core concluído e stretch adiada](docs/sprints/sprint-2.md)
 - [Issues e PRs da Sprint 1](docs/sprints/sprint-1-issues.md)
 - [Arquitetura inicial (histórico)](docs/arquitetura/arquitetura-inicial.md)
 - [Decisões](docs/decisoes/README.md)

@@ -1,6 +1,11 @@
 # Refinamento técnico curto — Issue #41
 
-## Estado e recorte — 07/11/2026
+> **Estado final — 08/11/2026:** #41 CLOSED/completed, integrada em dev pelo
+> [PR #50](https://github.com/AlineRaquelC/gestor-diario/pull/50), commit `e97390d`.
+> T01–T05 aprovados, incluindo Android manual. Os registros abaixo preservam
+> o estado anterior à integração; RF13 parcial e limites permanecem válidos.
+
+## Registro anterior à integração — 07/11/2026
 
 Base auditada: `dev` limpa/atualizada em `3fa5970`; #39 e #40 CLOSED/completed,
 integradas pelos PRs #46/#48. [CI de dev aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42404995166).
@@ -9,7 +14,7 @@ T01–T04 implementados. **T05 Android manual aprovada em 07/11/2026 pela usuár
 com regressão/builds já aprovados. Onze cenários funcionais registrados abaixo;
 homônimos permanecem cobertos automaticamente por projectId, sem massa artificial.
 O refinamento original está preservado abaixo; o registro de execução ao final
-descreve o estado atual. [PR #50](https://github.com/AlineRaquelC/gestor-diario/pull/50)
+descreve o estado naquele momento. [PR #50](https://github.com/AlineRaquelC/gestor-diario/pull/50)
 OPEN para dev, aguardando revisão/merge. Issue permanece OPEN até integração,
 sem merge automático.
 Prazo máximo de commit/push: **08/11/2026**. #42 não iniciada; sem `dev → main`.

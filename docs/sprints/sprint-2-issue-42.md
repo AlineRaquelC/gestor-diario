@@ -1,11 +1,13 @@
 # Issue #42 — refinamento técnico de metas e relatórios
 
 08/11/2026 · [Issue #42](https://github.com/AlineRaquelC/gestor-diario/issues/42)
-OPEN · PBI-17 parcial / RF22 parcial, RF46 e RF47 · Planning Poker **8**.
+CLOSED/completed · PBI-17 parcial / RF22 parcial, RF46 e RF47 · Planning Poker **8**.
 Refinamento integrado pelo PR #51; T01–T03 implementados em 08/11/2026 na
 branch `feature/42-productivity-goals-reports`. T04 automatizada concluída e
-**T04 Android manual aprovada em 08/11/2026 pela usuária**; PR #52 para revisão.
-Issue OPEN, sem fechamento ou merge nesta etapa.
+**T04 Android manual aprovada em 08/11/2026 pela usuária**.
+[PR #52](https://github.com/AlineRaquelC/gestor-diario/pull/52) integrado em dev no
+commit `2d23931`; Issue CLOSED/completed. Registros de execução abaixo preservam
+o estado anterior à integração; RF22 parcial e demais limites permanecem válidos.
 Base de implementação `dev` em `e9381b0` (PR #51); #39/#40/#41 CLOSED/completed.
 [CI da base Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42474258583).
 Commit/push no máximo em **08/11/2026**; #43 e promoção dev → main fora desta etapa.
@@ -187,8 +189,6 @@ Validação solicitada para T01–T03 executada:
 | Backend typecheck/test/build | Aprovados; **456 testes / 17 suítes** |
 | git diff --check | Aprovado |
 
-Restrições de subprocessos/servidores HTTP do sandbox exigiram executar os checks
-com permissão fora dele; resultados acima correspondem às execuções concluídas.
 Nenhuma baseline, dependência, migration ou arquivo backend foi alterado.
 Na conclusão de T01–T03, T04 permanecia pendente; resultado final registrado abaixo.
 RF22 parcial: quantidade concluída por prazo/estado atual, sem tempo/esforço,
@@ -267,6 +267,6 @@ RF22 **parcial**, somente quantidade de Tasks concluídas, sem tempo total/esfor
 ou limite de cadastro. RF46 metas semanais/mensais; RF47 texto+barras simples.
 PBI-17 não integral. Preferência local sem sync de metas; snapshot atual por prazo,
 não analytics histórico. Sem projeção de recorrência, BI, exportação ou cronômetro.
-PR [#52](https://github.com/AlineRaquelC/gestor-diario/pull/52) OPEN para dev com
-Closes #42 e T04 Android manual aprovada; aguardar revisão, sem merge/fechamento
-manual nesta etapa. #43 não iniciada; sem dev → main.
+O PR #52 foi preparado com Closes #42 e T04 Android manual aprovada;
+posteriormente integrado em dev, com #42 CLOSED/completed conforme estado final
+no início deste documento. #43 não iniciada; sem dev → main.
