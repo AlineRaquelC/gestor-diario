@@ -1,0 +1,45 @@
+import { createRecurrenceSeriesRouter } from './routes/recurrence-series.js';
+import { RecurrenceSeriesService } from './services/recurrence-series.js';
+import { RecurrenceSeriesRepository } from './repositories/recurrence-series.js';
+import type { Clock } from './domain/reminders/index.js';
+import cors from 'cors';
+import express from 'express';
+import type { openDatabase } from './database/index.js';
+import { healthRouter } from './routes/health.js';
+import { createProjectsRouter } from './routes/projects.js';
+import { ProjectsController } from './controllers/projects.js';
+import { ProjectsService } from './services/projects.js';
+import { ProjectsRepository } from './repositories/projects.js';
+import { createTasksRouter } from './routes/tasks.js';
+import { TasksController } from './controllers/tasks.js';
+import { TasksService } from './services/tasks.js';
+import { TasksRepository } from './repositories/tasks.js';
+import { errorHandler } from './middlewares/error-handler.js';
+import { SubtasksRepository } from './repositories/subtasks.js';
+import { SubtasksService } from './services/subtasks.js';
+import { SubtasksController } from './controllers/subtasks.js';
+import { createSubtasksRouter } from './routes/subtasks.js';
+import { NotesRepository } from './repositories/notes.js';
+import { NotesService } from './services/notes.js';
+import { NotesController } from './controllers/notes.js';
+import { createNotesRouter } from './routes/notes.js';
+
+// The entry point owns the database; tests inject an isolated connection.
+export function createApp(db: ReturnType<typeof openDatabase>['db'], recurrenceClock: Clock = Date.now) {
+  const app = express();
+  const controller = new ProjectsController(new ProjectsService(new ProjectsRepository(db)));
+  app.use(cors());
+  app.use(express.json());
+  app.use(healthRouter);
+  app.use('/projects', createProjectsRouter(controller));
+  app.use('/tasks', createTasksRouter(new TasksController(
+    new TasksService(new TasksRepository(db), new ProjectsRepository(db), new SubtasksRepository(db)),
+  )));
+  app.use('/tasks', createSubtasksRouter(new SubtasksController(new SubtasksService(new TasksRepository(db), new SubtasksRepository(db)))));
+  app.use('/tasks', createNotesRouter(new NotesController(new NotesService(new TasksRepository(db), new NotesRepository(db)))));
+  app.use('/recurrence-series', createRecurrenceSeriesRouter(new RecurrenceSeriesService(
+    new RecurrenceSeriesRepository(db), new TasksRepository(db), new ProjectsRepository(db), new SubtasksRepository(db), recurrenceClock,
+  )));
+  app.use(errorHandler);
+  return app;
+}

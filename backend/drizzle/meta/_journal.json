@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790979606798,
+      "tag": "0000_legal_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792413800344,
+      "tag": "0001_shocking_lily_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792581940814,
+      "tag": "0002_massive_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793017389346,
+      "tag": "0003_task_reminders",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793311355889,
+      "tag": "0004_recurrence_series",
+      "breakpoints": true
+    }
+  ]
+}

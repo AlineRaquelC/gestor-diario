@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "exclude": [
+    "../../backend",
+    "../../**/node_modules",
+    "../../**/Pods"
+  ],
+  "compilerOptions": {
+    "types": [
+      "react",
+      "react-native",
+      "jest",
+      "node"
+    ]
+  }
+}

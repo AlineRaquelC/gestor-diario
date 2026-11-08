@@ -1,0 +1,8 @@
+Processo ausente: am kill manteve PID 6005 vivo às 22:53:44Z.
+Antes do trigger 1792796078633, executado pelo ADB:
+  adb shell run-as com.gerenciadortarefas kill -9 6005
+  adb shell pidof com.gerenciadortarefas
+Resultado: PID vazio.
+  adb shell dumpsys package com.gerenciadortarefas
+Resultado: stopped=false, notLaunched=false. Sem force-stop neste ensaio.
+Tela colocada em sleep pelo harness; bloqueio seguro com credencial não configurado.

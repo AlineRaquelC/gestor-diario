@@ -1,0 +1,78 @@
+APKs finais sem react-native-notify-kit — Pixel_7 API 36
+Host UTC; logcat America/Sao_Paulo; timestamps nativos em epoch ms UTC.
+Preparação do AVD omitida; eventos nativos repetidos omitidos.
+
+2026-10-24T00:11:03Z PHASE final debug without rejected dependency
+2026-10-24T00:11:05Z Performing Streamed Install
+2026-10-24T00:11:30Z PHASE final force-stop expiry
+2026-10-24T00:11:32Z SCHEDULE {"notificationId": "task-reminder:gate-task:gate-reminder", "triggerAt": 1792800750788, "payload": "Gate de lembretes"}
+2026-10-24T00:11:32Z STORE <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="task-reminder:gate-task:gate-reminder">{&quot;notificationId&quot;:&quot;task-reminder:gate-task:gate-reminder&quot;,&quot;triggerAt&quot;:1792800750788,&quot;payload&quot;:&quot;Gate de lembretes&quot;}</string>
+</map>
+2026-10-24T00:11:33Z PID stopped
+2026-10-24T00:13:23Z CAPTURE final force-stop after expiry
+2026-10-24T00:13:23Z --------- beginning of main
+10-23 21:11:26.598  4064  4165 I ProjectReminderGate: cancelled task-reminder:gate-task:gate-reminder
+10-23 21:11:26.617  4064  4164 I ReactNativeJS: 'REMINDER_GATE', '{"action":"cancel","at":"2026-10-24T00:11:26.606Z","evidence":"{\\"usable\\":true,\\"records\\":[]}"}'
+10-23 21:11:28.673  4064  4165 I ProjectReminderGate: cancelled task-reminder:gate-task:gate-reminder-other
+10-23 21:11:28.678  4064  4164 I ReactNativeJS: 'REMINDER_GATE', '{"action":"cancelOther","at":"2026-10-24T00:11:28.677Z","evidence":"{\\"usable\\":true,\\"records\\":[]}"}'
+10-23 21:11:30.809  4064  4165 I ProjectReminderGate: scheduled {"notificationId":"task-reminder:gate-task:gate-reminder","triggerAt":1792800750788,"payload":"Gate de lembretes"}
+10-23 21:11:30.812  4064  4164 I ReactNativeJS: 'REMINDER_GATE', '{"action":"schedule","at":"2026-10-24T00:11:30.810Z","evidence":"{\\"notificationId\\":\\"task-reminder:gate-task:gate-reminder\\",\\"triggerAt\\":1792800750788,\\"payload\\":\\"Gate de lembretes\\"}"}'
+2026-10-24T00:13:23Z STORE <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="task-reminder:gate-task:gate-reminder">{&quot;notificationId&quot;:&quot;task-reminder:gate-task:gate-reminder&quot;,&quot;triggerAt&quot;:1792800750788,&quot;payload&quot;:&quot;Gate de lembretes&quot;}</string>
+</map>
+2026-10-24T00:13:23Z ALARMS           type=RTC_WAKEUP tag=*walarm*:com.gerenciadortarefas.REMINDER_GATE_ALARM
+2026-10-24T00:13:23Z NOTIFICATIONS none
+2026-10-24T00:13:34Z UI ["✓", "Gestor Diário", "Organize seu dia e conclua o que importa.", "E-mail", "seuemail@email.com", "Senha", "Digite sua senha", "Esqueci minha senha", "Entrar", "Ainda não possui uma conta?", "Criar conta"]
+2026-10-24T00:13:34Z CAPTURE final normal opening discards expired
+2026-10-24T00:13:34Z --------- beginning of main
+10-23 21:13:24.581  4338  4338 I ProjectReminderGate: cancelled task-reminder:gate-task:gate-reminder
+10-23 21:13:24.588  4338  4338 I ProjectReminderGate: recovery discarded id=task-reminder:gate-task:gate-reminder triggerAt=1792800750788 now=1792800804564 reason=android.intent.action.BOOT_COMPLETED
+2026-10-24T00:13:34Z STORE <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map />
+2026-10-24T00:13:34Z ALARMS           type=RTC_WAKEUP tag=*walarm*:com.gerenciadortarefas.REMINDER_GATE_ALARM
+2026-10-24T00:13:34Z NOTIFICATIONS none
+2026-10-24T00:13:41Z SCHEDULE {"notificationId": "task-reminder:gate-task:gate-reminder", "triggerAt": 1792800999720, "payload": "Gate de lembretes"}
+2026-10-24T00:13:41Z STORE <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="task-reminder:gate-task:gate-reminder">{&quot;notificationId&quot;:&quot;task-reminder:gate-task:gate-reminder&quot;,&quot;triggerAt&quot;:1792800999720,&quot;payload&quot;:&quot;Gate de lembretes&quot;}</string>
+</map>
+2026-10-24T00:13:41Z PHASE release install / normal launch / process kill
+2026-10-24T00:13:43Z Performing Streamed Install
+2026-10-24T00:13:53Z UI ["✓", "Gestor Diário", "Organize seu dia e conclua o que importa.", "E-mail", "seuemail@email.com", "Senha", "Digite sua senha", "Esqueci minha senha", "Entrar", "Ainda não possui uma conta?", "Criar conta"]
+2026-10-24T00:14:02Z RELEASE PID after am kill
+2026-10-24T00:14:02Z RELEASE package state     User 0: ceDataInode=549508 deDataInode=393805 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+2026-10-24T00:19:06Z RELEASE delivery --------- beginning of main
+10-23 21:13:39.749  4338  4384 I ProjectReminderGate: scheduled {"notificationId":"task-reminder:gate-task:gate-reminder","triggerAt":1792800999720,"payload":"Gate de lembretes"}
+10-23 21:13:39.758  4338  4383 I ReactNativeJS: 'REMINDER_GATE', '{"action":"schedule180","at":"2026-10-24T00:13:39.750Z","evidence":"{\\"notificationId\\":\\"task-reminder:gate-task:gate-reminder\\",\\"triggerAt\\":1792800999720,\\"payload\\":\\"Gate de lembretes\\"}"}'
+10-23 21:13:44.627  4499  4499 I ProjectReminderGate: recovery rearmed id=task-reminder:gate-task:gate-reminder triggerAt=1792800999720 now=1792800824624 reason=activity-open
+10-23 21:13:44.889  4499  4499 I ProjectReminderGate: recovery rearmed id=task-reminder:gate-task:gate-reminder triggerAt=1792800999720 now=1792800824886 reason=android.intent.action.MY_PACKAGE_REPLACED
+10-23 21:18:51.152  4704  4704 I ProjectReminderGate: delivered id=task-reminder:gate-task:gate-reminder triggerAt=1792800999720 deliveredAt=1792801131134 delayMs=131414
+2026-10-24T00:19:06Z     NotificationRecord(0x0a41f435: pkg=com.gerenciadortarefas user=UserHandle{0} id=0 tag=task-reminder:gate-task:gate-reminder importance=4 key=0|com.gerenciadortarefas|0|task-reminder:gate-task:gate-reminder|10217: Notification(channel=project-reminder-gate shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=AUTO_CANCEL color=0x00000000 vis=PRIVATE))
+                android.title=String (Gate de lembretes)
+                android.text=String (triggerAt=1792800999720 deliveredAt=1792801131134 delayMs=131414)
+2026-10-24T00:19:06Z PHASE restore debug / empty native gate / normal app
+2026-10-24T00:19:07Z Performing Streamed Install
+2026-10-24T00:19:19Z CAPTURE final empty gate
+2026-10-24T00:19:19Z --------- beginning of main
+10-23 21:19:13.007  4779  4871 I ProjectReminderGate: cancelled task-reminder:gate-task:gate-reminder
+10-23 21:19:13.028  4779  4870 I ReactNativeJS: 'REMINDER_GATE', '{"action":"cancel","at":"2026-10-24T00:19:13.020Z","evidence":"{\\"usable\\":true,\\"records\\":[]}"}'
+10-23 21:19:15.069  4779  4871 I ProjectReminderGate: cancelled task-reminder:gate-task:gate-reminder-other
+10-23 21:19:15.075  4779  4870 I ReactNativeJS: 'REMINDER_GATE', '{"action":"cancelOther","at":"2026-10-24T00:19:15.073Z","evidence":"{\\"usable\\":true,\\"records\\":[]}"}'
+10-23 21:19:17.177  4779  4870 I ReactNativeJS: 'REMINDER_GATE', '{"action":"inspect","at":"2026-10-24T00:19:17.175Z","evidence":"{\\"usable\\":true,\\"records\\":[]}"}'
+2026-10-24T00:19:19Z STORE <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map />
+2026-10-24T00:19:19Z ALARMS           type=RTC_WAKEUP tag=*walarm*:com.gerenciadortarefas.REMINDER_GATE_ALARM
+      *walarm*:com.gerenciadortarefas.REMINDER_GATE_ALARM
+      *walarm*:com.gerenciadortarefas.REMINDER_GATE_ALARM
+2026-10-24T00:19:19Z NOTIFICATIONS none
+2026-10-24T00:19:26Z UI ["✓", "Gestor Diário", "Organize seu dia e conclua o que importa.", "E-mail", "seuemail@email.com", "Senha", "Digite sua senha", "Esqueci minha senha", "Entrar", "Ainda não possui uma conta?", "Criar conta"]
+2026-10-24T00:19:26Z FINAL_DEVICE_GATE_FINISHED
+
+Captura adicional do AlarmManager durante a espera release:
+RTC_WAKEUP origWhen 1792800999720 com.gerenciadortarefas
+  tag=*walarm*:com.gerenciadortarefas.REMINDER_GATE_ALARM
+  origWhen=2026-10-23 21:16:39.720 window=+2m11s123ms repeatInterval=0 flags=0x20
+  whenElapsed=-2m9s714ms maxWhenElapsed=+1s409ms

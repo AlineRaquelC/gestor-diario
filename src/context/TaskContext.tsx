@@ -1,32 +1,63 @@
+import { normalizeRecurrenceCache, recurrenceSummary } from '../models/recurrence';
+import type { RecurrenceFields, RecurrenceSeries, RecurrenceFrequency } from '../models/recurrence';
+import { materializeRecurrences, getRecurrenceSeries, updateRecurrenceSeries, activateRecurrence } from '../services/recurrenceService';
+import { fromApiTask } from '../services/taskService';
 import React, {
   createContext,
   useContext,
   useEffect,
   useState,
+  useRef,
+  useCallback,
   ReactNode,
 } from 'react';
 
+import type { Reminder } from '../models/reminder';
+import { normalizeReminderCache } from '../models/reminder';
+import { AppState } from 'react-native';
+import { reminderScheduler, schedulingFingerprint } from '../services/reminderScheduler';
+import type { SchedulingResult } from '../services/reminderScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useProjects } from './ProjectContext';
+import { createTask, resolveProject, getTasks, getTaskById as fetchTaskById, updateTask as patchTask, searchTasks as fetchSearchTasks } from '../services/taskService';
+import { getTaskHistory, createSubtask, updateSubtask, deleteSubtask, mergeSubtasks } from '../services/taskService';
+import type { NewTask, TaskHistoryEvent, TaskUpdate } from '../services/taskService';
+import { deleteTask as remoteDeleteTask, restoreTask as remoteRestoreTask } from '../services/taskService';
+import { normalizeTaskStatus } from '../models/taskStatus';
+import type { TaskStatus } from '../models/taskStatus';
+import { getTaskNotes, createTaskNote, updateTaskNote, deleteTaskNote } from '../services/noteService';
+import { synchronize, preserveTask } from '../services/syncService';
+import { assertDataAvailable, dataGuard } from '../services/dataGuard';
+import { sortNotes } from '../models/note';
+import type { Note } from '../models/note';
+export type { TaskStatus } from '../models/taskStatus';
 
 export type Priority =
   | 'high'
   | 'medium'
   | 'low';
 
-export type TaskStatus =
-  | 'todo'
-  | 'in_progress'
-  | 'review'
-  | 'completed';
-
 export type Subtask = {
   id: string;
   title: string;
   done: boolean;
+  remote?: boolean;
 };
 
-export type Task = {
+export type Task = RecurrenceFields & {
   id: string;
+  remoteId?: string;
+  localId?: string;
+  clientId?: string;
+  deletedAt?: string | null;
+  syncPending?: string;
+  syncSnapshot?: Omit<Task, 'syncSnapshot' | 'syncSnapshots'>;
+  syncSnapshots?: Omit<Task, 'syncSnapshot' | 'syncSnapshots'>[];
+  projectId?: string;
+  progress?: number;
+  favorite?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 
   title: string;
 
@@ -48,28 +79,57 @@ export type Task = {
 
   subtasks?: Subtask[];
 
-  reminders?: string[];
+  reminders?: Reminder[];
+  reminderTimeZone?: string | null;
+  dueDateKey?: string;
+  startDateKey?: string;
+  remindersConfirmed?: boolean;
+  legacyReminders?: string[];
 };
 
 type TaskContextType = {
+  loadRecurrenceSeries: (id: string) => Promise<RecurrenceSeries>;
+  changeRecurrenceRule: (taskId: string, seriesId: string, expectedUpdatedAt: string, frequency: RecurrenceFrequency) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
+  activateTaskRecurrence: (taskId: string, frequency: RecurrenceFrequency, timeZone: string, requestId: string) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
   tasks: Task[];
+  searchRevision: number;
+  searchTasks: (query: string, isCurrent: () => boolean) => Promise<Task[] | null>;
+  toggleFavorite: (id: string) => ReturnType<TaskContextType['updateTask']>;
+  loading: boolean;
+  reminderScheduling: Record<string, SchedulingResult>;
+  syncing: boolean;
+  synchronizeManually: () => Promise<import('../services/syncService').SyncResult>;
+  readError: string | null;
+  loadTaskById: (id: string) => Promise<Task>;
+  taskHistory: Record<string, TaskHistoryEvent[]>;
+  loadTaskHistory: (id: string) => Promise<void>;
+  taskNotes: Record<string, Note[]>;
+  loadTaskNotes: (id: string) => Promise<void>;
+  addTaskNote: (id: string, content: string) => Promise<{ cacheSaved: boolean }>;
+  editTaskNote: (id: string, noteId: string, content: string) => Promise<{ cacheSaved: boolean }>;
+  removeTaskNote: (id: string, noteId: string) => Promise<{ cacheSaved: boolean }>;
 
   toggleTask: (
     id: string,
-  ) => void;
+  ) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
 
-  deleteTask: (
-    id: string,
-  ) => void;
+  deleteTask: (id: string) => Promise<{ cacheSaved: boolean; scheduling: SchedulingResult }>;
+  restoreTask: (id: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
+  undo: { id: string; expiresAt: number } | null;
 
   addTask: (
-    task: Task,
-  ) => void;
+    task: NewTask,
+  ) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult; recurrenceRefreshFailed?: boolean }>;
 
   updateTask: (
     id: string,
-    updatedTask: Partial<Task>,
-  ) => void;
+    updatedTask: TaskUpdate,
+  ) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
+
+  updateTaskLocal: (id: string, changes: Partial<Task>) => void;
+  addSubtask: (taskId: string, title: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
+  toggleSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
+  removeSubtask: (taskId: string, subtaskId: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
 
   getTaskById: (
     id: string,
@@ -79,215 +139,26 @@ type TaskContextType = {
 const STORAGE_KEY =
   '@taskflow:tasks';
 
-const initialTasks: Task[] = [
-  {
-    id: '1',
-
-    title:
-      'Criar telas no Figma',
-
-    description:
-      'Finalizar protótipo das telas para apresentação da disciplina.',
-
-    project:
-      'Faculdade',
-
-    time:
-      '18:00',
-
-    priority:
-      'high',
-
-    status:
-      'in_progress',
-
-    done:
-      false,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        21,
-      ).toISOString(),
-
-    subtasks: [
-      {
-        id: 's1',
-        title:
-          'Criar backlog',
-        done:
-          true,
-      },
-      {
-        id: 's2',
-        title:
-          'Configurar ambiente',
-        done:
-          true,
-      },
-      {
-        id: 's3',
-        title:
-          'Criar telas no Figma',
-        done:
-          false,
-      },
-      {
-        id: 's4',
-        title:
-          'Preparar apresentação',
-        done:
-          false,
-      },
-    ],
-
-    reminders:
-      [],
-  },
-
-  {
-    id: '2',
-
-    title:
-      'Revisar proposta do cliente',
-
-    description:
-      'Revisar os pontos principais da proposta.',
-
-    project:
-      'Marketing',
-
-    time:
-      '09:00',
-
-    priority:
-      'high',
-
-    status:
-      'todo',
-
-    done:
-      false,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        22,
-      ).toISOString(),
-
-    subtasks:
-      [],
-
-    reminders:
-      [],
-  },
-
-  {
-    id: '3',
-
-    title:
-      'Reunião de alinhamento',
-
-    description:
-      'Reunião para alinhamento das atividades.',
-
-    project:
-      'Geral',
-
-    time:
-      '10:30',
-
-    priority:
-      'medium',
-
-    status:
-      'in_progress',
-
-    done:
-      false,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        23,
-      ).toISOString(),
-
-    subtasks:
-      [],
-
-    reminders:
-      [],
-  },
-
-  {
-    id: '4',
-
-    title:
-      'Atualizar documentação da API',
-
-    description:
-      'Atualizar documentação técnica.',
-
-    project:
-      'Desenvolvimento',
-
-    time:
-      '14:00',
-
-    priority:
-      'low',
-
-    status:
-      'completed',
-
-    done:
-      true,
-
-    startDate:
-      new Date(
-        2026,
-        8,
-        19,
-      ).toISOString(),
-
-    dueDate:
-      new Date(
-        2026,
-        8,
-        20,
-      ).toISOString(),
-
-    subtasks:
-      [],
-
-    reminders:
-      [],
-  },
-];
+// Startup reads preserve local candidates; only explicit manual sync uploads them.
+function mergeReadTasks(current: Task[], remote: Task[]): Task[] {
+  const normalize = (task: Task): Task => {
+    const status = task.status ? normalizeTaskStatus(task.status) : task.done ? 'completed' : 'todo';
+    return { ...task, favorite: task.favorite === true, status, done: status === 'completed',
+      progress: status === 'completed' ? 100 : task.progress === 100 ? 0 : task.progress };
+  };
+  const byId = new Map(current.map(task => [task.remoteId ?? task.id, normalize(task)]));
+  for (const task of remote) {
+    const cached = byId.get(task.id);
+    // An older in-flight GET must not undo a confirmed PATCH.
+    if (cached?.updatedAt && task.updatedAt && Date.parse(task.updatedAt) < Date.parse(cached.updatedAt)) {continue;}
+    byId.set(task.id, normalize({
+      ...preserveTask(task, cached),
+      subtasks: mergeSubtasks(task.subtasks, cached?.subtasks),
+      reminders: task.reminders ?? [],
+    }));
+  }
+  return [...byId.values()].filter(task => !task.deletedAt);
+}
 
 const TaskContext =
   createContext<
@@ -303,8 +174,98 @@ export function TaskProvider({
     tasks,
     setTasks,
   ] = useState<Task[]>(
-    initialTasks,
+    [],
   );
+
+  const { projects, updateProject, hydrated: projectsHydrated, readError: projectReadError, flushProjects, persistProjects, publishProjects } = useProjects();
+  const [syncing, setSyncing] = useState(false);
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const mutationRevision = useRef(0);
+  const [searchRevision, setSearchRevision] = useState(0);
+  const [reminderScheduling, setReminderScheduling] = useState<Record<string, SchedulingResult>>({});
+  const schedulingRef = useRef<Record<string, SchedulingResult>>({});
+  const reportScheduling = useCallback((results: Record<string, SchedulingResult>) => {
+    schedulingRef.current = { ...schedulingRef.current, ...results };
+    setReminderScheduling(schedulingRef.current);
+  }, []);
+  const deletedIds = useRef(new Set<string>());
+  const deletionBusy = useRef(false);
+  const [undo, setUndo] = useState<{ id: string; expiresAt: number } | null>(null);
+  const undoRef = useRef<{ id: string; expiresAt: number; task: Task } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (undoTimer.current) {clearTimeout(undoTimer.current);} }, []);
+  const creating = useRef(false);
+  const refreshing = useRef(false);
+  const updating = useRef(new Set<string>());
+  // Confirmed notes are kept separately from Task and its persisted cache.
+  const [taskNotes, setTaskNotes] = useState<Record<string, Note[]>>({});
+  const notesRequests = useRef(new Map<string, number>());
+  const loadTaskNotes = useCallback(async (id: string) => {
+    const request = (notesRequests.current.get(id) ?? 0) + 1;
+    notesRequests.current.set(id, request);
+    const notes = await getTaskNotes(id);
+    if (notesRequests.current.get(id) === request) {
+      setTaskNotes(current => ({ ...current, [id]: sortNotes(notes) }));
+    }
+  }, []);
+  const [taskHistory, setTaskHistory] = useState<Record<string, TaskHistoryEvent[]>>({});
+  const historyRequests = useRef(new Map<string, number>());
+  const loadTaskHistory = useCallback(async (id: string) => {
+    const request = (historyRequests.current.get(id) ?? 0) + 1;
+    historyRequests.current.set(id, request);
+    const events = await getTaskHistory(id);
+    if (historyRequests.current.get(id) === request) {
+      setTaskHistory(current => ({ ...current, [id]: events }));
+    }
+  }, []);
+  const cacheWritable = useRef(false);
+  const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState<string | null>(null);
+  const storageQueue = useRef<Promise<unknown>>(Promise.resolve());
+
+  const persistTasks = useCallback((list: Task[]) => {
+    if (!cacheWritable.current) {return Promise.reject(new Error('Cache não foi carregado com segurança.'));}
+    const write = storageQueue.current.catch(() => undefined).then(() =>
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list)),
+    );
+    storageQueue.current = write;
+    return write;
+  }, []);
+
+  const persistConfirmed = useCallback(async (next: Task[], task: Task, previous?: Task) => {
+    let cacheSaved = true;
+    try {await persistTasks(next);} catch {cacheSaved = false;}
+    const timingChanged = !previous || schedulingFingerprint(previous) !== schedulingFingerprint(task);
+    let scheduling: SchedulingResult;
+    if (!cacheSaved) {
+      // A new schedule needs durable confirmed cache. Still suppress obsolete triggers.
+      const cancellation = timingChanged && task.remindersConfirmed ? await reminderScheduler.suspend(task) : undefined;
+      scheduling = { state: cancellation?.state === 'error' || cancellation?.state === 'unavailable' ? cancellation.state : 'pending',
+        message: `Tarefa salva; cache e reconciliação local pendentes.${cancellation?.message ? ' ' + cancellation.message : ''}` };
+    } else {
+      scheduling = timingChanged ? await reminderScheduler.reconcile([task]) :
+        schedulingRef.current[task.id] ?? { state: 'pending', message: 'Reconciliação local ainda não confirmada.' };
+    }
+    reportScheduling({ [task.id]: scheduling });
+    return { task, cacheSaved, scheduling };
+  }, [persistTasks, reportScheduling]);
+
+  async function prepareSuppression(task: Task): Promise<SchedulingResult> {
+    if (!task.remindersConfirmed) {return { state: 'not_required' };}
+    const result = await reminderScheduler.suspend(task);
+    reportScheduling({ [task.id]: result });
+    if (result.state === 'error' || result.state === 'unavailable' || result.state === 'pending') {
+      throw new Error(result.message ?? 'Não foi possível cancelar os lembretes neste aparelho.');
+    }
+    return result;
+  }
+
+  async function compensate(task: Task, error: unknown): Promise<never> {
+    const scheduling = await reminderScheduler.reconcile([task]);
+    reportScheduling({ [task.id]: scheduling });
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), { scheduling });
+  }
 
   /*
    * Evita salvar os dados iniciais
@@ -321,58 +282,119 @@ export function TaskProvider({
    * quando o aplicativo inicia.
    */
   useEffect(() => {
+    let active = true;
     async function loadTasks() {
+      let cacheError: string | null = null;
       try {
-        const storedTasks =
-          await AsyncStorage.getItem(
-            STORAGE_KEY,
-          );
-
-        if (storedTasks) {
-          const parsedTasks =
-            JSON.parse(
-              storedTasks,
-            ) as Task[];
-
-          setTasks(
-            parsedTasks,
-          );
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw: Task[] = stored ? JSON.parse(stored) : [];
+        const cached = Array.isArray(raw) ? raw.map(task => normalizeRecurrenceCache(normalizeReminderCache(task))) : raw;
+        if (!Array.isArray(cached) || cached.some(task => !task || typeof task.id !== 'string')) {
+          throw new Error('Cache inválido.');
+        }
+        if (!active) {return;}
+        cacheWritable.current = true;
+        tasksRef.current = mergeReadTasks([], cached);
+        setTasks(tasksRef.current);
+      } catch {
+        cacheError = 'Não foi possível carregar o cache de tarefas. O cache original foi preservado.';
+      }
+      if (!active) {return;}
+      setHydrated(true);
+      setReadError(cacheError);
+      try {
+        const revision = mutationRevision.current;
+        await materializeRecurrences();
+        const remote = await getTasks();
+        if (!active || dataGuard.activeTasks || dataGuard.syncing || revision !== mutationRevision.current) {return;}
+        const next = mergeReadTasks(tasksRef.current, remote.filter(task => !deletedIds.current.has(task.id)));
+        if (cacheWritable.current) {
+          await persistTasks(next);
+          if (!active || dataGuard.activeTasks || dataGuard.syncing || revision !== mutationRevision.current) {
+            if (active && revision !== mutationRevision.current) {await persistTasks(tasksRef.current);}
+            return;
+          }
+          tasksRef.current = next;
+          setTasks(next);
+          if (dataGuard.activeTasks || dataGuard.syncing) {return;}
+          const snapshot = tasksRef.current.filter(task => remote.some(item => item.id === task.id));
+          const scheduling = await reminderScheduler.reconcile(snapshot, revision === mutationRevision.current);
+          if (active) {reportScheduling(Object.fromEntries(snapshot.map(task => [task.id, scheduling])));}
+        } else {
+          // A confirmed response can be displayed without replacing unreadable storage.
+          tasksRef.current = next; setTasks(next);
         }
       } catch (error) {
-        console.log(
-          'Erro ao carregar tarefas:',
-          error,
-        );
+        if (cacheWritable.current) {await reminderScheduler.retry();}
+        if (active) {setReadError([cacheError, error instanceof Error ? error.message : 'Erro ao consultar tarefas.'].filter(Boolean).join(' '));}
       } finally {
-        setHydrated(true);
+        if (active) {setLoading(false);}
       }
     }
-
     loadTasks();
-  }, []);
+    return () => { active = false; };
+  }, [persistTasks, reportScheduling]);
+
+  useEffect(() => {
+    if (!hydrated || loading || !cacheWritable.current) {return;}
+    let active = true;
+    const subscription = AppState.addEventListener('change', state => {
+      if (state !== 'active' || refreshing.current || dataGuard.syncing || dataGuard.activeTasks || undoRef.current) {return;}
+      refreshing.current = true;
+      const revision = mutationRevision.current;
+      (async () => {
+        try {
+          await materializeRecurrences();
+          const remote = await getTasks();
+          if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {return;}
+          const next = mergeReadTasks(tasksRef.current, remote);
+          await persistTasks(next);
+          if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {
+            if (active && revision !== mutationRevision.current) {await persistTasks(tasksRef.current);}
+            return;
+          }
+          tasksRef.current = next; setTasks(next);
+          const snapshot = next.filter(task => remote.some(item => item.id === task.id));
+          const result = await reminderScheduler.reconcile(snapshot, true);
+          if (active) {reportScheduling(Object.fromEntries(snapshot.map(task => [task.id, result])));}
+        } catch {if (active && !dataGuard.syncing && !dataGuard.activeTasks) {await reminderScheduler.retry();}}
+        finally {refreshing.current = false;}
+      })();
+    });
+    return () => {active = false; subscription.remove();};
+  }, [hydrated, loading, persistTasks, reportScheduling]);
+
+  const loadTaskById = useCallback(async (id: string) => {
+    if (dataGuard.syncing) {throw new Error('Sincronização em andamento.');}
+    const remote = await fetchTaskById(id);
+    if (dataGuard.syncing) {throw new Error('Sincronização em andamento.');}
+    if (deletedIds.current.has(id)) {throw new Error('Tarefa excluída.');}
+    const next = mergeReadTasks(tasksRef.current, [remote]);
+    tasksRef.current = next;
+    setTasks(next);
+    const task = next.find(item => item.id === remote.id)!;
+    if (!updating.current.has(id)) {await persistConfirmed(next, task);}
+    return task;
+  }, [persistConfirmed]);
 
   /*
    * Sempre que a lista mudar,
    * salva automaticamente.
    */
   useEffect(() => {
-    if (!hydrated) {
+    if (!hydrated || !cacheWritable.current) {
       return;
     }
 
     async function saveTasks() {
       try {
-        await AsyncStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(
-            tasks,
-          ),
-        );
+        await persistTasks(tasks);
       } catch (error) {
         console.log(
           'Erro ao salvar tarefas:',
           error,
         );
+        setReadError('Tarefas disponíveis, mas não foi possível atualizar o cache.');
       }
     }
 
@@ -380,73 +402,324 @@ export function TaskProvider({
   }, [
     tasks,
     hydrated,
+    persistTasks,
   ]);
 
-  function toggleTask(
-    id: string,
-  ) {
-    setTasks(current =>
-      current.map(task => {
-        if (
-          task.id !== id
-        ) {
-          return task;
+  async function synchronizeManually() {
+    assertDataAvailable();
+    if (!hydrated || !projectsHydrated || loading || !cacheWritable.current || projectReadError) {
+      throw new Error('Aguarde o carregamento seguro dos dados antes de sincronizar.');
+    }
+    if (refreshing.current || creating.current || updating.current.size || deletionBusy.current || undoRef.current) {
+      throw new Error('Aguarde as operações e a janela de desfazer antes de sincronizar.');
+    }
+    dataGuard.syncing = true;
+    mutationRevision.current++;
+    setSyncing(true);
+    try {
+      await storageQueue.current;
+      await flushProjects();
+      const result = await synchronize(projects, tasksRef.current);
+      await persistProjects(result.projects);
+      await persistTasks(result.tasks);
+      publishProjects(result.projects);
+      tasksRef.current = result.tasks;
+      setTasks(result.tasks);
+      setReadError(null);
+      const scheduling = await reminderScheduler.reconcile(result.reminderSnapshot ?? result.tasks.filter(task => task.remindersConfirmed), true);
+      reportScheduling(Object.fromEntries(result.tasks.map(task => [task.id, scheduling])));
+      return { ...result, scheduling };
+    } finally {dataGuard.syncing = false; setSyncing(false); setSearchRevision(value => value + 1);}
+  }
+
+  async function toggleTask(id: string) {
+    const task = tasksRef.current.find(item => item.id === id);
+    if (!task) {throw new Error('Tarefa não encontrada.');}
+    return updateTask(id, { status: task.status === 'completed' ? 'todo' : 'completed' });
+  }
+
+  async function deleteTask(id: string) {
+    assertDataAvailable();
+    if (!hydrated || loading) {throw new Error('Aguarde o carregamento das tarefas.');}
+    if (deletionBusy.current || updating.current.has(id)) {throw new Error('Uma operação já está em andamento.');}
+    const task = tasksRef.current.find(item => item.id === id);
+    if (!task) {throw new Error('Tarefa não encontrada.');}
+    deletionBusy.current = true;
+    updating.current.add(id);
+    dataGuard.activeTasks++;
+    try {
+      const scheduling = await prepareSuppression(task);
+      try {await remoteDeleteTask(id);} catch (error) {return await compensate(task, error);}
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
+      deletedIds.current.add(id);
+      const next = tasksRef.current.filter(item => item.id !== id);
+      tasksRef.current = next;
+      setTasks(next);
+      if (undoTimer.current) {clearTimeout(undoTimer.current);}
+      const opportunity = { id, expiresAt: Date.now() + 5000, task };
+      undoRef.current = opportunity;
+      setUndo({ id, expiresAt: opportunity.expiresAt });
+      undoTimer.current = setTimeout(() => {
+        if (undoRef.current === opportunity) {undoRef.current = null; setUndo(null);}
+      }, 5000);
+      // Native cancellation was already confirmed before DELETE. Do not make
+      // the five-second undo window wait for another scheduler round-trip.
+      let cacheSaved = true;
+      try {await persistTasks(next);} catch {cacheSaved = false;}
+      return { cacheSaved, scheduling };
+    } finally { deletionBusy.current = false; updating.current.delete(id); dataGuard.activeTasks--; }
+  }
+
+  async function restoreTask(id: string) {
+    assertDataAvailable();
+    const opportunity = undoRef.current;
+    if (!opportunity || opportunity.id !== id || Date.now() >= opportunity.expiresAt) {
+      throw new Error('O prazo para desfazer terminou.');
+    }
+    if (deletionBusy.current || updating.current.has(id)) {throw new Error('Uma operação já está em andamento.');}
+    deletionBusy.current = true;
+    updating.current.add(id);
+    dataGuard.activeTasks++;
+    try {
+      const remote = await remoteRestoreTask(id);
+      const task = { ...opportunity.task, ...remote, reminders: remote.reminders ?? [], legacyReminders: opportunity.task.legacyReminders,
+        subtasks: mergeSubtasks(remote.subtasks, opportunity.task.subtasks) };
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
+      deletedIds.current.delete(id);
+      const next = mergeReadTasks(tasksRef.current, [task]);
+      tasksRef.current = next;
+      setTasks(next);
+      if (undoTimer.current) {clearTimeout(undoTimer.current);}
+      undoRef.current = null;
+      setUndo(null);
+      return await persistConfirmed(next, task);
+    } finally { deletionBusy.current = false; updating.current.delete(id); dataGuard.activeTasks--; }
+  }
+
+  async function addTask(draft: NewTask) {
+    assertDataAvailable();
+    if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    if (creating.current) {throw new Error('A criação de tarefa já está em andamento.');}
+    const project = projects.find(item => item.id === draft.projectId);
+    if (!project) {throw new Error('Selecione um projeto válido.');}
+    creating.current = true;
+    dataGuard.activeTasks++;
+    try {
+      const remoteId = await resolveProject(project);
+      if (remoteId !== project.remoteId) {updateProject(project.id, { remoteId });}
+      const task = await createTask(draft, remoteId);
+      const nextTasks = [...tasksRef.current.filter(item => item.id !== task.id), ...(task.deletedAt ? [] : [task])];
+      tasksRef.current = nextTasks;
+      setTasks(nextTasks);
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
+      if (!task.recurrenceSeriesId) {return await persistConfirmed(nextTasks, task);}
+      // Persist the confirmed first occurrence before the optional window refresh.
+      let cacheSaved = true;
+      try {await persistTasks(nextTasks);} catch {cacheSaved = false;}
+      const revision = mutationRevision.current;
+      let recurrenceRefreshFailed = false;
+      let snapshot: Task[] = [task];
+      try {
+        await materializeRecurrences();
+        const remote = await getTasks();
+        const next = mergeReadTasks(tasksRef.current, remote.filter(item => !deletedIds.current.has(item.id)));
+        try {await persistTasks(next); cacheSaved = true;} catch {cacheSaved = false;}
+        tasksRef.current = next;
+        setTasks(next);
+        snapshot = next.filter(item => remote.some(confirmed => confirmed.id === item.id));
+      } catch {
+        recurrenceRefreshFailed = true;
+      }
+      const scheduling: SchedulingResult = cacheSaved
+        ? await reminderScheduler.reconcile(snapshot, !recurrenceRefreshFailed && revision === mutationRevision.current && dataGuard.activeTasks === 1)
+        : { state: 'pending', message: 'Tarefa salva; cache e reconciliação local pendentes.' };
+      reportScheduling(Object.fromEntries(snapshot.map(item => [item.id, scheduling])));
+      return { task, cacheSaved, scheduling, recurrenceRefreshFailed };
+    } finally {
+      creating.current = false;
+      dataGuard.activeTasks--;
+    }
+  }
+
+  async function mutateRule(taskId: string, operation: (task: Task) => Promise<{ series: RecurrenceSeries; task?: Task }>) {
+    assertDataAvailable();
+    if (!hydrated || loading) {throw new Error('Aguarde o carregamento dos dados.');}
+    const current = tasksRef.current.find(task => task.id === taskId);
+    if (!current) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(taskId)) {throw new Error('Uma operação já está em andamento.');}
+    updating.current.add(taskId); dataGuard.activeTasks++;
+    try {
+      const result = await operation(current);
+      const summary = recurrenceSummary(result.series);
+      const next = tasksRef.current.map(task => {
+        if (task.id === taskId && result.task) {return { ...task, ...result.task, legacyReminders: task.legacyReminders, subtasks: mergeSubtasks(result.task.subtasks, task.subtasks) };}
+        return task.recurrenceSeriesId === result.series.id ? { ...task, recurrence: summary } : task;
+      });
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
+      tasksRef.current = next; setTasks(next);
+      let cacheSaved = true;
+      if (result.task) {cacheSaved = (await persistConfirmed(next, next.find(task => task.id === taskId)!, current)).cacheSaved;}
+      else {try {await persistTasks(next);} catch {cacheSaved = false;}}
+      return { series: result.series, cacheSaved };
+    } finally {updating.current.delete(taskId); dataGuard.activeTasks--;}
+  }
+  function changeRecurrenceRule(taskId: string, seriesId: string, expectedUpdatedAt: string, frequency: RecurrenceFrequency) {
+    return mutateRule(taskId, async task => {
+      if (task.recurrenceSeriesId !== seriesId) {throw new Error('A série desta tarefa não foi confirmada.');}
+      return { series: await updateRecurrenceSeries(seriesId, { taskId, expectedUpdatedAt, frequency }) };
+    });
+  }
+  function activateTaskRecurrence(taskId: string, frequency: RecurrenceFrequency, timeZone: string, requestId: string) {
+    return mutateRule(taskId, async current => {
+      const result = await activateRecurrence(taskId, { frequency, timeZone }, requestId);
+      return { series: result.series, task: fromApiTask(result.firstOccurrence, current) };
+    });
+  }
+
+  const searchTasks = useCallback(async (query: string, isCurrent: () => boolean) => {
+    if (!isCurrent()) { return null; }
+    assertDataAvailable();
+    if (!hydrated || loading) { throw new Error('Aguarde o carregamento das tarefas.'); }
+    if (dataGuard.syncing) { throw new Error('Aguarde a sincronização para buscar tarefas.'); }
+    const revision = mutationRevision.current;
+    const remote = await fetchSearchTasks(query);
+    if (!isCurrent() || dataGuard.syncing || revision !== mutationRevision.current) { return null; }
+    const confirmed = remote.filter(task => !deletedIds.current.has(task.id) && !task.deletedAt);
+    const next = mergeReadTasks(tasksRef.current, confirmed);
+    tasksRef.current = next;
+    setTasks(next);
+    // A search is a partial read, never an authoritative scheduler snapshot.
+    try { await persistTasks(next); } catch { /* Confirmed memory is retained. */ }
+    return confirmed;
+  }, [persistTasks, hydrated, loading]);
+
+  async function toggleFavorite(id: string) {
+    const task = tasksRef.current.find(item => item.id === id);
+    if (!task?.remoteId) { throw new Error('Sincronize esta tarefa antes de alterar os favoritos.'); }
+    return updateTask(id, { favorite: !task.favorite });
+  }
+
+  async function updateTask(id: string, changes: TaskUpdate) {
+    assertDataAvailable();
+    if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    const current = tasksRef.current.find(task => task.id === id);
+    if (!current) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
+    updating.current.add(id);
+    dataGuard.activeTasks++;
+    try {
+      const payload = { ...changes };
+      if (changes.projectId !== undefined) {
+        const project = projects.find(item => item.id === changes.projectId || item.remoteId === changes.projectId);
+        if (project) {
+          const remoteId = await resolveProject(project);
+          if (remoteId !== project.remoteId) {updateProject(project.id, { remoteId });}
+          payload.projectId = remoteId;
+        } else if (changes.projectId !== current.projectId) {
+          throw new Error('Selecione um projeto válido.');
         }
-
-        const newDone =
-          !task.done;
-
-        return {
-          ...task,
-
-          done:
-            newDone,
-
-          status:
-            newDone
-              ? 'completed'
-              : 'in_progress',
-        };
-      }),
-    );
+      }
+      if (changes.dueDate !== undefined && changes.dueDate === current.dueDate && current.dueDateKey) {payload.dueDateKey = current.dueDateKey;}
+      if (changes.startDate !== undefined && changes.startDate === current.startDate && current.startDateKey) {payload.startDateKey = current.startDateKey;}
+      const suppress = changes.status === 'completed' && current.status !== 'completed';
+      if (suppress) {await prepareSuppression(current);}
+      let remote: Task;
+      try {remote = await patchTask(id, payload, current);} catch (error) {
+        if (suppress) {return await compensate(current, error);}
+        throw error;
+      }
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
+      const confirmedSubtasks = mergeSubtasks(remote.subtasks, changes.subtasks ?? tasksRef.current.find(item => item.id === id)?.subtasks);
+      // Old cache-only children are not uploaded. A confirmed collective action
+      // applies to their actual cached done values as well as remote children.
+      const collective = changes.status === 'completed' || changes.status === 'todo';
+      const task: Task = {
+        ...current, ...remote,
+        subtasks: collective ? confirmedSubtasks?.map(child => child.remote ? child : { ...child, done: remote.done }) : confirmedSubtasks,
+        reminders: remote.reminders ?? [],
+        legacyReminders: current.legacyReminders,
+      };
+      const next = tasksRef.current.map(item => item.id === id ? task : item);
+      tasksRef.current = next;
+      setTasks(next);
+      return await persistConfirmed(next, task, suppress ? undefined : current);
+    } finally {
+      updating.current.delete(id); dataGuard.activeTasks--;
+    }
   }
 
-  function deleteTask(
-    id: string,
-  ) {
-    setTasks(current =>
-      current.filter(
-        task =>
-          task.id !== id,
-      ),
-    );
-  }
-
-  function addTask(
-    task: Task,
-  ) {
-    setTasks(current => [
-      ...current,
-      task,
-    ]);
-  }
-
-  function updateTask(
+  function updateTaskLocal(
     id: string,
     updatedTask:
       Partial<Task>,
   ) {
-    setTasks(current =>
-      current.map(task =>
-        task.id === id
-          ? {
-              ...task,
-              ...updatedTask,
-            }
-          : task,
-      ),
-    );
+    assertDataAvailable();
+    const next = tasksRef.current.map(task => task.id === id ? { ...task, ...updatedTask } : task);
+    tasksRef.current = next;
+    setTasks(next);
   }
+
+  async function mutateSubtask(id: string, request: (current: Task) => Promise<Task>) {
+    assertDataAvailable();
+    if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    const current = tasksRef.current.find(task => task.id === id);
+    if (!current) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
+    updating.current.add(id);
+    dataGuard.activeTasks++;
+    try {
+      const remote = await request(current);
+      const task = { ...current, ...remote, reminders: remote.reminders ?? [], legacyReminders: current.legacyReminders,
+        subtasks: mergeSubtasks(remote.subtasks, current.subtasks) };
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
+      const next = tasksRef.current.map(item => item.id === id ? task : item);
+      tasksRef.current = next;
+      setTasks(next);
+      return await persistConfirmed(next, task, current);
+    } finally { updating.current.delete(id); dataGuard.activeTasks--; }
+  }
+  function remoteChild(task: Task, id: string) {
+    const child = task.subtasks?.find(item => item.id === id);
+    if (!child?.remote) {throw new Error('Esta subtarefa está apenas no dispositivo e ainda não pode ser alterada no servidor.');}
+    return child;
+  }
+  const addSubtask = (id: string, title: string) => mutateSubtask(id, () => createSubtask(id, title));
+  const toggleSubtask = (id: string, childId: string) => mutateSubtask(id, task => updateSubtask(id, childId, { done: !remoteChild(task, childId).done }));
+  const removeSubtask = (id: string, childId: string) => mutateSubtask(id, task => { remoteChild(task, childId); return deleteSubtask(id, childId); });
+
+  async function mutateNote(id: string, operation: () => Promise<Note | { id: string; taskId: string; updatedAt: string }>, remove = false) {
+    assertDataAvailable();
+    if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
+    if (!tasksRef.current.some(task => task.id === id)) {throw new Error('Tarefa não encontrada.');}
+    if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
+    updating.current.add(id);
+    dataGuard.activeTasks++;
+    try {
+      const confirmed = await operation();
+      // Invalidate an older GET so it cannot undo the confirmed mutation.
+      notesRequests.current.set(id, (notesRequests.current.get(id) ?? 0) + 1);
+      mutationRevision.current++;
+      setSearchRevision(value => value + 1);
+      setTaskNotes(current => ({ ...current, [id]: sortNotes([
+        ...(current[id] ?? []).filter(note => note.id !== confirmed.id),
+        ...(!remove && 'content' in confirmed ? [confirmed] : []),
+      ]) }));
+      const next = tasksRef.current.map(task => task.id === id ? { ...task, updatedAt: confirmed.updatedAt } : task);
+      tasksRef.current = next;
+      setTasks(next);
+      try { await persistTasks(next); return { cacheSaved: true }; }
+      catch { return { cacheSaved: false }; }
+    } finally { updating.current.delete(id); dataGuard.activeTasks--; }
+  }
+  const addTaskNote = (id: string, content: string) => mutateNote(id, () => createTaskNote(id, content));
+  const editTaskNote = (id: string, noteId: string, content: string) => mutateNote(id, () => updateTaskNote(id, noteId, content));
+  const removeTaskNote = (id: string, noteId: string) => mutateNote(id, () => deleteTaskNote(id, noteId), true);
 
   function getTaskById(
     id: string,
@@ -461,10 +734,35 @@ export function TaskProvider({
     <TaskContext.Provider
       value={{
         tasks,
+        searchTasks,
+        searchRevision,
+        toggleFavorite,
+        loadRecurrenceSeries: getRecurrenceSeries,
+        changeRecurrenceRule,
+        activateTaskRecurrence,
+        loading,
+        reminderScheduling,
+        syncing,
+        synchronizeManually,
+        readError,
+        loadTaskById,
+        taskHistory,
+        loadTaskHistory,
+        taskNotes,
+        loadTaskNotes,
+        addTaskNote,
+        editTaskNote,
+        removeTaskNote,
         toggleTask,
         deleteTask,
+        restoreTask,
+        undo,
         addTask,
         updateTask,
+        updateTaskLocal,
+        addSubtask,
+        toggleSubtask,
+        removeSubtask,
         getTaskById,
       }}>
 

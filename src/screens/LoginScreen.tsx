@@ -1,12 +1,8 @@
-import React, {useState} from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Pressable,
-} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+
+import { COLORS, RADIUS, SPACING } from '../styles/theme';
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
@@ -20,6 +16,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       <View style={styles.logo}>
         <Text style={styles.logoText}>✓</Text>
       </View>
@@ -33,8 +30,9 @@ export default function LoginScreen() {
 
       <TextInput
         style={styles.input}
+        accessibilityLabel="E-mail"
         placeholder="seuemail@email.com"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={COLORS.textSecondary}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -45,8 +43,9 @@ export default function LoginScreen() {
 
       <TextInput
         style={styles.input}
+        accessibilityLabel="Senha"
         placeholder="Digite sua senha"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={COLORS.textSecondary}
         value={senha}
         onChangeText={setSenha}
         secureTextEntry
@@ -56,15 +55,17 @@ export default function LoginScreen() {
         <Text style={styles.forgotText}>Esqueci minha senha</Text>
       </Pressable>
 
-      <Pressable style={styles.loginButton} onPress={entrar}>
+      <Pressable
+        accessibilityRole="button"
+        style={styles.loginButton}
+        onPress={entrar}
+      >
         <Text style={styles.loginButtonText}>Entrar</Text>
       </Pressable>
 
-      <Text style={styles.accountText}>
-        Ainda não possui uma conta?
-      </Text>
+      <Text style={styles.accountText}>Ainda não possui uma conta?</Text>
 
-      <Pressable>
+      <Pressable style={styles.registerButton}>
         <Text style={styles.registerText}>Criar conta</Text>
       </Pressable>
     </View>
@@ -75,23 +76,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 28,
-    backgroundColor: '#F8F9FD',
+    paddingHorizontal: SPACING.xxl,
+    backgroundColor: COLORS.background,
   },
 
   logo: {
     width: 70,
     height: 70,
-    borderRadius: 22,
-    backgroundColor: '#5C4DFF',
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-    marginBottom: 15,
+    marginBottom: SPACING.lg,
   },
 
   logoText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 34,
     fontWeight: '700',
   },
@@ -100,69 +101,75 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 32,
     fontWeight: '700',
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
   },
 
   subtitle: {
     textAlign: 'center',
-    color: '#64748B',
-    marginTop: 7,
-    marginBottom: 34,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xxl,
   },
 
   label: {
-    color: '#1E1B3A',
+    color: COLORS.textPrimary,
     fontWeight: '600',
-    marginBottom: 7,
+    marginBottom: SPACING.sm,
   },
 
   input: {
-    backgroundColor: '#FFFFFF',
+    minHeight: 48,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 15,
-    paddingVertical: 13,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     fontSize: 15,
-    color: '#1E1B3A',
-    marginBottom: 18,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
   },
 
   forgotButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     alignSelf: 'flex-end',
     marginTop: -6,
-    marginBottom: 24,
+    marginBottom: SPACING.xl,
   },
 
   forgotText: {
-    color: '#5C4DFF',
+    color: COLORS.primary,
     fontSize: 13,
     fontWeight: '600',
   },
 
   loginButton: {
-    backgroundColor: '#5C4DFF',
-    paddingVertical: 15,
-    borderRadius: 14,
+    minHeight: 48,
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.lg,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
   },
 
   loginButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.surface,
     fontSize: 16,
     fontWeight: '700',
   },
 
   accountText: {
     textAlign: 'center',
-    color: '#64748B',
-    marginTop: 28,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xxl,
   },
 
+  registerButton: { minHeight: 44, justifyContent: 'center' },
   registerText: {
     textAlign: 'center',
-    color: '#5C4DFF',
+    color: COLORS.primary,
     fontWeight: '700',
-    marginTop: 5,
+    marginTop: SPACING.xs,
   },
 });

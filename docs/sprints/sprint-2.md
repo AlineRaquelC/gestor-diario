@@ -1,0 +1,393 @@
+# Sprint 2 — Gestor Diário
+
+## Identificação e datas
+
+- **Formalização:** 23/10/2026; estado original: planejada, nenhuma Issue iniciada.
+- **Atualização em 08/11/2026:** core #39–#42 CLOSED/completed e integrado em `dev` (PRs #46/#48/#50/#52): **4/4 Issues, 37/37 pontos, 100%**. [CI Mobile/Backend de dev aprovada após PR #53](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42485415796) em `b850b5f`. #43 OPEN, stretch 13 pontos, refinamento/gate documental concluído com **NO-GO hoje**; nenhuma implementação iniciada.
+- **Histórico em 29/10/2026:** #39 concluída e integrada em `dev` pelo PR #46, com T12 aprovada; Issue CLOSED/completed. #40 em refinamento técnico documental, sem implementação iniciada; #41–#43 não iniciadas.
+- **Janela operacional atualizada:** 23/10/2026 → 08/11/2026.
+- **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **08/11/2026**.
+- **Freeze absoluto / data máxima para commit e push:** **08/11/2026**.
+- **Apresentação:** **08/11/2026**; a data máxima de commit/push também passou a 08/11 por decisão do professor.
+- **Branch histórica da formalização:** `docs/plan-sprint-2`, integrada por PR para `dev`; não representa branch operacional atual.
+
+Esta documentação registra o planejamento da Sprint 2 e suas Issues no GitHub.
+No momento da formalização, as Issues estavam planejadas e a implementação
+funcional ainda não havia sido iniciada. Aplicativo, backend, banco, dependências
+e migrations permaneceram inalterados; a promoção `dev → main` ficou fora do escopo.
+
+## Sprint Goal
+
+Tornar o Gestor Diário mais proativo e rápido no uso cotidiano,
+adicionando recorrência, lembretes e notificações confiáveis,
+recursos de localização rápida de tarefas e acompanhamento de metas,
+preservando a estabilidade do MVP integrado.
+
+## Contexto após a Sprint 1
+
+- [Sprint 1](sprint-1.md): **15/15 Issues concluídas, 100%, nenhuma aberta**, confirmado no milestone nº 1 em 23/10/2026.
+- Polimento visual das Fases 1, 2 e 3 encerrado e integrado em `dev`: Home/filtros/ordenação (PR #36), formulários/detalhes de tarefa (PR #37) e telas restantes (PR #38). Validação técnica e visual Android concluída.
+- Base desta formalização: `dev` limpa e atualizada em `a96af2495d146d0fbc5115d0ead4d2cad9655cba`, integração do PR #38.
+- [CI da base](https://github.com/AlineRaquelC/gestor-diario/actions/runs/39967136926): **Mobile e Backend aprovados**. Referência mobile: 352 testes em 22 suítes; 16 testes dos validadores; lint com 3 erros/7 warnings conhecidos e TypeScript com 11 diagnósticos conhecidos, sem regressão e sem ampliar baselines.
+- Arquitetura vigente: React Native → Context/State → services HTTP → API Node.js → services/repositories → Drizzle/SQLite. AsyncStorage é cache/apoio local; identidades e reconciliação existentes devem ser preservadas.
+- Três tarefas legadas sem `projectId` continuam locais, com pendências explícitas. Não associar por nome, apagar ou migrar silenciosamente para aparentar sincronização completa.
+- O gap histórico de horário/antecedência no passado está [registrado na Entrega 2](../backlog/entregas.md) e foi tratado/validado no recorte #39/#40.
+
+## Entrega 2 não equivale à Sprint 2
+
+A [Entrega 2](../backlog/entregas.md) contém **PBIs 12–24** e é maior que uma
+Sprint. O [Product Backlog](../backlog/backlog-produto.md) e os
+[requisitos oficiais](../requisitos/requisitos-oficiais.md) permanecem intactos.
+Esta Sprint seleciona apenas quatro recortes principais e um stretch condicionado,
+compatíveis com um incremento demonstrável dentro do prazo.
+
+Somente trabalho pronto/refinado e compatível com a capacidade pode iniciar.
+As Issues registram requisitos, aceite e limites; a decomposição técnica será feita
+**uma Issue por vez, antes de sua implementação**, sem Tasks técnicas detalhadas
+no planejamento inicial. O planejamento não declara automaticamente todos os recortes
+Ready nem todos os PBIs de origem integralmente cobertos.
+
+## Escopo, ordem e Planning Poker
+
+| Ordem | Issue | Origem selecionada | Planning Poker | Compromisso | Estado |
+|---|---|---|---:|---|---|
+| 1 | [#39 — Lembretes e notificações locais confiáveis](https://github.com/AlineRaquelC/gestor-diario/issues/39) | PBI-13; RF15/RF16 | 13 | Core; prioridade alta dentro da Sprint | Concluída; PR #46 integrado em dev |
+| 2 | [#40 — Tarefas recorrentes diária, semanal e mensal](https://github.com/AlineRaquelC/gestor-diario/issues/40) | PBI-13; RF08 | 8 | Core | Concluída; PR #48 integrado em dev; CLOSED/completed |
+| 3 | [#41 — Busca de tarefas, favoritos e filtros salvos](https://github.com/AlineRaquelC/gestor-diario/issues/41) | PBI-14; RF13/RF49/RF51 | 8 | Core | Concluída; T01–T05 aprovados; PR #50 integrado em dev; CLOSED/completed |
+| 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | Concluída; PR #52 integrado em dev; CLOSED/completed |
+| 5 | [#43 — [Stretch] Base de perfis locais](https://github.com/AlineRaquelC/gestor-diario/issues/43) | PBI-19; RF33/RF34, cobertura parcial | 13 | Stretch, fora do compromisso | Gate documental NO-GO em 08/11; implementação não iniciada |
+
+**Core planejado: 13 + 8 + 8 + 8 = 37 pontos. Stretch: 13 pontos adicionais,
+fora do cálculo do compromisso principal.** Pontos são estimativas relativas de
+Planning Poker fornecidas para este plano, não dias nem prova de velocidade.
+Não há capacidade histórica demonstrada que garanta 37 pontos na janela curta;
+acompanhar risco e renegociar explicitamente o recorte se necessário, sem estender
+o freeze ou reduzir a DoD. A prioridade alta de #39 é interna à Sprint e não muda
+a prioridade original do PBI no Product Backlog.
+
+### 1. Lembretes e notificações — #39
+
+Antecedência configurável em minutos, horas e dias; persistência; agendamento local
+Android e funcionamento em segundo plano conforme viabilidade Android. Editar deve
+reagendar, concluir/excluir quando aplicável deve invalidar notificações indevidas,
+e o fluxo não pode duplicar agendamentos.
+
+Para tarefa de hoje, horário passado deve ser rejeitado quando inviabilizar o
+agendamento; horário menos antecedência não pode resultar em disparo passado.
+Apresentar erro compreensível e validar na camada adequada ao fluxo persistido,
+não somente no formulário. Não declarar agendamento bem-sucedido se falhar.
+
+É a **primeira implementação prevista**, após aprovação de início. Fora: escalonamento avançado,
+silêncio complexo, políticas por prioridade e REQ114–REQ116 completos; não declarar
+RF43–RF45 ou PBI-13 integralmente entregues por este recorte.
+
+### 2. Recorrência — #40
+
+Opções Não repetir, Diariamente, Semanalmente e Mensalmente; persistir e editar
+regra; gerar ocorrências futuras automaticamente e de forma determinística.
+Não duplicar ao gerar, reabrir ou sincronizar; calendário deve refletir as datas.
+Políticas de limite/fim de mês devem ficar explícitas no refinamento específico.
+Ocorrências devem ser compatíveis com os lembretes estabilizados. Recorrência
+complexa/personalizada está fora.
+
+Arquitetura, auditoria e decisões implementadas no
+[registro técnico da #40](sprint-2-issue-40.md). T01–T08 estão aprovados, mantendo
+o Planning Poker de 8 pontos. Edição sem reescrita de
+Tasks materializadas, NONE sem exclusão, janela rolante até hoje + 31 dias inclusive
+e ausência de backfill estão implementadas e validadas no recorte RF08.
+
+### 3. Busca, favoritos e filtros salvos — #41
+
+[Refinamento técnico curto](sprint-2-issue-41.md): busca única no backend incluindo
+Notes reais, favorite existente sem migration e filtros salvos locais contendo
+somente TaskFilters. T01–T04 implementados; regressão/builds aprovados e T05
+Android manual aprovada pela usuária em 07/11/2026. PR #50 integrado em dev
+no commit `e97390d`; Issue #41 CLOSED/completed.
+
+Busca textual em tempo real em título, descrição e observações reais, com resultado
+atualizado enquanto digita e composição com os filtros existentes. **Não há sistema
+de etiquetas implementado**: não inventá-lo para completar RF13; registrar essa
+cobertura parcial.
+
+Marcar/desmarcar favorito, persistir e oferecer acesso rápido às favoritas, com
+estado mantido após reabrir. Salvar combinação dos filtros atuais, nomeá-la,
+aplicá-la depois e excluí-la. Usar IDs estáveis para filtros e referências;
+projetos homônimos permanecem distintos. Exemplos de nomes: Urgentes, Marketing
+desta semana, Pendentes e Faculdade; não são novos tipos de filtro.
+
+**RF14 (ordenação manual por drag and drop) está fora. PBI-14 não será declarado
+integralmente concluído por esta Issue.** Preservar filtros e ordenação atuais.
+
+### 4. Metas e relatórios — #42
+
+**T01–T03 concluídos em 08/11/2026; T04 automatizada concluída e Android manual aprovada pela usuária em 08/11/2026.**
+[Decisões técnicas da #42](sprint-2-issue-42.md): metas locais de quantidade
+concluída, períodos civis, relatório com atrasadas do próprio período e métricas
+compartilhadas; sem backend, migration ou biblioteca de gráficos.
+
+Metas diária, semanal e mensal persistidas; progresso, concluídas, pendentes e
+atrasadas calculados com Tasks reais; recorte por período; relatório textual e
+gráfico de barras simples. Reutilizar dashboard/helpers atuais, sem métricas
+fictícias ou biblioteca pesada quando solução simples for suficiente. A definição
+de contagem/períodos deve ficar explícita antes da implementação. Não ampliar
+para BI, exportação, cronômetro ou demais requisitos do PBI-17 não selecionados.
+
+## Dependências
+
+| Item | Dependência / gate |
+|---|---|
+| #39 | Arquitetura atual de Task/API/SQLite; base da experiência temporal e notificações. |
+| #40 | #39 concluída ou suficientemente estabilizada com comportamento/contrato temporal testado, para compatibilidade com lembretes. |
+| #41 | Funcionalmente independente de #39/#40; depende dos dados reais e deve preservar os filtros existentes. |
+| #42 | Dashboard/helpers e dados reais disponíveis; manter consistência com as ocorrências e estados das Tasks. |
+| #43 | Core #39–#42 concluído ou com risco operacional praticamente zero antes do freeze, além de isolamento seguro refinado. |
+
+A ordem operacional é **#39 → #40 → #41 → #42**, embora #41 não dependa
+funcionalmente de #39/#40. O stretch não deve disputar capacidade com o core.
+
+## Stretch Goal — #43: base de perfis locais
+
+**Gate em 08/11/2026: NO-GO para implementar hoje.** O core está 100% concluído,
+mas a auditoria identificou API/search/sync/materialização globais e ausência de
+proprietário em Tasks/Projects/séries. Isolamento local sozinho é insuficiente.
+[Refinamento e matriz de segurança da #43](sprint-2-issue-43.md): alternativa B
+com propriedade persistida, bootstrap preservando legado, caches/troca coerentes
+e política de reminders exigem trabalho transversal e validação posterior.
+Gate documental integrado pelo [PR #53](https://github.com/AlineRaquelC/gestor-diario/pull/53),
+commit `b850b5f`. Manter #43 OPEN e não implementada; stretch adiada sem reduzir
+o core entregue.
+
+**Fora do compromisso principal; 13 pontos.** Iniciar somente se #39–#42 estiverem
+concluídas ou com risco operacional praticamente zero antes do freeze.
+
+Primeiro recorte: criar perfil local com nome e representação visual simples/inicial,
+persistir, selecionar perfil ativo, alternar e preservar seleção após reiniciar.
+Preparar e avaliar de forma segura isolamento efetivo de Tasks/Projects por perfil,
+considerando cache, API e sincronização. Não expor alternância que misture ou vaze
+dados existentes. Se segurança ampliar demais o escopo, registrar e adiar para
+refinamento posterior; **não entregar implementação parcial perigosa**.
+
+RF33 inclui tarefas compartilhadas/atribuição, e RF34 exige dados isolados e
+configurações independentes. Esta base não representa cumprimento integral desses
+requisitos nem do PBI-19. Compartilhamento avançado fica fora.
+
+## Autenticação e biometria: limites explícitos
+
+- **Login atual é visual/placeholder:** Entrar navega para Home. Não transformar o fluxo em autenticação online nesta Sprint.
+- Sem login online, e-mail/senha, JWT, sessão, backend auth, conta em servidor, cadastro ou recuperação de senha.
+- **RF79:** autenticação simples e segura da API pertence ao **PBI-16**, fora do escopo desta Sprint.
+- **REQ175–REQ180:** pertencem à **Entrega 3 / PBI-30**: impressão digital, reconhecimento facial, íris, voz, assinatura e localização + biometria. Implementação fora do escopo desta Sprint.
+- Perfis locais são distintos de autenticação online; biometria permanece fora do escopo.
+
+## Fora do compromisso da Sprint 2
+
+Os itens abaixo **continuam na Entrega 2 e no backlog**, sem remoção ou mudança de
+requisitos. O planejamento não declara toda a Entrega 2 entregue.
+
+| PBI | Escopo fora do compromisso |
+|---|---|
+| PBI-12 | Priorização inteligente/customizada. |
+| PBI-15 | Importação, exportação e backup. |
+| PBI-16 | Sincronização automática, autenticação da API e múltiplos servidores. |
+| PBI-18 | Tema e personalização adicional. |
+| PBI-20 | Duplicação, modelos e dependências. |
+| PBI-21 | Cronômetro, esforço e conflitos. |
+| PBI-22 | Operações em lote e campos personalizados. |
+| PBI-23 | Feriados, prazos úteis e revisão semanal. |
+| PBI-24 | Anexos, áudio, links e impressão. |
+
+Também ficam fora: RF14, etiquetas novas, recorrência personalizada, notificações
+avançadas/silêncio complexo e demais requisitos dos PBIs selecionados que não
+constam no recorte. PBI-19 é apenas stretch condicionado, sem compartilhamento
+avançado ou isolamento inseguro.
+
+## Riscos e capacidade
+
+| Risco | Tratamento planejado |
+|---|---|
+| Janela curta para 37 pontos, sem velocidade comprovada | Limitar trabalho em andamento; refinar uma Issue por vez; priorizar #39; registrar e renegociar qualquer redução de recorte antes do freeze. Stretch não conta como entrega obrigatória. |
+| Restrições Android, permissão e execução em segundo plano | Validar cedo em Android; registrar viabilidade e erros reais; não prometer disparo que não foi comprovado. Escolha técnica somente no refinamento da Issue. |
+| Horário/antecedência passados e limites de período | Testes determinísticos, mensagens claras e validação na camada adequada; seguir datas/fuso da arquitetura vigente. |
+| Duplicação em recorrência/sync ou troca de identidade | Idempotência, IDs estáveis, reabertura/sync repetidos e regressão com homônimos. |
+| Busca em observações e persistência dos novos estados | Usar dados realmente persistidos; validar integração necessária sem inventar etiquetas ou dados. |
+| Metas/relatórios com contagens inconsistentes | Reutilizar helpers; confrontar texto, barras e progresso com a mesma massa real. |
+| Perfis expondo/misturando dados | Gate de segurança antes de alternância; adiar se o isolamento seguro exceder capacidade. |
+| Legado e dívida técnica já conhecida | Preservar três pendências e dados locais, exclusão explícita de App.test.tsx no CI e baselines atuais; não confundir CI verde com dívida zerada. |
+| Freeze ou regressão tardia | Regressão em 30/10, fechamento em 31/10; 08/11 apenas buffer/freeze; respeitar a data máxima de commit/push em 08/11. |
+
+## Estratégia de testes e validação
+
+- **#39:** minutos/horas/dias, hoje/horário passado, disparo passado pela antecedência, futuro válido, limites de data/fuso, reagendamento, conclusão/exclusão/undo quando aplicável, duplicação, persistência e erros/permissões Android.
+- **#40:** todas as frequências/edição, limites de dia/semana/mês e fim de mês, geração determinística, reabertura/sync idempotentes, calendário e compatibilidade com lembretes.
+- **#41:** título/descrição/observações, digitação e combinação com filtros, vazios, favoritos persistidos, salvar/aplicar/excluir filtros, IDs estáveis e homônimos; regressão de filtros/ordenação.
+- **#42:** metas e reabertura, dados reais/vazios, concluídas/pendentes/atrasadas, limites dos períodos, texto/barras/progresso coerentes e conclusão/reabertura refletidas.
+- **#43, condicionada ao atendimento do gate:** criação/seleção/alternância/reinício e prova de isolamento/preservação dos dados. A validação exige isolamento efetivo, sem vazamento de dados.
+- Validar manualmente no Android cada recorte implementado; persistência e API/SQLite quando necessários. Usar massa isolada, sem limpar tarefas/projetos existentes.
+- Executar `npm run test:ci-scripts`, `npm run lint:ci`, `npm run typecheck:ci`, `npm run test:ci` e `git diff --check`; backend estrito e suas verificações quando afetado. Manter CI Mobile/Backend verdes, sem ampliar baselines ou alterar exclusões para ocultar regressões.
+- Na formalização, a validação se baseava no CI verde do MVP. O core #39–#42 está agora implementado, integrado e validado; evidências específicas nos registros de cada Issue. O stretch #43 não foi implementado e não tem aceite funcional.
+
+## Plano diário operacional
+
+| Data de 2026 | Foco planejado |
+|---|---|
+| 23/10 | Planejamento, milestone e cinco Issues; revisão de dependências/capacidade. Implementação funcional ainda não iniciada. |
+| 24/10 | Após aprovação de início, refinar #39 e iniciar o desenvolvimento principal; validar cedo viabilidade Android e regras temporais. |
+| 25/10 | Prosseguir #39, persistência, reagendamento, erros e testes. |
+| 26/10 | Estabilizar/concluir #39 conforme DoD; refinar #40 somente com dependência temporal atendida. |
+| 27/10 | Desenvolvimento de #40 e validação de idempotência/calendário. |
+| 28/10 | #41 na ordem planejada, preservando filtros/IDs. |
+| 29/10 | #42 e integração do core; rever capacidade e riscos. #43 apenas se o gate estiver comprovadamente atendido. |
+| 30/10 | Regressão integrada Android, persistência, API/banco quando necessários e CI. |
+| 31/10 | Documentação, fechamento e promoção final planejada, sujeita a aprovação específica/revisão; meta original, posteriormente prorrogada para 08/11. Promoção `dev → main` fora do escopo da formalização. |
+| 08/11 | Buffer/freeze; evitar desenvolvimento normal. Data máxima para commit/push; depois disso nenhuma alteração no repositório. |
+| 02–07/11 | Janela adicional para implementação e validação, documentação e preparação da demonstração; commits/push permitidos até 08/11. |
+| 08/11 | Apresentação do incremento efetivamente validado; coincide com o novo limite de commit/push. |
+
+A distribuição diária é uma previsão condicionada à aprovação de início e ao
+cumprimento da DoD. Ajustes de recorte devem refletir explicitamente risco e
+capacidade, preservando o freeze. Uma promoção futura depende de aprovação
+específica e do mesmo limite de prazo; permanece fora do escopo da formalização.
+
+## Definition of Done da Sprint
+
+Uma Issue somente é concluída quando:
+
+- [ ] Critérios de aceite do recorte atendidos, sem declarar o PBI completo indevidamente.
+- [ ] Android validado com fluxo principal e erros relevantes.
+- [ ] Persistência validada quando necessária, incluindo reabertura.
+- [ ] API/banco integrados e validados quando necessários.
+- [ ] Testes adicionados/atualizados; testes existentes continuam passando.
+- [ ] Lint/typecheck sem regressão; baselines não ampliadas; `git diff --check` aprovado.
+- [ ] CI Mobile e Backend verdes.
+- [ ] Documentação atualizada e limites conhecidos explícitos.
+- [ ] PR revisado e mergeado em `dev`.
+- [ ] Branch removida quando seguro.
+
+Referências: [DoD do projeto](../processo/definition-of-done.md) e
+[Git Flow](../processo/git-flow.md). O incremento da Sprint só é encerrado com
+resultado rastreável do Goal/core, ou replanejamento explícito de itens não
+concluídos, preservando riscos e pendências. Stretch não é condição para cumprir
+os 37 pontos planejados do core.
+
+## Estado do planejamento e práticas do repositório
+
+- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 08/11, #39–#42 estão CLOSED/completed, integradas em dev pelos PRs #46/#48/#50/#52. #43 tem gate documental NO-GO hoje, continua OPEN e sem implementação.
+- O desenvolvimento futuro segue o Git Flow: base `dev` limpa/atualizada, branch por Issue, Conventional Commits e PR para `dev` com referência à Issue, critérios e evidências. Integração por revisão, sem merge automático ou desenvolvimento direto em `dev`/`main`.
+- As labels existentes e o milestone nº 2 identificam a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Nenhuma label nova foi criada.
+- **Dados de teste preservados.** A limpeza para apresentação fica para depois da Sprint 2, mediante aprovação específica e respeitando a data limite do freeze; alterações posteriores ao freeze estão excluídas.
+- Resultado da formalização: planejamento documentado e Issues registradas; implementação funcional e promoção `dev → main` permanecem fora do escopo.
+
+### Atualização de cronograma — 29/10/2026
+
+O professor prorrogou a data máxima de commit e push para **08/11/2026**.
+O prazo anterior de **01/11/2026** foi substituído. A validação Android manual
+e o fechamento da Issue #39 são etapas separadas; a validação T12 foi posteriormente aprovada em 29/10 e #39 foi integrada em `dev` pelo PR #46, com fechamento como completed.
+
+### Entrega da #40 — revisão e integração em 07/11/2026
+
+RF08 / PBI-13 parcial, Planning Poker **8**. T01–T07 concluídos e **T08 manual
+Android aprovada pela usuária**: DAILY e futuras imediatas no calendário; WEEKLY
+no mesmo weekday; MONTHLY novembro/dezembro, janeiro fora da janela como esperado;
+edição isolada; DAILY → WEEKLY com Details imediato; WEEKLY → NONE preservando
+Tasks; exclusão sem renascimento; undo da mesma Task; reminder independente;
+sync dupla sem duplicação. A política de fim do mês foi validada automaticamente.
+
+A implementação usa RecurrenceSeries persistida, backend como autoridade e Tasks
+independentes com identidade UNIQUE da série/chave nominal, inclusive tombstones.
+Janela hoje → hoje + 31 dias inclusive, sem backfill. DAILY civil, WEEKLY ancorada,
+MONTHLY sem drift; duração start/due preservada. Projetos por ID, filhos/reminders
+com IDs próprios, sem copiar Notes históricas. Alterar a regra afeta apenas novas
+ocorrências ainda não materializadas; NONE não apaga as já existentes.
+
+As correções encontradas em T08 foram validadas: próximo minuto automático até
+edição manual; materialização/snapshot após criação antes de scheduler; regra
+integrada a Salvar alterações, com estados de falha parcial e cache explícitos;
+Details imediato e aviso amigável condicionado à cobertura no calendário, que
+continua sem geração por navegação.
+
+Regressão final executada em 07/11: **604 testes mobile / 31 suítes**, **435 backend
+/ 16 suítes** e **16 validadores CI**. Lint: 3 erros e 7 warnings conhecidos (10
+/ baseline 13); TypeScript mobile: 11 / baseline 11, sem regressão ou ampliação.
+Backend migration/typecheck/test/build e Android assembleDebug/assembleRelease
+aprovados, com Hermes, New Architecture e Codegen. Migration aditiva validada em
+banco vazio/upgrade, foreign keys, preservação de dados, constraints/unique e
+tombstones. `git diff --check` aprovado.
+
+Evidências, arquitetura, correções e limites: [registro final da #40](sprint-2-issue-40.md#encaminhamento-final-para-revisão--07112026).
+[PR #48](https://github.com/AlineRaquelC/gestor-diario/pull/48) integrado em `dev`
+no merge `3fa5970`; Issue #40 CLOSED/completed e branches integradas removidas.
+[CI pós-merge Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42404995166).
+Não declarar PBI-13 inteiro concluído; implementação da #41 está registrada a seguir,
+sem promoção `dev → main`. Prazo máximo de commit/push
+mantido em **08/11/2026**.
+
+
+### #41 — integração final e Android manual aprovado (07/11/2026)
+
+T01 busca textual real em título/descrição/Notes, T02 favoritos e T03 SavedTaskFilter
+local implementados; T04 integra os controles da Home e reduz flicker mantendo
+lista anterior identificada durante atualização. Favoritas/estrela acessíveis,
+Limpar busca e modal de filtros salvos com resumo de critérios, sem redesenho da
+Home. Filtros salvos contêm só TaskFilters; query/sorting/Favoritas preservados ao
+aplicar; projeto por ID, sem fusão de homônimos. Favorite reutiliza coluna existente,
+PATCH/History UPDATED e cache/sync canônicos, afetando somente a ocorrência.
+
+T05: **649 testes mobile / 34 suítes**, **456 backend / 17 suítes**, **16 validadores**;
+lint/TypeScript sem regressão ou ampliação de baseline, backend typecheck/build e
+Android debug/release aprovados com Hermes, New Architecture e Codegen. Pixel_7
+preparado com API/Metro, install -r e dados preservados. **T05 Android manual
+aprovada em 07/11/2026 pela usuária**: busca por título, descrição, observação real
+persistida e busca+filtro; favoritar/desfavoritar, acesso Favoritas e persistência
+após fechar/reabrir; criar/aplicar filtro salvo, persistir após reabrir e excluir.
+São onze cenários aprovados, separados da regressão automatizada/builds/smoke.
+O cenário manual específico de projetos homônimos não foi reproduzido com massa
+artificial; cobertura automatizada por projectId estável mantida, sem criar
+projetos fictícios para esse teste final.
+
+Descrição pertence à Task criada; Notes reais são entidades separadas, adicionadas
+posteriormente em Detalhes. O placeholder de descrição que menciona “observações”
+pode ser melhorado futuramente; nenhuma mudança desse fluxo foi feita agora.
+
+[Registro técnico e evidências de T05](sprint-2-issue-41.md).
+RF13 parcial (título/descrição/observações, sem etiquetas), RF49/RF51 no recorte;
+PBI-14 inteiro e RF14 não concluídos. Sem backend/sync de SavedFilters; fallback
+local não promete busca completa em Notes; Tasks somente locais podem corresponder
+por título/descrição com aviso explícito, sem upload/reassociação. Issue #41 CLOSED/completed, Planning Poker 8; PR
+[#50](https://github.com/AlineRaquelC/gestor-diario/pull/50) integrado em dev no commit
+`e97390d8bbb34a65ccef4e8b997ed38a40d6248f`, com [CI pós-merge aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891).
+#42 com implementação/regressão automatizada concluídas e aceite Android aprovado em 08/11/2026; #43 não iniciada;
+nenhuma promoção dev → main. Commit/push somente até 08/11/2026.
+
+
+### #42 — implementação e aceite Android aprovado (08/11/2026)
+
+T01–T03 concluídos: metas diária/semanal/mensal locais em AsyncStorage versionado,
+inteiros de 1 a 10.000 ou null, edição/remoção e erros sem falso sucesso. Tela Metas
+e relatórios via Configurações; Hoje/Semana/Mês civis, dueDate/startDate, status
+canônico, total/concluídas/pendentes/atrasadas por período. Pendentes incluem
+atrasadas; Home conserva atraso global. Progressos da meta e das Tasks separados,
+texto e barras nativas acessíveis a partir do mesmo objeto. Snapshot atual, sem
+History; contar apenas Tasks ativas e ocorrências materializadas, sem projeção.
+
+T04 automatizada concluída: **697 testes mobile / 37 suítes**, **456 backend /
+17 suítes**, **16 validadores**; lint 10 diagnósticos conhecidos / baseline 13
+(3 erros/7 warnings), TS 11 / baseline 11, sem regressão/ampliação. Backend
+typecheck/build e git diff --check aprovados. Android assembleDebug/assembleRelease
+aprovados com Hermes, New Architecture e Codegen. Pixel_7 atualizado por install -r,
+API/Metro disponíveis, seis entradas do AsyncStorage preservadas integralmente.
+
+**T04 Android manual aprovada em 08/11/2026 pela usuária**: navegação via
+Configurações; metas diária/semanal/mensal; persistência das três após reabrir;
+contagens reais de Total/Concluídas/Pendentes/Atrasadas; resumo textual e barras
+coerentes; conclusão e reabertura refletidas; remoção preservando Tasks e outras
+metas. Cards, texto, barras e progresso confrontados manualmente com as mesmas
+Tasks, com valores coerentes. São onze cenários aprovados no
+[registro técnico da #42](sprint-2-issue-42.md#validação-manual--aprovada-pela-usuária-em-08112026).
+Período vazio permanece coberto automaticamente, sem reprodução manual registrada
+ou massa artificial. Somente ocorrências materializadas contam, sem contar séries
+ou projeções futuras; métricas representam snapshot atual, sem analytics histórico.
+PR [#52](https://github.com/AlineRaquelC/gestor-diario/pull/52) integrado em dev no
+commit `2d23931fbeb811bce0e52c2cf90d1c369b6f2aa4`; Issue #42 CLOSED/completed.
+[CI pós-merge Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42483127495). RF22 parcial
+(quantidade concluída, sem tempo/esforço), RF46/RF47 no recorte; PBI-17 não integral.
+Sem backend/migration/dependência ou sync de metas. #43 não iniciada; sem dev → main.

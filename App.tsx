@@ -1,5 +1,6 @@
 import React from 'react';
 
+import TaskUndoFeedback from './src/components/TaskUndoFeedback';
 import AppNavigator from './src/navigation/AppNavigator';
 
 import {
@@ -12,14 +13,15 @@ import {
 
 export default function App() {
   return (
-    <TaskProvider>
+    <ProjectProvider>
 
-      <ProjectProvider>
+      <TaskProvider>
 
         <AppNavigator />
+        <TaskUndoFeedback />
 
-      </ProjectProvider>
+      </TaskProvider>
 
-    </TaskProvider>
+    </ProjectProvider>
   );
 }

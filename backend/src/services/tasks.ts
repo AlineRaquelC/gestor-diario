@@ -1,0 +1,198 @@
+import 'dotenv/config';
+import { ReminderError, normalizeOffsets, resolveTaskInstant, validateReminderChange } from '../domain/reminders/index.js';
+import { randomUUID } from 'node:crypto';
+import { ProjectError } from '../errors/projects.js';
+import { TaskValidationError, TaskNotFoundError, TaskConflictError } from '../errors/tasks.js';
+import { ProjectsRepository } from '../repositories/projects.js';
+import { TasksRepository } from '../repositories/tasks.js';
+import type { CreateTask, UpdateTask } from '../schemas/tasks.js';
+import { SubtasksRepository } from '../repositories/subtasks.js';
+import { taskState, recordStatus } from './task-state.js';
+
+export const taskTimeZone = process.env.TASK_TIMEZONE ?? 'America/Sao_Paulo';
+
+function isCalendarDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function localToday(now: Date, timeZone = taskTimeZone) {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const part = (type: string) => parts.find(item => item.type === type)!.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+export class TasksService {
+  constructor(
+    private readonly repository: TasksRepository,
+    private readonly projects: ProjectsRepository,
+    private readonly subtasks: SubtasksRepository,
+  ) {}
+
+  findAll(includeDeleted = false) {
+    return this.repository.findAll(includeDeleted);
+  }
+
+  search(query: string) { return this.repository.findAll(false, query); }
+
+  findById(id: string) {
+    const task = this.repository.findById(id);
+    if (!task) throw new TaskNotFoundError();
+    return task;
+  }
+
+  findHistory(id: string) {
+    this.findById(id);
+    return this.repository.findHistoryByTaskId(id);
+  }
+
+  delete(id: string) {
+    return this.repository.transaction(() => {
+      // Repeating DELETE uses the normal operational 404 policy, without another event.
+      const task = this.findById(id);
+      const timestamp = new Date(Math.max(Date.now(), Date.parse(task.updatedAt) + 1)).toISOString();
+      this.repository.setDeletedAt(id, timestamp, timestamp);
+      this.repository.createHistoryEvent({ id: randomUUID(), taskId: id,
+        action: 'DELETE', createdAt: timestamp, metadata: { deletedAt: timestamp } });
+      return { id, deletedAt: timestamp, updatedAt: timestamp };
+    });
+  }
+
+  restore(id: string) {
+    return this.repository.transaction(() => {
+      const task = this.repository.findIncludingDeleted(id);
+      if (!task) throw new TaskNotFoundError();
+      if (!task.deletedAt) throw new TaskConflictError();
+      if (!this.projects.findById(task.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
+      const timestamp = new Date(Math.max(Date.now(), Date.parse(task.updatedAt) + 1)).toISOString();
+      this.repository.setDeletedAt(id, null, timestamp);
+      this.repository.createHistoryEvent({ id: randomUUID(), taskId: id,
+        action: 'RESTORE', createdAt: timestamp, metadata: { deletedAt: task.deletedAt } });
+      return this.findById(id);
+    });
+  }
+
+  update(id: string, input: UpdateTask) {
+    return this.repository.transaction(() => {
+      const task = this.findById(id);
+      const startDate = input.startDate ?? task.startDate;
+      const dueDate = input.dueDate ?? task.dueDate;
+      const now = new Date();
+      if (!isCalendarDate(startDate) || !isCalendarDate(dueDate)) {
+        throw new TaskValidationError('Informe datas válidas no formato YYYY-MM-DD.');
+      }
+      if (startDate !== task.startDate && startDate < localToday(now)) {
+        throw new TaskValidationError('Uma nova data de início não pode ser anterior à data atual.');
+      }
+      if (dueDate < startDate) {
+        throw new TaskValidationError('O prazo não pode ser anterior à data de início.');
+      }
+      if (!this.projects.findById(input.projectId ?? task.projectId)) {
+        throw new ProjectError('PROJECT_NOT_FOUND');
+      }
+      const reminderState = this.validateReminders({ ...task, ...input, dueDate,
+        reminders: input.reminders ?? task.reminders }, task, now);
+      const changes: UpdateTask & { done?: boolean; progress?: number } = { ...input, reminderTimeZone: reminderState.timeZone };
+      delete changes.reminders;
+      const updatedAt = new Date(Math.max(now.getTime(), Date.parse(task.updatedAt) + 1)).toISOString();
+      const children = this.subtasks.findByTaskId(id);
+      let childrenChanged = false;
+      if (children.length && input.status !== undefined) {
+        const allDone = input.status === 'COMPLETED';
+        // PARTIAL cannot invent an arbitrary subset: preserve existing partial
+        // children, but reopening a completed task clears all of them.
+        if (allDone || input.status === 'PENDING' || task.status === 'COMPLETED') {
+          childrenChanged = children.some(child => child.done !== allDone);
+          if (childrenChanged) this.subtasks.setAllDone(id, allDone, updatedAt);
+        }
+      }
+      const state = taskState(children.length ? this.subtasks.findByTaskId(id) : [], input.status ?? task.status);
+      Object.assign(changes, state);
+      const reminderChanged = reminderState.offsets.join(',') !== task.reminders.map(item => item.offsetMinutes).join(',');
+      if (reminderChanged) this.repository.replaceReminders(id, reminderState.offsets, updatedAt);
+      const fields: string[] = (Object.keys(input) as (keyof UpdateTask)[])
+        .filter(key => key !== 'status' && key !== 'reminders' && key !== 'reminderTimeZone' && input[key] !== task[key]);
+      if (reminderChanged) fields.push('reminders');
+      if (reminderState.timeZone !== task.reminderTimeZone) fields.push('reminderTimeZone');
+      if (childrenChanged) fields.push('subtasks', 'progress');
+      if (!fields.length && state.status === task.status && state.done === task.done && state.progress === task.progress && !childrenChanged) return task;
+      if (!this.repository.updateById(id, changes, updatedAt)) throw new TaskNotFoundError();
+      if (fields.length) this.repository.recordUpdate(id, randomUUID(), updatedAt, fields);
+      recordStatus(this.repository, id, task.status, state.status, updatedAt);
+      return this.findById(id);
+    });
+  }
+
+  private validateReminders(
+    next: { dueDate: string; time?: string | null; reminderTimeZone?: string | null; reminders?: { offsetMinutes: number }[] },
+    previous: typeof next | undefined, now: Date,
+  ) {
+    try {
+      const offsets = normalizeOffsets((next.reminders ?? []).map(item => item.offsetMinutes));
+      // Even a supplied zone on an empty collection must be structurally valid.
+      if (next.reminderTimeZone != null) resolveTaskInstant('2026-01-15', '12:00', next.reminderTimeZone);
+      const timeZone = offsets.length ? next.reminderTimeZone ?? '' : null;
+      validateReminderChange({ dueDate: next.dueDate, time: next.time ?? '', timeZone: timeZone ?? '', offsets },
+        previous ? { dueDate: previous.dueDate, time: previous.time ?? '', timeZone: previous.reminderTimeZone ?? '',
+          offsets: (previous.reminders ?? []).map(item => item.offsetMinutes) } : undefined, () => now.getTime());
+      return { offsets, timeZone };
+    } catch (error) {
+      if (error instanceof ReminderError) throw new TaskValidationError(error.message);
+      throw error;
+    }
+  }
+
+  create(input: CreateTask) {
+    // The retry may arrive after the original date passed, or after soft-delete.
+    // Resolve its immutable import identity before any creation validation.
+    if (input.clientId) {
+      const existing = this.repository.findByClientId(input.clientId);
+      if (existing) return existing.deletedAt ? existing : this.findById(existing.id);
+    }
+    const now = new Date();
+    if (!isCalendarDate(input.startDate) || !isCalendarDate(input.dueDate)) {
+      throw new TaskValidationError('Informe datas válidas no formato YYYY-MM-DD.');
+    }
+    if (!input.clientId && input.startDate < localToday(now)) {
+      throw new TaskValidationError('A data de início não pode ser anterior à data atual.');
+    }
+    if (input.dueDate < input.startDate) {
+      throw new TaskValidationError('O prazo não pode ser anterior à data de início.');
+    }
+    const reminderState = this.validateReminders(input, undefined, now);
+    return this.repository.transaction(() => {
+      if (input.clientId) {
+        const existing = this.repository.findByClientId(input.clientId);
+        if (existing) return existing.deletedAt ? existing : this.findById(existing.id);
+      }
+      if (!this.projects.findById(input.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
+      const timestamp = now.toISOString();
+      const completed = input.status === 'COMPLETED';
+      const draftChildren = input.subtasks ?? [];
+      const fields = { ...input };
+      delete fields.reminders;
+      delete fields.subtasks;
+      const children = draftChildren.map((child, index) => ({
+        id: randomUUID(), title: child.title, done: completed,
+        // Preserve the draft order with the repository's existing ordering.
+        createdAt: new Date(now.getTime() + index).toISOString(),
+        updatedAt: new Date(now.getTime() + index).toISOString(),
+      }));
+      const updatedAt = children.at(-1)?.updatedAt ?? timestamp;
+      const task = this.repository.create({
+        ...fields, ...taskState(children, input.status), id: randomUUID(),
+        reminderTimeZone: reminderState.timeZone,
+        favorite: false, createdAt: timestamp, updatedAt,
+        deletedAt: null, undoUntil: null,
+      });
+      this.repository.replaceReminders(task.id, reminderState.offsets, timestamp);
+      for (const child of children) this.subtasks.create({ ...child, taskId: task.id });
+      this.repository.createHistoryEvent({ id: randomUUID(), taskId: task.id,
+        action: 'CREATED', createdAt: timestamp, metadata: {} });
+      return this.findById(task.id);
+    });
+  }
+}

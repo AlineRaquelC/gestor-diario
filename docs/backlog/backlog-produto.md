@@ -1,14 +1,546 @@
-# Backlog do produto — Gestor Diário
+# Product Backlog — Gestor Diário
 
-## Origem e rastreabilidade
-O backlog deverá derivar dos [requisitos oficiais](../requisitos/requisitos-oficiais.md), exclusivamente das páginas 1 a 35 do documento do professor. Não foi encontrado backlog completo nem PDF oficial; os itens aguardam confirmação da fonte.
+## 1. Identificação
 
-| ID | Requisito/User Story | Prioridade | Entrega | Área | Status |
-|----|------------------------|-----------|---------|------|--------|
+- **Produto:** Gestor Diário
+- **Fonte dos requisitos:** `docs/requisitos/requisitos-oficiais.md`
+- **Origem:** exclusivamente as páginas **1 a 35** do PDF fornecido pelo professor
+- **Plataforma:** Android
+- **Mobile:** React Native + TypeScript
+- **Backend atual:** Node.js + TypeScript / Express
+- **Arquitetura atual:** Mobile → Services/Context → API REST → Node.js → SQLite
+- **Método de trabalho:** Scrum, Git/GitHub, Pull Requests, integração contínua e entrega contínua
 
-## Organização futura
-Dividir os requisitos confirmados em entregas e User Stories com critérios de aceite. Priorizar por valor acadêmico, dependências e risco, validando a ordem com a equipe. Vincular cada item à página e ID do requisito, Issue, Sprint e Pull Request.
+> **Importante:** os requisitos são oficiais; a transformação em PBIs/User Stories, a prioridade, a divisão em três entregas e o status abaixo são **decisões de planejamento do projeto**. Este arquivo não substitui `requisitos-oficiais.md`; ele organiza os requisitos para execução ágil e mantém referência aos IDs de origem.
 
-Áreas possíveis: Front, Backend, Banco, Hardware, DevOps, Documentação e Testes.
+---
 
-A Entrega 1 ainda depende da fonte oficial. Issues, Labels, Milestones e Projects serão usados posteriormente; nenhuma Issue foi criada nesta etapa.
+## 2. Objetivo do produto
+
+Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à pessoa usuária criar, organizar, acompanhar e concluir atividades, evoluindo de um núcleo funcional para recursos de produtividade, sincronização com uma mini API Node.js e, posteriormente, integrações com hardware e contexto do dispositivo.
+
+---
+
+## 3. Critério de priorização
+
+| Prioridade | Significado no projeto |
+|---|---|
+| **Alta** | Necessário para o núcleo funcional/MVP e para a primeira integração Mobile + API + Banco |
+| **Média** | Evolução de produtividade, automação, personalização, backup e sincronização avançada |
+| **Baixa** | Recursos avançados de hardware, sensores, contexto e integrações específicas do dispositivo |
+
+> **Baixa prioridade não significa requisito dispensável.** Significa apenas que o item foi posicionado para uma entrega posterior.
+
+### Status utilizados
+
+“Parcial — Integrado” não implica aceite integral do PBI; preferências locais
+podem compor um recorte com dados canônicos da API, sem backend próprio.
+
+| Status | Significado |
+|---|---|
+| **Concluído** | Trabalho correspondente concluído e validado |
+| **Parcial — Integrado** | Parte do fluxo integrada Mobile → API → SQLite; demais critérios pendentes |
+| **Em andamento** | Base técnica disponível, com trabalho restante |
+| **Parcial — Mobile** | Há implementação conhecida no aplicativo, mas ainda falta validar critérios oficiais e/ou integrar API/Banco |
+| **A validar** | Existe indício de implementação, mas deve ser confirmado no código/testes |
+| **Planejado** | Ainda não entrou em implementação |
+| **Bloqueado por arquitetura** | Depende da definição/implementação de API, banco ou integração técnica |
+
+---
+
+# 4. Visão consolidada do Product Backlog
+
+**Histórico da Sprint 1 — conferência em 22/10/2026:** fechamento técnico pós-entrega
+em 21/10/2026, **15/15 Issues da Sprint 1 concluídas, 100%, 0 abertas**.
+A Sprint havia sido apresentada/entregue antes do fechamento técnico. Entrega 1
+mantém cobertura parcial conforme os PBIs abaixo; não recebe aceite integral
+apenas porque o milestone fechou. Requisitos, User Stories, prioridades, IDs e
+entregas foram preservados. [Rastreabilidade completa](../sprints/sprint-1.md).
+
+Histórico em 2026-10-04: #7 e #3 concluídas não bastavam para completar seus PBIs;
+exclusão/restauração dependia de #10 e reconciliação de projetos dependia de #12.
+Ambas as Issues foram concluídas posteriormente.
+
+## Atualização — 08/11/2026
+
+Sprint 2 core #39–#42 CLOSED/completed e integrado em `dev`: **4/4 Issues,
+37/37 pontos, 100%**. Recortes dos PBIs 13, 14 e 17 estão parcialmente integrados;
+não representam conclusão integral desses PBIs ou da Entrega 2 (PBIs 12–24).
+PBI-19/#43 permanece Planejado/OPEN: stretch de 13 pontos fora do core, avaliada
+pelo gate técnico NO-GO, sem implementação. [Sprint 2](../sprints/sprint-2.md).
+
+| PBI | Recorte entregue e rastreabilidade | Limites preservados |
+|---|---|---|
+| PBI-13 | RF08 ✅ (#40 / PR #48); RF15/RF16 ✅ (#39 / PR #46), no recorte validado | RF43–RF45 e REQ114–REQ116 não integralmente atestados |
+| PBI-14 | RF13 parcial: título/descrição/observações ✅; RF49/RF51 ✅ (#41 / PR #50) | Etiquetas ❌; RF14/drag and drop ❌; PBI não integral |
+| PBI-17 | RF22 parcial: quantidade de Tasks concluídas ✅; RF46/RF47 ✅ (#42 / PR #52) | Tempo total ❌; REQ084/REQ085/REQ111 não atestados por este recorte |
+| PBI-19 | Gate documental #43 / PR #53; arquitetura futura exige isolamento validado | Não implementado; RF33/RF34 não entregues; perfil local não é autenticação |
+
+Os demais PBIs da Entrega 2 conservam seu estado planejado. Referências técnicas:
+[#39](../sprints/sprint-2-issue-39.md), [#40](../sprints/sprint-2-issue-40.md),
+[#41](../sprints/sprint-2-issue-41.md), [#42](../sprints/sprint-2-issue-42.md) e
+[gate #43](../sprints/sprint-2-issue-43.md).
+
+| PBI | User Story / Capacidade | Requisitos de origem | Área principal | Prioridade | Entrega | Status atual |
+|---|---|---|---|---|---|---|
+| **PBI-01** | Criar tarefa com dados obrigatórios e validação | RF01 | Front / Backend / Banco | Alta | 1 | Concluído |
+| **PBI-02** | Editar tarefa e registrar última modificação | RF03 | Front / Backend / Banco | Alta | 1 | Concluído — PR #24 |
+| **PBI-03** | Excluir tarefa com confirmação e desfazer | RF04 | Front / Backend / Banco | Alta | 1 | Concluído — Issue #10 / PR #31 |
+| **PBI-04** | Controlar status e histórico da tarefa | RF05, RF17 | Front / Backend / Banco | Alta | 1 | Concluído — #7 / PR #25 + #10 / PR #31 |
+| **PBI-05** | Visualizar tarefas por dia, semana e mês | RF06, RF07 | Front | Alta | 1 | Concluído — #20 / PR #29 |
+| **PBI-06** | Criar subtarefas e calcular progresso | RF09, RF10 | Front / Backend / Banco | Alta | 1 | Concluído — PR #26 |
+| **PBI-07** | Registrar múltiplas observações por tarefa | RF11 | Front / Backend / Banco | Alta | 1 | Concluído — PR #27 |
+| **PBI-08** | Organizar tarefas em projetos/etiquetas | RF12 | Front / Backend / Banco | Alta | 1 | Parcial — Projects integrado (#3/#6/#12); etiquetas sem cobertura comprovada |
+| **PBI-09** | Exibir dashboard de produtividade | RF23 | Front / Backend | Alta | 1 | Concluído — PR #28 |
+| **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | Concluído no recorte planejado da Sprint — #21 / PR #32; RF48 integral não atestado |
+| **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Concluído no escopo RF20 — #12 / PR #33; limites de legado preservados |
+| **PBI-12** | Priorização inteligente e prioridades personalizadas | RF02, RF24, RF63, RF64, RF65, REQ120–REQ122 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-13** | Tarefas recorrentes, lembretes e notificações | RF08, RF15, RF16, RF43, RF44, RF45, REQ114–REQ116 | Front / Backend / Banco / Android | Média | 2 | Parcial — Integrado (recorte Sprint 2; limites acima) |
+| **PBI-14** | Busca, ordenação manual, filtros salvos e favoritos | RF13, RF14, RF49, RF51 | Front / Backend / Banco | Média | 2 | Parcial — Integrado (recorte Sprint 2; limites acima) |
+| **PBI-15** | Exportar/importar dados, backup, integridade e migração | RF18, RF19, RF58, RF59, RF60, RF61, RF77, RF78 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-16** | Sincronização automática, API segura e múltiplos servidores | RF21, RF79, RF80, REQ081, REQ192 | Front / Backend / Banco / DevOps | Média | 2 | Planejado |
+| **PBI-17** | Metas, relatórios e métricas locais | RF22, RF46, RF47, REQ084, REQ085, REQ111 | Front / Backend / Banco | Média | 2 | Parcial — Integrado (recorte Sprint 2; limites acima) |
+| **PBI-18** | Tema, acessibilidade e personalização visual | RF25, RF26, RF27, RF71, RF72, REQ112 | Front / Banco / Android | Média | 2 | Planejado |
+| **PBI-19** | Perfis locais e tarefas compartilhadas | RF33, RF34 | Front / Backend / Banco | Média | 2 | Planejado — Stretch #43 OPEN; gate NO-GO em 08/11/2026, sem implementação |
+| **PBI-20** | Duplicação, modelos e dependências entre tarefas | RF35, RF36, RF37, REQ117–REQ119 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-21** | Linha do tempo, estimativas, cronômetro e conflitos de agenda | RF38, RF39, RF40, RF41, RF42, REQ123–REQ126 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-22** | Operações em lote, arquivamento e campos personalizados | RF66, RF67, RF68, RF69, RF70, REQ109, REQ110 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-23** | Prazos úteis, feriados, atrasos e revisão semanal | REQ086–REQ092, REQ113 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-24** | Anexos, links, áudio, compartilhamento e impressão | RF52–RF57, REQ102–REQ106, REQ127–REQ132 | Front / Backend / Banco / Android | Média | 2 | Planejado |
+| **PBI-25** | Comandos de voz, câmera, OCR, QR Code e NFC | RF28, RF29, RF30, RF75, REQ141–REQ146 | Front / Hardware / Android | Baixa | 3 | Planejado |
+| **PBI-26** | GPS, mapa, geofencing e lembretes por localização | RF31, RF32, RF62, RF76, REQ093, REQ133, REQ147–REQ150 | Front / Hardware / Backend / Banco | Baixa | 3 | Planejado |
+| **PBI-27** | Integrações Android, calendário, rede e eventos do sistema | RF73, RF74, REQ094–REQ100, REQ107, REQ108, REQ129–REQ132, REQ151–REQ158 | Front / Android / Hardware / Backend | Baixa | 3 | Planejado |
+| **PBI-28** | Automação por contexto de uso e conectividade | REQ134–REQ140 | Front / Backend / Android | Baixa | 3 | Planejado |
+| **PBI-29** | Sensores ambientais, movimento e saúde | REQ159–REQ174 | Hardware / Android / Backend | Baixa | 3 | Planejado |
+| **PBI-30** | Biometria e acesso contextual a tarefas sensíveis | REQ175–REQ180 | Hardware / Segurança / Android | Baixa | 3 | Planejado |
+| **PBI-31** | Adaptação por contexto pessoal, social e ambiental | REQ181–REQ202 | Hardware / Backend / Front | Baixa | 3 | Planejado |
+| **PBI-32** | Segurança, privacidade, resiliência e contexto operacional | REQ203–REQ220 | Backend / Banco / Segurança / Android | Baixa | 3 | Planejado |
+| **PBI-33** | Saúde, acessibilidade, internacionalização e regras locais contextuais | REQ221–REQ228 | Front / Backend / Hardware | Baixa | 3 | Planejado |
+| **PBI-34** | Energia, desempenho, rede, consentimento, auditoria e contingência | REQ229–REQ246 | Backend / Banco / Android / Segurança | Baixa | 3 | Planejado |
+| **PBI-35** | Requisitos contextuais repetidos de saúde, acessibilidade, internacionalização e infraestrutura | REQ247–REQ276 | Front / Backend / Hardware / Segurança | Baixa | 3 | Planejado |
+
+---
+
+# 5. Entrega 1 — MVP
+
+## Objetivo
+
+Entregar o núcleo funcional do Gestor Diário e a primeira integração real entre o aplicativo React Native, a mini API Node.js e a camada de persistência em banco de dados.
+
+## Escopo funcional da Entrega 1
+
+### PBI-01 — Criar tarefa
+
+**User Story**  
+Como pessoa usuária, quero criar uma tarefa informando seus dados principais para registrar uma atividade que preciso realizar.
+
+**Origem:** RF01  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite derivados do requisito:**
+
+- permitir informar título;
+- permitir informar descrição;
+- permitir informar data de início;
+- permitir informar prazo final;
+- permitir informar prioridade;
+- validar campos obrigatórios;
+- apresentar mensagens de erro claras;
+- persistir os dados da tarefa.
+
+**Status atual:** criação integrada Android → API → SQLite concluída (Issue #4, PR #17), com validação manual aprovada e cache preservado.
+
+---
+
+### PBI-02 — Editar tarefa
+
+**User Story**  
+Como pessoa usuária, quero editar uma tarefa cadastrada para manter seus dados atualizados.
+
+**Origem:** RF03  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite:**
+
+- permitir alterar os dados da tarefa;
+- incluir prioridade, prazo, descrição e status;
+- registrar data/hora da última modificação;
+- refletir a alteração imediatamente nas telas relacionadas;
+- persistir a alteração.
+
+**Situação inicial:** edição funcional no mobile; última modificação e persistência via API/Banco ainda precisam ser confirmadas/implementadas.
+
+**Status atual — 2026-10-21:** Concluído — Issue #6 / PR #24; edição persistida, projectId e updatedAt validados.
+
+---
+
+### PBI-03 — Excluir tarefa e desfazer
+
+**User Story**  
+Como pessoa usuária, quero excluir uma tarefa com segurança para remover atividades que não preciso mais acompanhar.
+
+**Origem:** RF04  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite:**
+
+- solicitar confirmação antes da exclusão;
+- remover a tarefa das listagens;
+- permitir desfazer a exclusão por curto período;
+- utilizar armazenamento temporário para viabilizar o desfazer;
+- manter consistência entre mobile, API e banco.
+
+**Situação inicial:** exclusão com confirmação existe no mobile; o recurso de desfazer ainda é um gap conhecido.
+
+**Status atual — 2026-10-21:** Concluído — Issue #10 / PR #31: confirmação, soft delete, undo de 5s, restore, histórico DELETE/RESTORE, persistência e offline seguro.
+
+---
+
+### PBI-04 — Status e histórico
+
+**User Story**  
+Como pessoa usuária, quero controlar o estado de uma tarefa e consultar seu histórico para acompanhar sua evolução.
+
+**Origem:** RF05, RF17  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite:**
+
+- suportar estados concluída, parcial e pendente conforme a especificação;
+- atualizar imediatamente a lista após mudança de estado;
+- registrar histórico de conclusão;
+- registrar criação, edição, conclusão e exclusão com data/hora.
+
+**Situação inicial:** o mobile possui controle de status, mas os estados oficiais e o histórico completo precisam ser alinhados ao requisito.
+
+**Status atual — 2026-10-21:** Concluído — #7 / PR #25 + #10 / PR #31; status, conclusão/reabertura e histórico, incluindo exclusão/restauração.
+
+---
+
+### PBI-05 — Visualizações diária, semanal e mensal
+
+**User Story**  
+Como pessoa usuária, quero visualizar minhas tarefas por diferentes períodos para organizar melhor minha rotina.
+
+**Origem:** RF06, RF07  
+**Prioridade:** Alta  
+**Área:** Front
+
+**Critérios de aceite:**
+
+- visão diária;
+- agrupamento diário por manhã, tarde e noite usando o horário da tarefa;
+- visão semanal;
+- visão mensal;
+- destaque visual de prazos próximos;
+- destaque visual de tarefas atrasadas;
+- utilização de componentes de calendário quando aplicável.
+
+**Situação inicial:** deve ser validada no aplicativo atual antes de marcar como concluída.
+
+**Planejamento histórico — refinamento de 2026-10-03:** [Issue #20](https://github.com/AlineRaquelC/gestor-diario/issues/20) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+
+**Status atual — 2026-10-21:** Concluído — #20 / PR #29: Dia/Semana/Mês, dados reais e destaques no recorte documentado.
+
+---
+
+### PBI-06 — Subtarefas e progresso
+
+**User Story**  
+Como pessoa usuária, quero dividir uma tarefa em subtarefas e acompanhar seu percentual de conclusão.
+
+**Origem:** RF09, RF10  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite:**
+
+- adicionar subtarefas a uma tarefa;
+- acompanhar conclusão individual;
+- persistir subtarefas;
+- calcular automaticamente o percentual da tarefa com base nas subtarefas concluídas.
+
+**Situação inicial:** funcionalidade conhecida no mobile; integração e cálculo devem ser validados ponta a ponta.
+
+**Status atual — 2026-10-21:** Concluído — #8 / PR #26; subtarefas persistidas e progresso calculado.
+
+---
+
+### PBI-07 — Observações da tarefa
+
+**User Story**  
+Como pessoa usuária, quero registrar múltiplas observações em uma tarefa para guardar informações complementares ao longo do tempo.
+
+**Origem:** RF11  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite:**
+
+- adicionar múltiplas anotações;
+- manter cada anotação separada;
+- registrar data de criação da observação;
+- persistir as observações.
+
+**Situação inicial:** a descrição simples da tarefa não substitui integralmente este requisito.
+
+**Status atual — 2026-10-21:** Concluído — #9 / PR #27; Notes múltiplas e datadas, independentes de description.
+
+---
+
+### PBI-08 — Projetos/etiquetas
+
+**User Story**  
+Como pessoa usuária, quero categorizar tarefas em projetos ou etiquetas para organizar minhas atividades.
+
+**Origem:** RF12  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite:**
+
+- associar tarefa a projeto ou etiqueta;
+- permitir categorias personalizadas;
+- filtrar por categoria;
+- preservar vínculo após edição;
+- persistir as relações.
+
+**Status histórico — 2026-10-04:** parcialmente integrado. CRUD de projetos na API/SQLite concluído (Issue #3, PR #16), com vínculo remoto na criação de tarefas. Integração geral do gerenciamento mobile e demais critérios do PBI permanecem pendentes.
+
+**Status atual — 2026-10-21:** Parcial — Integrado. Projects com CRUD na API (#3 / PR #16), edição de vínculos por projectId (#6 / PR #24) e reconciliação manual/identidades estáveis (#12 / PR #33). RF12 admite projetos **ou** etiquetas; preserva-se essa alternativa oficial. O PBI contém critérios de projetos/etiquetas mais amplos: não há sistema de etiquetas comprovado e não se declara aceite integral. O recorte de Projects está concluído; legado e exclusão segura seguem a política RF20.
+
+---
+
+### PBI-09 — Dashboard de produtividade
+
+**User Story**  
+Como pessoa usuária, quero visualizar indicadores de produtividade para acompanhar meu desempenho.
+
+**Origem:** RF23  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend
+
+**Critérios de aceite:**
+
+- mostrar tarefas concluídas;
+- mostrar tarefas atrasadas;
+- mostrar tarefas pendentes;
+- permitir análise por período;
+- calcular os indicadores a partir dos dados reais.
+
+**Situação inicial:** dashboard existe no mobile; deve ser alinhado aos indicadores oficiais e à fonte de dados definitiva.
+
+**Status atual — 2026-10-21:** Concluído — #11 / PR #28; indicadores calculados com dados reais e recorte por período documentado.
+
+---
+
+### PBI-10 — Filtros e ordenação
+
+**User Story**  
+Como pessoa usuária, quero filtrar e ordenar tarefas para localizar rapidamente o que preciso executar.
+
+**Origem:** RF48, RF50  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend
+
+**Critérios de aceite:**
+
+- filtrar por status;
+- filtrar por prioridade;
+- filtrar por etiqueta;
+- filtrar por projeto;
+- filtrar por período;
+- ordenar por múltiplos critérios;
+- suportar direção ascendente e descendente.
+
+**Situação inicial:** deve ser validada no código atual.
+
+**Planejamento histórico — refinamento de 2026-10-03:** [Issue #21](https://github.com/AlineRaquelC/gestor-diario/issues/21) formalizada na Sprint 1 após auditoria/refinamento. Item planejado e não concluído; permanece na Entrega 1 com requisitos, prioridade e escopo originais preservados.
+
+**Status atual — 2026-10-21:** Concluído no recorte planejado da Sprint — #21 / PR #32: status, prioridade, projeto, período, combinações, prioridade/prazo, direção e vazio. RF48 integral inclui etiqueta: esse critério permanece sem cobertura comprovada. RF48/RF50 e os critérios originais não são reescritos.
+
+---
+
+### PBI-11 — Sincronização manual com Node.js
+
+**User Story**  
+Como pessoa usuária, quero sincronizar minhas tarefas com um servidor local para manter os dados persistidos também fora do aplicativo.
+
+**Origem:** RF20  
+**Prioridade:** Alta  
+**Áreas:** Front / Backend / Banco
+
+**Critérios de aceite:**
+
+- existir servidor local baseado em Node.js;
+- comunicação por requisições HTTP;
+- persistência no servidor em arquivo ou banco de dados aberto;
+- permitir sincronização manual;
+- tratar sucesso e falha de sincronização;
+- não perder os dados locais em caso de indisponibilidade do servidor.
+
+**Status histórico — 2026-10-04:** em andamento. API, SQLite e Services HTTP disponíveis para os fluxos integrados de criação, consulta, edição, status, subtarefas e observações; sincronização manual geral e reconciliação de dados locais legados continuam pendentes na #12.
+
+**Status atual — 2026-10-21:** Concluído no escopo RF20 — #12 / PR #33. Projetos antes de Tasks, IDs estáveis, API canônica para registros identificados e AsyncStorage como cache/apoio. Idempotência, offline e reabertura validados. Três Tasks antigas sem projectId ficam locais com dados preservados e pendências informadas pela UI, sem migração insegura; filhos legados não são migrados automaticamente. Sem sincronização automática.
+
+---
+
+# 6. Itens técnicos necessários à Entrega 1
+
+Os itens abaixo são **enablers técnicos de planejamento**. Eles não são apresentados como requisitos textuais do professor, mas são necessários para implementar e demonstrar os PBIs da Entrega 1.
+
+| ID técnico | Item | Área | Prioridade | Status |
+|---|---|---|---|---|
+| **TEC-01** | Estruturar a mini API Node.js do Gestor Diário | Backend | Alta | Concluído |
+| **TEC-02** | Definir e documentar o banco de dados do MVP | Banco / Arquitetura | Alta | Concluído |
+| **TEC-03** | Modelar Task, Project/Tag, Subtask, Note e History | Banco / Backend | Alta | Concluído |
+| **TEC-04** | Criar camada `services` no mobile para comunicação HTTP | Front / Arquitetura | Alta | Concluído — services HTTP / #12 / PR #33 |
+| **TEC-05** | Definir estratégia entre AsyncStorage e servidor para evitar duas fontes de verdade conflitantes | Arquitetura | Alta | Concluído/documentado no escopo #12 / PR #33 |
+| **TEC-06** | Implementar validações de negócio também no backend | Backend | Alta | Concluído no escopo técnico da Sprint — Zod/services e testes backend |
+| **TEC-07** | Implementar tratamento padronizado de erros da API | Backend / Front | Alta | Concluído no escopo dos fluxos integrados — erros API/HTTP e feedback validados |
+| **TEC-08** | Adicionar testes mínimos do CRUD e regras críticas | Testes | Alta | Concluído no escopo técnico da Sprint 1 — referência histórica: 278 testes backend / 322 mobile |
+| **TEC-09** | Configurar CI inicial para TypeScript/lint/testes | DevOps | Alta | Concluído — #13 / PR #34 |
+| **TEC-10** | Manter documentação e rastreabilidade requisito → PBI → Issue → PR → teste | Documentação / DevOps | Alta | Atualizado no escopo da Sprint — 15 vínculos Issue → PR e evidências; aceite integral dos PBIs não presumido |
+
+---
+
+**Histórico após refinamento de 2026-10-03:** TEC-04 a TEC-08 avançaram no fluxo de projetos/criação de tarefas; seus escopos gerais permanecem em andamento. A Entrega 1 continua em andamento; a Sprint 1 registra 4/15 Issues concluídas (26,7%) após refinamento. O planejamento inicial tinha 13 Issues e registrava 4/13 = 30,8%; a redução decorre da formalização de PBI-05/PBI-10, sem perda de trabalho ou criação de requisitos. Integridade de projetos será tratada em #6/#12, sem terceira Issue.
+
+Evidências técnicas finais: [sincronização manual](../arquitetura/sincronizacao-manual.md),
+[exclusão/desfazer](../arquitetura/integracao-exclusao-desfazer.md),
+[contratos e erros backend](../../backend/README.md) e [CI](../arquitetura/ci-inicial.md).
+TEC-06/07 se limitam às validações e erros dos fluxos implementados (Zod, datas,
+projeto ativo, recursos ausentes, conflitos, rede/cache); não atestam recursos futuros.
+TEC-03 usa Project, sem entidade Tag comprovada. TEC-10 possui rastreabilidade no
+recorte da Sprint, sem declarar uma matriz exaustiva de todos os requisitos oficiais.
+O CI bloqueia regressões novas em relação às dívidas explicitamente baselineadas;
+TypeScript, ESLint, App.test.tsx/Jest e alertas de dependências permanecem registrados.
+
+# 7. Entrega 2 — Produtividade, automação e sincronização avançada
+
+## Objetivo
+
+Evoluir o núcleo do aplicativo com recursos de busca, recorrência, lembretes, automação, relatórios, personalização, backup e sincronização mais robusta.
+
+### Escopo planejado
+
+- **PBI-12:** priorização inteligente e prioridades personalizadas;
+- **PBI-13:** recorrência, lembretes e notificações;
+- **PBI-14:** busca, ordenação manual, filtros salvos e favoritos;
+- **PBI-15:** importação/exportação, backup, integridade e migração;
+- **PBI-16:** sincronização automática, resolução de conflitos, API segura e múltiplos servidores;
+- **PBI-17:** metas, relatórios e métricas locais;
+- **PBI-18:** tema, acessibilidade e personalização visual;
+- **PBI-19:** perfis locais e tarefas compartilhadas;
+- **PBI-20:** duplicação, modelos e dependências;
+- **PBI-21:** tempo, cronômetro, esforço e conflitos de agenda;
+- **PBI-22:** operações em lote, arquivamento e campos personalizados;
+- **PBI-23:** prazos úteis, feriados, atrasos e revisão semanal;
+- **PBI-24:** anexos, links, áudio, compartilhamento e impressão.
+
+---
+
+# 8. Entrega 3 — Hardware, Android e contexto do dispositivo
+
+## Objetivo
+
+Implementar os recursos avançados dependentes de hardware, APIs Android, sensores, biometria, localização e adaptação contextual.
+
+### Escopo planejado
+
+- **PBI-25:** voz, câmera, OCR, QR Code e NFC;
+- **PBI-26:** GPS, mapas e geofencing;
+- **PBI-27:** integrações Android, calendário, rede e eventos do sistema;
+- **PBI-28:** automação por contexto de uso e conectividade;
+- **PBI-29:** sensores ambientais, movimento e saúde;
+- **PBI-30:** biometria e acesso contextual;
+- **PBI-31:** adaptação por contexto pessoal, social e ambiental;
+- **PBI-32:** segurança, privacidade, resiliência e contexto operacional;
+- **PBI-33:** saúde, acessibilidade, internacionalização e regras locais;
+- **PBI-34:** energia, desempenho, rede, consentimento, auditoria e contingência;
+- **PBI-35:** requisitos contextuais repetidos presentes no trecho oficial.
+
+---
+
+# 9. Rastreabilidade dos requisitos adicionais REQ081–REQ276
+
+Os requisitos adicionais permanecem preservados no catálogo oficial. Para execução ágil, foram agrupados em PBIs relacionados, sem alterar o texto de origem.
+
+| Requisitos | PBI relacionado | Entrega |
+|---|---|---|
+| REQ081 | PBI-16 — conflito de sincronização | 2 |
+| REQ082–REQ085 | PBI-15 / PBI-17 — manutenção, armazenamento e métricas/privacidade | 2 |
+| REQ086–REQ092 | PBI-23 — notificações por calendário útil, feriados, atrasos e revisão | 2 |
+| REQ093 | PBI-26 — localização | 3 |
+| REQ094–REQ099 | PBI-27 — NFC, Bluetooth, calendário, e-mail e redes abertas | 3 |
+| REQ100–REQ101 | PBI-14 / PBI-12 — linguagem natural e sugestão de etiquetas | 2 |
+| REQ102–REQ106 | PBI-24 — anexos e visualização | 2 |
+| REQ107–REQ108 | PBI-27 — atalhos/gestos | 3 |
+| REQ109–REQ110 | PBI-22 — campos personalizados e validação | 2 |
+| REQ111–REQ113 | PBI-17 / PBI-18 / PBI-23 — relatórios, temas e prazos relativos | 2 |
+| REQ114–REQ116 | PBI-13 — notificações e escalonamento de lembretes | 2 |
+| REQ117–REQ119 | PBI-20 — dependências | 2 |
+| REQ120–REQ122 | PBI-12 — prioridade calculada e reorganização | 2 |
+| REQ123–REQ126 | PBI-21 — esforço, limites e pausas | 2 |
+| REQ127–REQ132 | PBI-24 — links, contatos e comunicação | 2 |
+| REQ133–REQ140 | PBI-26 / PBI-28 — contexto de localização, clima, movimento, bateria e conectividade | 3 |
+| REQ141–REQ146 | PBI-25 — voz, OCR, QR e NFC | 3 |
+| REQ147–REQ150 | PBI-26 — geofencing e permanência em locais | 3 |
+| REQ151–REQ158 | PBI-27 — dispositivos, redes e eventos do sistema | 3 |
+| REQ159–REQ174 | PBI-29 — sensores ambientais, movimento e saúde | 3 |
+| REQ175–REQ180 | PBI-30 — biometria e acesso sensível | 3 |
+| REQ181–REQ202 | PBI-31 — contexto pessoal, social, físico e ambiental | 3 |
+| REQ203–REQ220 | PBI-32 — segurança, privacidade, disponibilidade e emergência | 3 |
+| REQ221–REQ228 | PBI-33 — saúde, acessibilidade, internacionalização e legislação | 3 |
+| REQ229–REQ246 | PBI-34 — energia, desempenho, armazenamento, rede, auditoria e contingência | 3 |
+| REQ247–REQ276 | PBI-35 — continuação/repetição dos requisitos contextuais do trecho oficial | 3 |
+
+---
+
+# 10. Definition of Ready — referência para entrada em Sprint
+
+Um PBI está pronto para entrar em uma Sprint quando:
+
+- [ ] possui requisitos de origem identificados;
+- [ ] possui User Story/capacidade claramente descrita;
+- [ ] possui critérios de aceite suficientes;
+- [ ] dependências principais foram identificadas;
+- [ ] área técnica responsável está indicada;
+- [ ] não há dúvida de escopo que impeça implementação;
+- [ ] tamanho é compatível com a Sprint ou foi decomposto em tarefas.
+
+---
+
+# 11. Definition of Done — referência do Product Backlog
+
+Um item somente deve ser marcado como concluído quando:
+
+- [ ] critérios de aceite atendidos;
+- [ ] implementação funcional no Android;
+- [ ] validações de negócio aplicadas onde necessário;
+- [ ] persistência funcionando;
+- [ ] integração com API/Banco validada quando fizer parte do item;
+- [ ] testes relevantes executados;
+- [ ] sem erro bloqueante conhecido;
+- [ ] código versionado em branch adequada;
+- [ ] commit segue Conventional Commits;
+- [ ] Pull Request revisado;
+- [ ] documentação/rastreabilidade atualizada;
+- [ ] integrado à branch definida no fluxo de desenvolvimento.
+
+---
+
+# 12. Próximas etapas do planejamento inicial — histórico
+
+Após versionar este Product Backlog:
+
+1. criar `docs/backlog/entregas.md` com o detalhamento das três entregas;
+2. criar/atualizar `docs/sprints/sprint-1.md` somente com os PBIs selecionados para a primeira Sprint;
+3. decompor os PBIs da Sprint 1 em Issues/User Stories/Tasks;
+4. definir a arquitetura da mini API Node.js e do banco;
+5. criar branches e Pull Requests seguindo o processo documentado.
+

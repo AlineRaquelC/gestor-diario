@@ -1,0 +1,33 @@
+import { z } from 'zod';
+import { createSubtaskSchema } from './subtasks.js';
+
+const remindersSchema = z.array(z.strictObject({
+  offsetMinutes: z.number().int().min(0).max(Math.floor(Number.MAX_SAFE_INTEGER / 60000)),
+})).max(5).refine(items => new Set(items.map(item => item.offsetMinutes)).size === items.length,
+  'Há lembretes com a mesma antecedência.');
+
+export const createTaskSchema = z.strictObject({
+  clientId: z.string().min(1).max(200).optional(),
+  title: z.string().trim().min(1),
+  description: z.string().nullable().optional(),
+  projectId: z.string().min(1).refine(value => value.trim().length > 0),
+  startDate: z.string(),
+  dueDate: z.string(),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  status: z.enum(['PENDING', 'PARTIAL', 'COMPLETED']).default('PENDING'),
+  reminderTimeZone: z.string().nullable().optional(),
+  reminders: remindersSchema.optional(),
+  subtasks: z.array(createSubtaskSchema).optional(),
+});
+export type CreateTask = z.infer<typeof createTaskSchema>;
+
+// Avoid creation defaults in a partial update (especially status).
+export const updateTaskSchema = createTaskSchema.omit({ status: true, time: true, subtasks: true, clientId: true }).partial().extend({
+  status: z.enum(['PENDING', 'PARTIAL', 'COMPLETED']).optional(),
+  favorite: z.boolean().optional(),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional(),
+}).refine(value => Object.values(value).some(field => field !== undefined), 'Informe ao menos um campo.');
+export type UpdateTask = z.infer<typeof updateTaskSchema>;
+
+export const searchTasksSchema = z.strictObject({ q: z.string().trim().optional() });
