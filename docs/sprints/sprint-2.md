@@ -3,7 +3,7 @@
 ## Identificação e datas
 
 - **Formalização:** 23/10/2026; estado original: planejada, nenhuma Issue iniciada.
-- **Atualização em 07/11/2026:** #39 e #40 CLOSED/completed, integradas em `dev` pelos PRs #46/#48; CI de `dev` verde em `3fa5970`. #41 OPEN, Planning Poker 8, T01–T04 implementados e T05 Android manual aprovada pela usuária em 07/11/2026; regressão/builds aprovados e PR #50 OPEN para dev, aguardando revisão/merge; #42/#43 não iniciadas.
+- **Atualização em 08/11/2026:** #39/#40/#41 CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50. CI Mobile/Backend aprovada em `e97390d` ([execução](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891)). #42 OPEN, Planning Poker 8, em refinamento técnico documental, sem implementação; #43 continua stretch não iniciado.
 - **Histórico em 29/10/2026:** #39 concluída e integrada em `dev` pelo PR #46, com T12 aprovada; Issue CLOSED/completed. #40 em refinamento técnico documental, sem implementação iniciada; #41–#43 não iniciadas.
 - **Janela operacional atualizada:** 23/10/2026 → 08/11/2026.
 - **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **08/11/2026**.
@@ -101,8 +101,8 @@ e ausência de backfill estão implementadas e validadas no recorte RF08.
 [Refinamento técnico curto](sprint-2-issue-41.md): busca única no backend incluindo
 Notes reais, favorite existente sem migration e filtros salvos locais contendo
 somente TaskFilters. T01–T04 implementados; regressão/builds aprovados e T05
-Android manual aprovada pela usuária em 07/11/2026. PR #50 OPEN para dev,
-aguardando revisão/merge, sem merge automático.
+Android manual aprovada pela usuária em 07/11/2026. PR #50 integrado em dev
+no commit `e97390d`; Issue #41 CLOSED/completed.
 
 Busca textual em tempo real em título, descrição e observações reais, com resultado
 atualizado enquanto digita e composição com os filtros existentes. **Não há sistema
@@ -119,6 +119,11 @@ desta semana, Pendentes e Faculdade; não são novos tipos de filtro.
 integralmente concluído por esta Issue.** Preservar filtros e ordenação atuais.
 
 ### 4. Metas e relatórios — #42
+
+**Em refinamento documental em 08/11/2026, sem implementação.**
+[Decisões técnicas da #42](sprint-2-issue-42.md): metas locais de quantidade
+concluída, períodos civis, relatório com atrasadas do próprio período e métricas
+compartilhadas; sem backend, migration ou biblioteca de gráficos.
 
 Metas diária, semanal e mensal persistidas; progresso, concluídas, pendentes e
 atrasadas calculados com Tasks reais; recorte por período; relatório textual e
@@ -256,7 +261,7 @@ os 37 pontos planejados do core.
 
 ## Estado do planejamento e práticas do repositório
 
-- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 07/11, #39/#40 estão CLOSED/completed e integradas em `dev` pelos PRs #46/#48; #41 tem T01–T05 aprovados, incluindo Android manual em 07/11/2026; PR #50 OPEN e Issue OPEN até integração. #42/#43 não iniciadas.
+- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 08/11, #39/#40/#41 estão CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50; #42 está em refinamento documental, sem implementação; #43 continua stretch não iniciado.
 - O desenvolvimento futuro segue o Git Flow: base `dev` limpa/atualizada, branch por Issue, Conventional Commits e PR para `dev` com referência à Issue, critérios e evidências. Integração por revisão, sem merge automático ou desenvolvimento direto em `dev`/`main`.
 - As labels existentes e o milestone nº 2 identificam a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Nenhuma label nova foi criada.
 - **Dados de teste preservados.** A limpeza para apresentação fica para depois da Sprint 2, mediante aprovação específica e respeitando a data limite do freeze; alterações posteriores ao freeze estão excluídas.
@@ -337,6 +342,8 @@ pode ser melhorado futuramente; nenhuma mudança desse fluxo foi feita agora.
 RF13 parcial (título/descrição/observações, sem etiquetas), RF49/RF51 no recorte;
 PBI-14 inteiro e RF14 não concluídos. Sem backend/sync de SavedFilters; fallback
 local não promete busca completa em Notes; Tasks somente locais podem corresponder
-por título/descrição com aviso explícito, sem upload/reassociação. Issue #41 OPEN, Planning Poker 8; PR
-[#50](https://github.com/AlineRaquelC/gestor-diario/pull/50) OPEN para dev com Closes #41, aguardando revisão/merge, sem merge automático. #42/#43 não iniciadas;
+por título/descrição com aviso explícito, sem upload/reassociação. Issue #41 CLOSED/completed, Planning Poker 8; PR
+[#50](https://github.com/AlineRaquelC/gestor-diario/pull/50) integrado em dev no commit
+`e97390d8bbb34a65ccef4e8b997ed38a40d6248f`, com [CI pós-merge aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891).
+#42 em refinamento documental; #43 não iniciada;
 nenhuma promoção dev → main. Commit/push somente até 08/11/2026.
