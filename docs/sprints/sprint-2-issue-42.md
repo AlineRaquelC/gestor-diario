@@ -3,8 +3,8 @@
 08/11/2026 · [Issue #42](https://github.com/AlineRaquelC/gestor-diario/issues/42)
 OPEN · PBI-17 parcial / RF22 parcial, RF46 e RF47 · Planning Poker **8**.
 Refinamento integrado pelo PR #51; T01–T03 implementados em 08/11/2026 na
-branch `feature/42-productivity-goals-reports`. T04 automatizada concluída;
-Android preparado, aceite manual pendente da usuária e PR para revisão.
+branch `feature/42-productivity-goals-reports`. T04 automatizada concluída e
+**T04 Android manual aprovada em 08/11/2026 pela usuária**; PR #52 para revisão.
 Issue OPEN, sem fechamento ou merge nesta etapa.
 Base de implementação `dev` em `e9381b0` (PR #51); #39/#40/#41 CLOSED/completed.
 [CI da base Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42474258583).
@@ -190,18 +190,18 @@ Validação solicitada para T01–T03 executada:
 Restrições de subprocessos/servidores HTTP do sandbox exigiram executar os checks
 com permissão fora dele; resultados acima correspondem às execuções concluídas.
 Nenhuma baseline, dependência, migration ou arquivo backend foi alterado.
-Android builds/manual e regressão/aceite final continuam em **T04 não iniciada**.
+Na conclusão de T01–T03, T04 permanecia pendente; resultado final registrado abaixo.
 RF22 parcial: quantidade concluída por prazo/estado atual, sem tempo/esforço,
 limite de criação ou analytics por History; RF46/RF47 somente no recorte.
 Metas permanecem locais; não há backend/sync ou métricas persistidas.
 Sem PR final, sem fechamento da #42, #43 não iniciada, sem dev → main.
 
 
-## T04 — regressão final e Android preparado (08/11/2026)
+## T04 — regressão final e Android manual aprovado (08/11/2026)
 
-**T01–T03 concluídos. T04 automatizada concluída; aceite manual Android pendente
-exclusivamente da confirmação da usuária.** Nenhum cenário manual abaixo está
-marcado como aprovado. Issue #42 OPEN, Planning Poker 8, sem merge nesta etapa.
+**T01–T03 concluídos. T04 automatizada concluída; T04 Android manual aprovada
+em 08/11/2026 pela usuária.** Cards, texto, barras e progresso foram confrontados
+manualmente e exibiram valores coerentes derivados das mesmas Tasks. Issue #42 OPEN, Planning Poker 8, sem merge nesta etapa.
 
 Auditoria final confirmou: metas independentes diária/semanal/mensal, edição e
 remoção; inteiros de 1 a 10.000 ou null; apenas metas persistidas. Hoje civil,
@@ -243,26 +243,30 @@ conteúdo integralmente idêntico**. MainActivity aberta, runtime Fabric confirm
 Metro serve o bundle atual. Nenhuma meta/Task criada, concluída ou reaberta apenas
 para preparar o aceite. Não considerar o smoke de instalação como validação manual.
 
-### Roteiro manual — aguardando usuária
+### Validação manual — aprovada pela usuária em 08/11/2026
 
-1. Configurações → Metas e relatórios: conferir abertura, navegação e tela.
-2. Hoje: definir meta diária (por exemplo 5), conferir valor e progresso.
-3. Semana: definir meta semanal e conferir independência da diária.
-4. Mês: definir meta mensal e conferir independência.
-5. Fechar/reabrir app e verificar persistência das três metas.
-6. Em um período, confrontar total/concluídas/pendentes/atrasadas com Tasks reais,
-   sem ajustar massa para produzir números convenientes.
-7. Registrar contagens e concluir uma Task adequada; retornar e conferir aumento
-   de completed, redução de pending e mudança de progresso.
-8. Reabrir a mesma Task; conferir reversão imediata dos indicadores.
-9. Se houver período real vazio, verificar zeros, mensagem e 0 de X quando houver
-   meta. Se não houver, manter cobertura automatizada, sem criar massa artificial.
-10. Conferir igualdade dos valores entre cards, resumo textual e barras.
-11. Remover uma meta: Meta não definida, preservando Tasks e outras metas.
+Cenários Android aprovados:
+
+1. Navegação Configurações → Metas e relatórios.
+2. Definir e conferir meta diária.
+3. Definir e conferir meta semanal independente.
+4. Definir e conferir meta mensal independente.
+5. Persistência das três metas após fechar/reabrir o app.
+6. Total, Concluídas, Pendentes e Atrasadas coerentes com Tasks reais.
+7. Resumo textual coerente com os cards.
+8. Barras coerentes com os mesmos números.
+9. Concluir uma Task atualiza as métricas.
+10. Reabrir a Task reverte as métricas.
+11. Remover meta mostra “Meta não definida” e preserva Tasks e outras metas.
+
+Período vazio não foi registrado como reproduzido manualmente com dados reais;
+permanece coberto pelos testes automatizados, sem criação de massa artificial.
+A aprovação acima foi informada pela usuária, separada do smoke de instalação.
 
 RF22 **parcial**, somente quantidade de Tasks concluídas, sem tempo total/esforço
 ou limite de cadastro. RF46 metas semanais/mensais; RF47 texto+barras simples.
 PBI-17 não integral. Preferência local sem sync de metas; snapshot atual por prazo,
 não analytics histórico. Sem projeção de recorrência, BI, exportação ou cronômetro.
-PR final para dev com Closes #42 e aceite Android explicitamente pendente; não
-mergear/fechar Issue antes da revisão. #43 não iniciada; sem dev → main.
+PR [#52](https://github.com/AlineRaquelC/gestor-diario/pull/52) OPEN para dev com
+Closes #42 e T04 Android manual aprovada; aguardar revisão, sem merge/fechamento
+manual nesta etapa. #43 não iniciada; sem dev → main.
