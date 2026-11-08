@@ -3,7 +3,7 @@
 ## Identificação e datas
 
 - **Formalização:** 23/10/2026; estado original: planejada, nenhuma Issue iniciada.
-- **Atualização em 08/11/2026:** #39/#40/#41 CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50. CI Mobile/Backend aprovada em `e97390d` ([execução](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891)). #42 OPEN, Planning Poker 8, T01–T03 concluídos e T04 automatizada concluída; T04 Android manual aprovada pela usuária em 08/11/2026, PR #52 aguardando revisão/merge; #43 continua stretch não iniciado.
+- **Atualização em 08/11/2026:** core #39–#42 CLOSED/completed e integrado em `dev` (PRs #46/#48/#50/#52): **4/4 Issues, 37/37 pontos, 100%**. [CI Mobile/Backend de dev aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42483127495) em `2d23931`. #43 OPEN, stretch 13 pontos, refinamento/gate documental concluído com **NO-GO hoje**; nenhuma implementação iniciada.
 - **Histórico em 29/10/2026:** #39 concluída e integrada em `dev` pelo PR #46, com T12 aprovada; Issue CLOSED/completed. #40 em refinamento técnico documental, sem implementação iniciada; #41–#43 não iniciadas.
 - **Janela operacional atualizada:** 23/10/2026 → 08/11/2026.
 - **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **08/11/2026**.
@@ -54,8 +54,8 @@ Ready nem todos os PBIs de origem integralmente cobertos.
 | 1 | [#39 — Lembretes e notificações locais confiáveis](https://github.com/AlineRaquelC/gestor-diario/issues/39) | PBI-13; RF15/RF16 | 13 | Core; prioridade alta dentro da Sprint | Concluída; PR #46 integrado em dev |
 | 2 | [#40 — Tarefas recorrentes diária, semanal e mensal](https://github.com/AlineRaquelC/gestor-diario/issues/40) | PBI-13; RF08 | 8 | Core | Concluída; PR #48 integrado em dev; CLOSED/completed |
 | 3 | [#41 — Busca de tarefas, favoritos e filtros salvos](https://github.com/AlineRaquelC/gestor-diario/issues/41) | PBI-14; RF13/RF49/RF51 | 8 | Core | Concluída; T01–T05 aprovados; PR #50 integrado em dev; CLOSED/completed |
-| 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | T01–T03 e T04 automatizada concluídos; T04 Android manual aprovada em 08/11; PR #52 aguardando revisão |
-| 5 | [#43 — [Stretch] Base de perfis locais](https://github.com/AlineRaquelC/gestor-diario/issues/43) | PBI-19; RF33/RF34, cobertura parcial | 13 | Stretch, fora do compromisso | Planejada; não iniciada |
+| 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | Concluída; PR #52 integrado em dev; CLOSED/completed |
+| 5 | [#43 — [Stretch] Base de perfis locais](https://github.com/AlineRaquelC/gestor-diario/issues/43) | PBI-19; RF33/RF34, cobertura parcial | 13 | Stretch, fora do compromisso | Gate documental NO-GO em 08/11; implementação não iniciada |
 
 **Core planejado: 13 + 8 + 8 + 8 = 37 pontos. Stretch: 13 pontos adicionais,
 fora do cálculo do compromisso principal.** Pontos são estimativas relativas de
@@ -147,6 +147,14 @@ funcionalmente de #39/#40. O stretch não deve disputar capacidade com o core.
 
 ## Stretch Goal — #43: base de perfis locais
 
+**Gate em 08/11/2026: NO-GO para implementar hoje.** O core está 100% concluído,
+mas a auditoria identificou API/search/sync/materialização globais e ausência de
+proprietário em Tasks/Projects/séries. Isolamento local sozinho é insuficiente.
+[Refinamento e matriz de segurança da #43](sprint-2-issue-43.md): alternativa B
+com propriedade persistida, bootstrap preservando legado, caches/troca coerentes
+e política de reminders exigem trabalho transversal e validação posterior.
+Manter #43 OPEN e não implementada; stretch adiado sem reduzir o core entregue.
+
 **Fora do compromisso principal; 13 pontos.** Iniciar somente se #39–#42 estiverem
 concluídas ou com risco operacional praticamente zero antes do freeze.
 
@@ -214,7 +222,7 @@ avançado ou isolamento inseguro.
 - **#43, condicionada ao atendimento do gate:** criação/seleção/alternância/reinício e prova de isolamento/preservação dos dados. A validação exige isolamento efetivo, sem vazamento de dados.
 - Validar manualmente no Android cada recorte implementado; persistência e API/SQLite quando necessários. Usar massa isolada, sem limpar tarefas/projetos existentes.
 - Executar `npm run test:ci-scripts`, `npm run lint:ci`, `npm run typecheck:ci`, `npm run test:ci` e `git diff --check`; backend estrito e suas verificações quando afetado. Manter CI Mobile/Backend verdes, sem ampliar baselines ou alterar exclusões para ocultar regressões.
-- A validação do planejamento se baseia no CI verde do MVP. Os testes das funcionalidades propostas permanecem pendentes de implementação e execução; não há evidência de aceite dessas funcionalidades.
+- Na formalização, a validação se baseava no CI verde do MVP. O core #39–#42 está agora implementado, integrado e validado; evidências específicas nos registros de cada Issue. O stretch #43 não foi implementado e não tem aceite funcional.
 
 ## Plano diário operacional
 
@@ -261,7 +269,7 @@ os 37 pontos planejados do core.
 
 ## Estado do planejamento e práticas do repositório
 
-- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 08/11, #39/#40/#41 estão CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50; #42 tem T01–T03 e T04 automatizada concluídos, com Android manual aprovada em 08/11/2026 e PR #52 aguardando revisão; #43 continua stretch não iniciado.
+- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 08/11, #39–#42 estão CLOSED/completed, integradas em dev pelos PRs #46/#48/#50/#52. #43 tem gate documental NO-GO hoje, continua OPEN e sem implementação.
 - O desenvolvimento futuro segue o Git Flow: base `dev` limpa/atualizada, branch por Issue, Conventional Commits e PR para `dev` com referência à Issue, critérios e evidências. Integração por revisão, sem merge automático ou desenvolvimento direto em `dev`/`main`.
 - As labels existentes e o milestone nº 2 identificam a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Nenhuma label nova foi criada.
 - **Dados de teste preservados.** A limpeza para apresentação fica para depois da Sprint 2, mediante aprovação específica e respeitando a data limite do freeze; alterações posteriores ao freeze estão excluídas.
@@ -376,7 +384,8 @@ Tasks, com valores coerentes. São onze cenários aprovados no
 Período vazio permanece coberto automaticamente, sem reprodução manual registrada
 ou massa artificial. Somente ocorrências materializadas contam, sem contar séries
 ou projeções futuras; métricas representam snapshot atual, sem analytics histórico.
-PR [#52](https://github.com/AlineRaquelC/gestor-diario/pull/52) OPEN, aguardando revisão/merge. Issue #42 OPEN até
-integração; PR para dev com Closes #42, sem merge automático. RF22 parcial
+PR [#52](https://github.com/AlineRaquelC/gestor-diario/pull/52) integrado em dev no
+commit `2d23931fbeb811bce0e52c2cf90d1c369b6f2aa4`; Issue #42 CLOSED/completed.
+[CI pós-merge Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42483127495). RF22 parcial
 (quantidade concluída, sem tempo/esforço), RF46/RF47 no recorte; PBI-17 não integral.
 Sem backend/migration/dependência ou sync de metas. #43 não iniciada; sem dev → main.
