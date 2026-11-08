@@ -53,8 +53,8 @@ Ready nem todos os PBIs de origem integralmente cobertos.
 |---|---|---|---:|---|---|
 | 1 | [#39 — Lembretes e notificações locais confiáveis](https://github.com/AlineRaquelC/gestor-diario/issues/39) | PBI-13; RF15/RF16 | 13 | Core; prioridade alta dentro da Sprint | Concluída; PR #46 integrado em dev |
 | 2 | [#40 — Tarefas recorrentes diária, semanal e mensal](https://github.com/AlineRaquelC/gestor-diario/issues/40) | PBI-13; RF08 | 8 | Core | Concluída; PR #48 integrado em dev; CLOSED/completed |
-| 3 | [#41 — Busca de tarefas, favoritos e filtros salvos](https://github.com/AlineRaquelC/gestor-diario/issues/41) | PBI-14; RF13/RF49/RF51 | 8 | Core | T01–T05 aprovados; Android manual aprovado em 07/11; PR #50 OPEN para dev; Issue OPEN até integração |
-| 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | Planejada; não iniciada |
+| 3 | [#41 — Busca de tarefas, favoritos e filtros salvos](https://github.com/AlineRaquelC/gestor-diario/issues/41) | PBI-14; RF13/RF49/RF51 | 8 | Core | Concluída; T01–T05 aprovados; PR #50 integrado em dev; CLOSED/completed |
+| 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | Em refinamento documental; implementação não iniciada |
 | 5 | [#43 — [Stretch] Base de perfis locais](https://github.com/AlineRaquelC/gestor-diario/issues/43) | PBI-19; RF33/RF34, cobertura parcial | 13 | Stretch, fora do compromisso | Planejada; não iniciada |
 
 **Core planejado: 13 + 8 + 8 + 8 = 37 pontos. Stretch: 13 pontos adicionais,
