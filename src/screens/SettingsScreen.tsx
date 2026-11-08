@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNavigation from '../components/BottomNavigation';
@@ -7,6 +10,7 @@ import { useTasks } from '../context/TaskContext';
 import { COLORS, RADIUS, SPACING } from '../styles/theme';
 
 export default function SettingsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { syncing, loading, synchronizeManually } = useTasks();
   const [message, setMessage] = useState('');
   const [feedback, setFeedback] = useState<'success' | 'warning' | 'danger'>(
@@ -40,6 +44,10 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.title}>Configurações</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Metas e relatórios"
+          onPress={() => navigation.navigate('MetasRelatorios')} style={styles.button}>
+          <Text style={styles.buttonText}>Metas e relatórios</Text>
+        </Pressable>
         <Text style={styles.sectionLabel}>DADOS E SINCRONIZAÇÃO</Text>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Sincronização manual</Text>

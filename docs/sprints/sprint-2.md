@@ -3,7 +3,7 @@
 ## Identificação e datas
 
 - **Formalização:** 23/10/2026; estado original: planejada, nenhuma Issue iniciada.
-- **Atualização em 08/11/2026:** #39/#40/#41 CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50. CI Mobile/Backend aprovada em `e97390d` ([execução](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891)). #42 OPEN, Planning Poker 8, em refinamento técnico documental, sem implementação; #43 continua stretch não iniciado.
+- **Atualização em 08/11/2026:** #39/#40/#41 CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50. CI Mobile/Backend aprovada em `e97390d` ([execução](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891)). #42 OPEN, Planning Poker 8, T01–T03 concluídos e T04 automatizada concluída; T04 Android manual aprovada pela usuária em 08/11/2026, PR #52 aguardando revisão/merge; #43 continua stretch não iniciado.
 - **Histórico em 29/10/2026:** #39 concluída e integrada em `dev` pelo PR #46, com T12 aprovada; Issue CLOSED/completed. #40 em refinamento técnico documental, sem implementação iniciada; #41–#43 não iniciadas.
 - **Janela operacional atualizada:** 23/10/2026 → 08/11/2026.
 - **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **08/11/2026**.
@@ -54,7 +54,7 @@ Ready nem todos os PBIs de origem integralmente cobertos.
 | 1 | [#39 — Lembretes e notificações locais confiáveis](https://github.com/AlineRaquelC/gestor-diario/issues/39) | PBI-13; RF15/RF16 | 13 | Core; prioridade alta dentro da Sprint | Concluída; PR #46 integrado em dev |
 | 2 | [#40 — Tarefas recorrentes diária, semanal e mensal](https://github.com/AlineRaquelC/gestor-diario/issues/40) | PBI-13; RF08 | 8 | Core | Concluída; PR #48 integrado em dev; CLOSED/completed |
 | 3 | [#41 — Busca de tarefas, favoritos e filtros salvos](https://github.com/AlineRaquelC/gestor-diario/issues/41) | PBI-14; RF13/RF49/RF51 | 8 | Core | Concluída; T01–T05 aprovados; PR #50 integrado em dev; CLOSED/completed |
-| 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | Em refinamento documental; implementação não iniciada |
+| 4 | [#42 — Metas e relatórios de produtividade](https://github.com/AlineRaquelC/gestor-diario/issues/42) | PBI-17; RF22/RF46/RF47 | 8 | Core | T01–T03 e T04 automatizada concluídos; T04 Android manual aprovada em 08/11; PR #52 aguardando revisão |
 | 5 | [#43 — [Stretch] Base de perfis locais](https://github.com/AlineRaquelC/gestor-diario/issues/43) | PBI-19; RF33/RF34, cobertura parcial | 13 | Stretch, fora do compromisso | Planejada; não iniciada |
 
 **Core planejado: 13 + 8 + 8 + 8 = 37 pontos. Stretch: 13 pontos adicionais,
@@ -120,7 +120,7 @@ integralmente concluído por esta Issue.** Preservar filtros e ordenação atuai
 
 ### 4. Metas e relatórios — #42
 
-**Em refinamento documental em 08/11/2026, sem implementação.**
+**T01–T03 concluídos em 08/11/2026; T04 automatizada concluída e Android manual aprovada pela usuária em 08/11/2026.**
 [Decisões técnicas da #42](sprint-2-issue-42.md): metas locais de quantidade
 concluída, períodos civis, relatório com atrasadas do próprio período e métricas
 compartilhadas; sem backend, migration ou biblioteca de gráficos.
@@ -261,7 +261,7 @@ os 37 pontos planejados do core.
 
 ## Estado do planejamento e práticas do repositório
 
-- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 08/11, #39/#40/#41 estão CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50; #42 está em refinamento documental, sem implementação; #43 continua stretch não iniciado.
+- Na formalização de 23/10, as cinco Issues estavam abertas e **não iniciadas**. Em 08/11, #39/#40/#41 estão CLOSED/completed e integradas em `dev` pelos PRs #46/#48/#50; #42 tem T01–T03 e T04 automatizada concluídos, com Android manual aprovada em 08/11/2026 e PR #52 aguardando revisão; #43 continua stretch não iniciado.
 - O desenvolvimento futuro segue o Git Flow: base `dev` limpa/atualizada, branch por Issue, Conventional Commits e PR para `dev` com referência à Issue, critérios e evidências. Integração por revisão, sem merge automático ou desenvolvimento direto em `dev`/`main`.
 - As labels existentes e o milestone nº 2 identificam a Sprint. `priority-high` em #39, `priority-medium` no restante do core e `priority-low` no stretch. Nenhuma label nova foi criada.
 - **Dados de teste preservados.** A limpeza para apresentação fica para depois da Sprint 2, mediante aprovação específica e respeitando a data limite do freeze; alterações posteriores ao freeze estão excluídas.
@@ -345,5 +345,38 @@ local não promete busca completa em Notes; Tasks somente locais podem correspon
 por título/descrição com aviso explícito, sem upload/reassociação. Issue #41 CLOSED/completed, Planning Poker 8; PR
 [#50](https://github.com/AlineRaquelC/gestor-diario/pull/50) integrado em dev no commit
 `e97390d8bbb34a65ccef4e8b997ed38a40d6248f`, com [CI pós-merge aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891).
-#42 em refinamento documental; #43 não iniciada;
+#42 com implementação/regressão automatizada concluídas e aceite Android aprovado em 08/11/2026; #43 não iniciada;
 nenhuma promoção dev → main. Commit/push somente até 08/11/2026.
+
+
+### #42 — implementação e aceite Android aprovado (08/11/2026)
+
+T01–T03 concluídos: metas diária/semanal/mensal locais em AsyncStorage versionado,
+inteiros de 1 a 10.000 ou null, edição/remoção e erros sem falso sucesso. Tela Metas
+e relatórios via Configurações; Hoje/Semana/Mês civis, dueDate/startDate, status
+canônico, total/concluídas/pendentes/atrasadas por período. Pendentes incluem
+atrasadas; Home conserva atraso global. Progressos da meta e das Tasks separados,
+texto e barras nativas acessíveis a partir do mesmo objeto. Snapshot atual, sem
+History; contar apenas Tasks ativas e ocorrências materializadas, sem projeção.
+
+T04 automatizada concluída: **697 testes mobile / 37 suítes**, **456 backend /
+17 suítes**, **16 validadores**; lint 10 diagnósticos conhecidos / baseline 13
+(3 erros/7 warnings), TS 11 / baseline 11, sem regressão/ampliação. Backend
+typecheck/build e git diff --check aprovados. Android assembleDebug/assembleRelease
+aprovados com Hermes, New Architecture e Codegen. Pixel_7 atualizado por install -r,
+API/Metro disponíveis, seis entradas do AsyncStorage preservadas integralmente.
+
+**T04 Android manual aprovada em 08/11/2026 pela usuária**: navegação via
+Configurações; metas diária/semanal/mensal; persistência das três após reabrir;
+contagens reais de Total/Concluídas/Pendentes/Atrasadas; resumo textual e barras
+coerentes; conclusão e reabertura refletidas; remoção preservando Tasks e outras
+metas. Cards, texto, barras e progresso confrontados manualmente com as mesmas
+Tasks, com valores coerentes. São onze cenários aprovados no
+[registro técnico da #42](sprint-2-issue-42.md#validação-manual--aprovada-pela-usuária-em-08112026).
+Período vazio permanece coberto automaticamente, sem reprodução manual registrada
+ou massa artificial. Somente ocorrências materializadas contam, sem contar séries
+ou projeções futuras; métricas representam snapshot atual, sem analytics histórico.
+PR [#52](https://github.com/AlineRaquelC/gestor-diario/pull/52) OPEN, aguardando revisão/merge. Issue #42 OPEN até
+integração; PR para dev com Closes #42, sem merge automático. RF22 parcial
+(quantidade concluída, sem tempo/esforço), RF46/RF47 no recorte; PBI-17 não integral.
+Sem backend/migration/dependência ou sync de metas. #43 não iniciada; sem dev → main.

@@ -2,9 +2,12 @@
 
 08/11/2026 · [Issue #42](https://github.com/AlineRaquelC/gestor-diario/issues/42)
 OPEN · PBI-17 parcial / RF22 parcial, RF46 e RF47 · Planning Poker **8**.
-Somente decisões documentais; implementação e validação funcional pendentes.
-Base `dev` limpa em `e97390d`; #39/#40/#41 CLOSED/completed.
-[CI da base Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891).
+Refinamento integrado pelo PR #51; T01–T03 implementados em 08/11/2026 na
+branch `feature/42-productivity-goals-reports`. T04 automatizada concluída e
+**T04 Android manual aprovada em 08/11/2026 pela usuária**; PR #52 para revisão.
+Issue OPEN, sem fechamento ou merge nesta etapa.
+Base de implementação `dev` em `e9381b0` (PR #51); #39/#40/#41 CLOSED/completed.
+[CI da base Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42474258583).
 Commit/push no máximo em **08/11/2026**; #43 e promoção dev → main fora desta etapa.
 
 ## Auditoria e regras de contagem
@@ -95,7 +98,7 @@ Offline usa snapshot/cache disponível com indicação da disponibilidade; não 
 dados ausentes. Não usar History/completedAt: uma Task concluída antes ou depois
 do período conta pelo prazo/estado atual, não pela data em que foi concluída.
 
-## Blocos e arquivos previstos (ainda não implementados)
+## Blocos aprovados no refinamento (estado atualizado abaixo)
 
 | Bloco | Camadas e arquivos |
 |---|---|
@@ -127,7 +130,7 @@ e recorrência, sem prever alteração funcional dessas camadas.
   Sem limpeza em massa ou criação artificial excessiva de dados.
 - Na implementação: test:ci-scripts, lint:ci, typecheck:ci, test:ci, diff --check,
   Android debug/release e CI; sem ampliar baselines. Backend somente se afetado.
-  Neste refinamento documental, apenas diff --check; não repetir regressão funcional.
+  Na etapa documental anterior, apenas diff --check; validação de implementação abaixo.
 
 ## Estimativa e riscos
 
@@ -139,3 +142,131 @@ atraso global/por período e confusão de meta versus conclusão exigem testes f
 Dados refletem apenas snapshot atual disponível, não analytics histórico por eventos;
 tempo/esforço, BI, exportação, backup e cronômetro ficam fora. Não alterar pontuação
 da Issue, criar Tasks adicionais ou iniciar #43 automaticamente.
+
+
+## Implementação T01–T03 — 08/11/2026
+
+- **T01:** `src/models/productivityGoals.ts` define daily/weekly/monthly nullable,
+  updatedAt, limite aprovado **10.000** e parsing de inteiro positivo. Serviço
+  `src/services/productivityGoalsService.ts` oferece loadGoals/setGoal/removeGoal,
+  chave dedicada versionada e gravações serializadas; valida envelope e modelo em
+  cada leitura antes de escrever. JSON inválido/erro de leitura preserva storage;
+  falha de gravação mantém último confirmado e permite retry. Persistem apenas metas.
+- **T02:** `selectPeriodTasks` extraído em `dashboard.ts`, compartilhado com Home,
+  mantendo dueDate/startDate, períodos civis, status e percentual existentes.
+  Relatório exclui tombstones defensivamente e conta ocorrências materializadas.
+  `src/utils/productivity.ts` produz objeto único de métricas, texto e descritores
+  de barras; atraso no período, pendentes incluindo atrasadas, Home com atraso
+  global preservado. Progresso da meta limitado a 100%, contagem real preservada.
+- **T03:** `ProductivityScreen` e rota MetasRelatorios, acesso em Configurações,
+  sem alterar BottomNavigation. Seletor Hoje/Semana/Mês; editor inline numérico,
+  definir/editar/remover/cancelar; estado busy bloqueia gravação concorrente e troca
+  de período. Confirma UI somente após storage; erro mantém editor/input.
+  Leitura inválida bloqueia edição e oferece tentar novamente. Cards, texto,
+  barras nativas com labels/valores acessíveis e progressos separados.
+  Metas não definidas, gráfico vazio, carregamento e snapshot parcial/offline
+  explicitados. Relógio por minuto/foco/foreground; Context recalcula ao mudar Tasks.
+
+Testes novos: `productivityGoalsService.test.ts`, `productivity.test.ts` e
+`ProductivityScreen.integration.test.tsx`: **48 testes novos**, três suítes.
+Cobrem metas independentes/persistência/reload/remoção, limite/inputs, JSON inválido,
+falhas de leitura/escrita e concorrência; dia/semana/mês, limites/ano/fevereiro,
+precedência de data, vazio, status/reabertura, tombstones e recorrência materializada;
+progressos, texto/barras, navegação Configurações, seletor, CRUD de metas,
+erros, UI reaberta, Context atualizado e relógio. O teste existente de sync manual
+recebe mock de navegação compatível com o novo acesso, sem alterar seu aceite.
+
+Validação solicitada para T01–T03 executada:
+
+| Verificação | Resultado |
+|---|---|
+| Mobile test:ci | **697 testes / 37 suítes aprovados** |
+| test:ci-scripts | **16 aprovados** |
+| lint:ci | 3 erros/7 warnings conhecidos; 10 diagnósticos / baseline 13, sem regressão |
+| typecheck:ci | 11 diagnósticos conhecidos / baseline 11, sem regressão |
+| Backend typecheck/test/build | Aprovados; **456 testes / 17 suítes** |
+| git diff --check | Aprovado |
+
+Restrições de subprocessos/servidores HTTP do sandbox exigiram executar os checks
+com permissão fora dele; resultados acima correspondem às execuções concluídas.
+Nenhuma baseline, dependência, migration ou arquivo backend foi alterado.
+Na conclusão de T01–T03, T04 permanecia pendente; resultado final registrado abaixo.
+RF22 parcial: quantidade concluída por prazo/estado atual, sem tempo/esforço,
+limite de criação ou analytics por History; RF46/RF47 somente no recorte.
+Metas permanecem locais; não há backend/sync ou métricas persistidas.
+Sem PR final, sem fechamento da #42, #43 não iniciada, sem dev → main.
+
+
+## T04 — regressão final e Android manual aprovado (08/11/2026)
+
+**T01–T03 concluídos. T04 automatizada concluída; T04 Android manual aprovada
+em 08/11/2026 pela usuária.** Cards, texto, barras e progresso foram confrontados
+manualmente e exibiram valores coerentes derivados das mesmas Tasks. Issue #42 OPEN, Planning Poker 8, sem merge nesta etapa.
+
+Auditoria final confirmou: metas independentes diária/semanal/mensal, edição e
+remoção; inteiros de 1 a 10.000 ou null; apenas metas persistidas. Hoje civil,
+semana segunda–domingo e mês civil via helpers compartilhados. Seleção por dueDate
+com fallback startDate, status canônico, tombstones fora, ocorrências materializadas
+contadas como Tasks. Pending inclui overdue do período; atraso global da Home
+preservado. Concluir/reabrir atualiza o snapshot sem persistir métricas nem usar
+History. Cards, texto e barras acessíveis derivam de metrics; progressos separados,
+meta excedida mantém contagem real com visual limitado a 100%, null sem percentual
+enganoso e vazio sem divisão por zero. Configurações e stack dão acesso à tela,
+sem mudança na BottomNavigation. Nenhuma alteração funcional adicional nesta etapa.
+
+Regressão repetida em 08/11/2026:
+
+| Verificação | Resultado final |
+|---|---|
+| test:ci | **697 testes / 37 suítes aprovados** |
+| test:ci-scripts | **16 aprovados** |
+| lint:ci | 3 erros/7 warnings conhecidos; 10 diagnósticos / baseline 13, sem regressão |
+| typecheck:ci | 11 diagnósticos conhecidos / baseline 11, sem regressão |
+| Backend typecheck/test/build | Aprovados; **456 testes / 17 suítes** |
+| assembleDebug + assembleRelease | BUILD SUCCESSFUL; 438 tasks, 37 executadas/401 atualizadas |
+| Hermes / New Architecture / Codegen | Ativos; bibliotecas Hermes/Fabric e libappmodules no APK, tarefas Codegen aprovadas/atualizadas |
+| git diff --check | Aprovado |
+
+As suítes existentes cobrem criação/edição/Details, projetos, calendário, reminders,
+recorrência, busca/favoritos/filtros, sync e delete/undo. Não ampliar baselines nem
+confundir essa evidência automatizada com aceite manual.
+[CI T01–T03 Mobile/Backend aprovada no head d49b20f](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42475270053).
+A CI do PR deverá confirmar o head documental final antes de revisão/integração.
+
+### Ambiente preparado, dados preservados
+
+Pixel_7, serial emulator-5554. API local /health retornou status ok; Metro /status
+retornou packager-status:running. Atualização debug por `adb install -r`, sem
+uninstall, pm clear ou limpeza em massa. Snapshot local em /tmp, não versionado,
+comparou todas as linhas da tabela Storage antes/depois da instalação: **6 entradas,
+conteúdo integralmente idêntico**. MainActivity aberta, runtime Fabric confirmado;
+Metro serve o bundle atual. Nenhuma meta/Task criada, concluída ou reaberta apenas
+para preparar o aceite. Não considerar o smoke de instalação como validação manual.
+
+### Validação manual — aprovada pela usuária em 08/11/2026
+
+Cenários Android aprovados:
+
+1. Navegação Configurações → Metas e relatórios.
+2. Definir e conferir meta diária.
+3. Definir e conferir meta semanal independente.
+4. Definir e conferir meta mensal independente.
+5. Persistência das três metas após fechar/reabrir o app.
+6. Total, Concluídas, Pendentes e Atrasadas coerentes com Tasks reais.
+7. Resumo textual coerente com os cards.
+8. Barras coerentes com os mesmos números.
+9. Concluir uma Task atualiza as métricas.
+10. Reabrir a Task reverte as métricas.
+11. Remover meta mostra “Meta não definida” e preserva Tasks e outras metas.
+
+Período vazio não foi registrado como reproduzido manualmente com dados reais;
+permanece coberto pelos testes automatizados, sem criação de massa artificial.
+A aprovação acima foi informada pela usuária, separada do smoke de instalação.
+
+RF22 **parcial**, somente quantidade de Tasks concluídas, sem tempo total/esforço
+ou limite de cadastro. RF46 metas semanais/mensais; RF47 texto+barras simples.
+PBI-17 não integral. Preferência local sem sync de metas; snapshot atual por prazo,
+não analytics histórico. Sem projeção de recorrência, BI, exportação ou cronômetro.
+PR [#52](https://github.com/AlineRaquelC/gestor-diario/pull/52) OPEN para dev com
+Closes #42 e T04 Android manual aprovada; aguardar revisão, sem merge/fechamento
+manual nesta etapa. #43 não iniciada; sem dev → main.

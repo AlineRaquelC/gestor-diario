@@ -47,12 +47,16 @@ export function percentage(completed: number, total: number): number {
   return total > 0 ? Math.round(completed / total * 100) : 0;
 }
 
-export function dashboardMetrics(tasks: Task[], period: DashboardPeriod, now: Date) {
+export function selectPeriodTasks(tasks: readonly Task[], period: DashboardPeriod, now: Date) {
   const {start, end} = periodBounds(period, now);
-  const selected = tasks.filter(task => {
+  return tasks.filter(task => {
     const date = localDay(task.dueDate) ?? localDay(task.startDate);
-    return !!date && date >= start && date <= end;
+    return !task.deletedAt && !!date && date >= start && date <= end;
   });
+}
+
+export function dashboardMetrics(tasks: Task[], period: DashboardPeriod, now: Date) {
+  const selected = selectPeriodTasks(tasks, period, now);
   const completed = selected.filter(isCompleted).length;
   return {total: selected.length, completed, pending: selected.length - completed,
     progress: percentage(completed, selected.length),

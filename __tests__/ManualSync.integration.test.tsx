@@ -15,6 +15,7 @@ import { dataGuard } from '../src/services/dataGuard';
 import type { Task } from '../src/context/TaskContext';
 import type { SyncResult } from '../src/services/syncService';
 
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn() }));
 jest.mock('../src/services/syncService', () => ({ ...jest.requireActual('../src/services/syncService'), synchronize: jest.fn() }));
 jest.mock('../src/services/taskService', () => ({ ...jest.requireActual('../src/services/taskService'), getTasks: jest.fn() }));
