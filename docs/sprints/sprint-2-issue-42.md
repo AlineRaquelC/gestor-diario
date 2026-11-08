@@ -3,10 +3,11 @@
 08/11/2026 · [Issue #42](https://github.com/AlineRaquelC/gestor-diario/issues/42)
 OPEN · PBI-17 parcial / RF22 parcial, RF46 e RF47 · Planning Poker **8**.
 Refinamento integrado pelo PR #51; T01–T03 implementados em 08/11/2026 na
-branch `feature/42-productivity-goals-reports`. T04, Android manual e PR final
-permanecem pendentes. Issue OPEN, sem fechamento ou merge nesta etapa.
-Base `dev` limpa em `e97390d`; #39/#40/#41 CLOSED/completed.
-[CI da base Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891).
+branch `feature/42-productivity-goals-reports`. T04 automatizada concluída;
+Android preparado, aceite manual pendente da usuária e PR para revisão.
+Issue OPEN, sem fechamento ou merge nesta etapa.
+Base de implementação `dev` em `e9381b0` (PR #51); #39/#40/#41 CLOSED/completed.
+[CI da base Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42474258583).
 Commit/push no máximo em **08/11/2026**; #43 e promoção dev → main fora desta etapa.
 
 ## Auditoria e regras de contagem
@@ -194,3 +195,74 @@ RF22 parcial: quantidade concluída por prazo/estado atual, sem tempo/esforço,
 limite de criação ou analytics por History; RF46/RF47 somente no recorte.
 Metas permanecem locais; não há backend/sync ou métricas persistidas.
 Sem PR final, sem fechamento da #42, #43 não iniciada, sem dev → main.
+
+
+## T04 — regressão final e Android preparado (08/11/2026)
+
+**T01–T03 concluídos. T04 automatizada concluída; aceite manual Android pendente
+exclusivamente da confirmação da usuária.** Nenhum cenário manual abaixo está
+marcado como aprovado. Issue #42 OPEN, Planning Poker 8, sem merge nesta etapa.
+
+Auditoria final confirmou: metas independentes diária/semanal/mensal, edição e
+remoção; inteiros de 1 a 10.000 ou null; apenas metas persistidas. Hoje civil,
+semana segunda–domingo e mês civil via helpers compartilhados. Seleção por dueDate
+com fallback startDate, status canônico, tombstones fora, ocorrências materializadas
+contadas como Tasks. Pending inclui overdue do período; atraso global da Home
+preservado. Concluir/reabrir atualiza o snapshot sem persistir métricas nem usar
+History. Cards, texto e barras acessíveis derivam de metrics; progressos separados,
+meta excedida mantém contagem real com visual limitado a 100%, null sem percentual
+enganoso e vazio sem divisão por zero. Configurações e stack dão acesso à tela,
+sem mudança na BottomNavigation. Nenhuma alteração funcional adicional nesta etapa.
+
+Regressão repetida em 08/11/2026:
+
+| Verificação | Resultado final |
+|---|---|
+| test:ci | **697 testes / 37 suítes aprovados** |
+| test:ci-scripts | **16 aprovados** |
+| lint:ci | 3 erros/7 warnings conhecidos; 10 diagnósticos / baseline 13, sem regressão |
+| typecheck:ci | 11 diagnósticos conhecidos / baseline 11, sem regressão |
+| Backend typecheck/test/build | Aprovados; **456 testes / 17 suítes** |
+| assembleDebug + assembleRelease | BUILD SUCCESSFUL; 438 tasks, 37 executadas/401 atualizadas |
+| Hermes / New Architecture / Codegen | Ativos; bibliotecas Hermes/Fabric e libappmodules no APK, tarefas Codegen aprovadas/atualizadas |
+| git diff --check | Aprovado |
+
+As suítes existentes cobrem criação/edição/Details, projetos, calendário, reminders,
+recorrência, busca/favoritos/filtros, sync e delete/undo. Não ampliar baselines nem
+confundir essa evidência automatizada com aceite manual.
+[CI T01–T03 Mobile/Backend aprovada no head d49b20f](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42475270053).
+A CI do PR deverá confirmar o head documental final antes de revisão/integração.
+
+### Ambiente preparado, dados preservados
+
+Pixel_7, serial emulator-5554. API local /health retornou status ok; Metro /status
+retornou packager-status:running. Atualização debug por `adb install -r`, sem
+uninstall, pm clear ou limpeza em massa. Snapshot local em /tmp, não versionado,
+comparou todas as linhas da tabela Storage antes/depois da instalação: **6 entradas,
+conteúdo integralmente idêntico**. MainActivity aberta, runtime Fabric confirmado;
+Metro serve o bundle atual. Nenhuma meta/Task criada, concluída ou reaberta apenas
+para preparar o aceite. Não considerar o smoke de instalação como validação manual.
+
+### Roteiro manual — aguardando usuária
+
+1. Configurações → Metas e relatórios: conferir abertura, navegação e tela.
+2. Hoje: definir meta diária (por exemplo 5), conferir valor e progresso.
+3. Semana: definir meta semanal e conferir independência da diária.
+4. Mês: definir meta mensal e conferir independência.
+5. Fechar/reabrir app e verificar persistência das três metas.
+6. Em um período, confrontar total/concluídas/pendentes/atrasadas com Tasks reais,
+   sem ajustar massa para produzir números convenientes.
+7. Registrar contagens e concluir uma Task adequada; retornar e conferir aumento
+   de completed, redução de pending e mudança de progresso.
+8. Reabrir a mesma Task; conferir reversão imediata dos indicadores.
+9. Se houver período real vazio, verificar zeros, mensagem e 0 de X quando houver
+   meta. Se não houver, manter cobertura automatizada, sem criar massa artificial.
+10. Conferir igualdade dos valores entre cards, resumo textual e barras.
+11. Remover uma meta: Meta não definida, preservando Tasks e outras metas.
+
+RF22 **parcial**, somente quantidade de Tasks concluídas, sem tempo total/esforço
+ou limite de cadastro. RF46 metas semanais/mensais; RF47 texto+barras simples.
+PBI-17 não integral. Preferência local sem sync de metas; snapshot atual por prazo,
+não analytics histórico. Sem projeção de recorrência, BI, exportação ou cronômetro.
+PR final para dev com Closes #42 e aceite Android explicitamente pendente; não
+mergear/fechar Issue antes da revisão. #43 não iniciada; sem dev → main.
