@@ -16,6 +16,7 @@ import EditTaskScreen from '../screens/EditTaskScreen';
 import ProjectsScreen from '../screens/ProjectsScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ProductivityScreen from '../screens/ProductivityScreen';
 import CreateProjectScreen from '../screens/CreateProjectScreen';
 import ProjectDetailsScreen from '../screens/ProjectDetailsScreen';
 import EditProjectScreen from '../screens/EditProjectScreen';
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   Calendario: undefined;
 
   Configuracoes: undefined;
+  MetasRelatorios: undefined;
 
 
   CriarProjeto: undefined;
@@ -101,6 +103,8 @@ export default function AppNavigator() {
           name="Calendario"
           component={CalendarScreen}
         />
+
+        <Stack.Screen name="MetasRelatorios" component={ProductivityScreen} />
 
         <Stack.Screen
           name="Configuracoes"

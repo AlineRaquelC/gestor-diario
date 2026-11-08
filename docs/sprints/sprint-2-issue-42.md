@@ -2,7 +2,9 @@
 
 08/11/2026 · [Issue #42](https://github.com/AlineRaquelC/gestor-diario/issues/42)
 OPEN · PBI-17 parcial / RF22 parcial, RF46 e RF47 · Planning Poker **8**.
-Somente decisões documentais; implementação e validação funcional pendentes.
+Refinamento integrado pelo PR #51; T01–T03 implementados em 08/11/2026 na
+branch `feature/42-productivity-goals-reports`. T04, Android manual e PR final
+permanecem pendentes. Issue OPEN, sem fechamento ou merge nesta etapa.
 Base `dev` limpa em `e97390d`; #39/#40/#41 CLOSED/completed.
 [CI da base Mobile/Backend aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42428305891).
 Commit/push no máximo em **08/11/2026**; #43 e promoção dev → main fora desta etapa.
@@ -95,7 +97,7 @@ Offline usa snapshot/cache disponível com indicação da disponibilidade; não 
 dados ausentes. Não usar History/completedAt: uma Task concluída antes ou depois
 do período conta pelo prazo/estado atual, não pela data em que foi concluída.
 
-## Blocos e arquivos previstos (ainda não implementados)
+## Blocos aprovados no refinamento (estado atualizado abaixo)
 
 | Bloco | Camadas e arquivos |
 |---|---|
@@ -127,7 +129,7 @@ e recorrência, sem prever alteração funcional dessas camadas.
   Sem limpeza em massa ou criação artificial excessiva de dados.
 - Na implementação: test:ci-scripts, lint:ci, typecheck:ci, test:ci, diff --check,
   Android debug/release e CI; sem ampliar baselines. Backend somente se afetado.
-  Neste refinamento documental, apenas diff --check; não repetir regressão funcional.
+  Na etapa documental anterior, apenas diff --check; validação de implementação abaixo.
 
 ## Estimativa e riscos
 
@@ -139,3 +141,56 @@ atraso global/por período e confusão de meta versus conclusão exigem testes f
 Dados refletem apenas snapshot atual disponível, não analytics histórico por eventos;
 tempo/esforço, BI, exportação, backup e cronômetro ficam fora. Não alterar pontuação
 da Issue, criar Tasks adicionais ou iniciar #43 automaticamente.
+
+
+## Implementação T01–T03 — 08/11/2026
+
+- **T01:** `src/models/productivityGoals.ts` define daily/weekly/monthly nullable,
+  updatedAt, limite aprovado **10.000** e parsing de inteiro positivo. Serviço
+  `src/services/productivityGoalsService.ts` oferece loadGoals/setGoal/removeGoal,
+  chave dedicada versionada e gravações serializadas; valida envelope e modelo em
+  cada leitura antes de escrever. JSON inválido/erro de leitura preserva storage;
+  falha de gravação mantém último confirmado e permite retry. Persistem apenas metas.
+- **T02:** `selectPeriodTasks` extraído em `dashboard.ts`, compartilhado com Home,
+  mantendo dueDate/startDate, períodos civis, status e percentual existentes.
+  Relatório exclui tombstones defensivamente e conta ocorrências materializadas.
+  `src/utils/productivity.ts` produz objeto único de métricas, texto e descritores
+  de barras; atraso no período, pendentes incluindo atrasadas, Home com atraso
+  global preservado. Progresso da meta limitado a 100%, contagem real preservada.
+- **T03:** `ProductivityScreen` e rota MetasRelatorios, acesso em Configurações,
+  sem alterar BottomNavigation. Seletor Hoje/Semana/Mês; editor inline numérico,
+  definir/editar/remover/cancelar; estado busy bloqueia gravação concorrente e troca
+  de período. Confirma UI somente após storage; erro mantém editor/input.
+  Leitura inválida bloqueia edição e oferece tentar novamente. Cards, texto,
+  barras nativas com labels/valores acessíveis e progressos separados.
+  Metas não definidas, gráfico vazio, carregamento e snapshot parcial/offline
+  explicitados. Relógio por minuto/foco/foreground; Context recalcula ao mudar Tasks.
+
+Testes novos: `productivityGoalsService.test.ts`, `productivity.test.ts` e
+`ProductivityScreen.integration.test.tsx`: **48 testes novos**, três suítes.
+Cobrem metas independentes/persistência/reload/remoção, limite/inputs, JSON inválido,
+falhas de leitura/escrita e concorrência; dia/semana/mês, limites/ano/fevereiro,
+precedência de data, vazio, status/reabertura, tombstones e recorrência materializada;
+progressos, texto/barras, navegação Configurações, seletor, CRUD de metas,
+erros, UI reaberta, Context atualizado e relógio. O teste existente de sync manual
+recebe mock de navegação compatível com o novo acesso, sem alterar seu aceite.
+
+Validação solicitada para T01–T03 executada:
+
+| Verificação | Resultado |
+|---|---|
+| Mobile test:ci | **697 testes / 37 suítes aprovados** |
+| test:ci-scripts | **16 aprovados** |
+| lint:ci | 3 erros/7 warnings conhecidos; 10 diagnósticos / baseline 13, sem regressão |
+| typecheck:ci | 11 diagnósticos conhecidos / baseline 11, sem regressão |
+| Backend typecheck/test/build | Aprovados; **456 testes / 17 suítes** |
+| git diff --check | Aprovado |
+
+Restrições de subprocessos/servidores HTTP do sandbox exigiram executar os checks
+com permissão fora dele; resultados acima correspondem às execuções concluídas.
+Nenhuma baseline, dependência, migration ou arquivo backend foi alterado.
+Android builds/manual e regressão/aceite final continuam em **T04 não iniciada**.
+RF22 parcial: quantidade concluída por prazo/estado atual, sem tempo/esforço,
+limite de criação ou analytics por History; RF46/RF47 somente no recorte.
+Metas permanecem locais; não há backend/sync ou métricas persistidas.
+Sem PR final, sem fechamento da #42, #43 não iniciada, sem dev → main.
