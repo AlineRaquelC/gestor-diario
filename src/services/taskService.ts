@@ -80,7 +80,7 @@ export function fromApiTask(task: ApiTask, draft?: CachedTask): Task {
     priority: mobilePriority[task.priority], status: mobileStatus[task.status], done: task.done,
     startDate: mobileDate(task.startDate), dueDate: mobileDate(task.dueDate),
     createdAt: task.createdAt, updatedAt: task.updatedAt,
-    progress: task.progress,
+    progress: task.progress, favorite: task.favorite === true,
     subtasks: mergeSubtasks(task.subtasks?.map(({ id, title, done }) => ({ id, title, done, remote: true })), draft?.subtasks),
     dueDateKey: task.dueDate, startDateKey: task.startDate,
     reminderTimeZone: task.reminderTimeZone ?? null,
@@ -119,6 +119,7 @@ export async function getTaskById(id: string): Promise<Task> {
 export function toApiTaskUpdate(input: TaskUpdate) {
   return {
     ...reminderPayload(input),
+    ...(input.favorite !== undefined ? { favorite: input.favorite } : {}),
     ...(input.title !== undefined ? { title: input.title } : {}),
     ...(input.description !== undefined ? { description: input.description } : {}),
     ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
@@ -245,4 +246,9 @@ export async function importLocalTask(task: Task, projectId: string, clientId: s
   const input = { ...task, projectId, startDate: task.startDate, dueDate: task.dueDate, subtasks: undefined };
   const response = await apiRequest<ApiTask>('/tasks', 'POST', { ...toApiTask(input, projectId), clientId });
   return fromApiTask(response);
+}
+
+export async function searchTasks(query: string): Promise<Task[]> {
+  if (!query.trim()) { return []; }
+  return (await apiRequest<ApiTask[]>(`/tasks/search?q=${encodeURIComponent(query.trim())}`)).map(task => fromApiTask(task));
 }

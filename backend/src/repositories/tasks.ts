@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { resolveReminderSchedule } from '../domain/reminders/index.js';
 import type { openDatabase } from '../database/index.js';
-import { and, asc, eq, isNull, inArray } from 'drizzle-orm';
-import { tasks, projects, subtasks, taskHistory, taskReminders, recurrenceSeries } from '../database/schema/index.js';
+import { and, asc, eq, isNull, inArray, sql } from 'drizzle-orm';
+import { tasks, projects, subtasks, taskHistory, taskReminders, recurrenceSeries, notes } from '../database/schema/index.js';
 import type { UpdateTask } from '../schemas/tasks.js';
 
 type Database = ReturnType<typeof openDatabase>['db'];
@@ -27,8 +27,11 @@ export class TasksRepository {
       .leftJoin(recurrenceSeries, eq(tasks.recurrenceSeriesId, recurrenceSeries.id));
   }
 
-  findAll(includeDeleted = false) {
-    const rows = this.query().where(includeDeleted ? undefined : isNull(tasks.deletedAt))
+  findAll(includeDeleted = false, query = '') {
+    const rows = this.query().where(and(includeDeleted ? undefined : isNull(tasks.deletedAt), query ? sql`(
+      task_contains(${tasks.title}, ${query}) OR task_contains(${tasks.description}, ${query}) OR EXISTS (
+        SELECT 1 FROM ${notes} WHERE ${notes.taskId} = ${tasks.id} AND task_contains(${notes.content}, ${query})
+      ))` : undefined))
       .orderBy(asc(tasks.createdAt), asc(tasks.id)).all();
     const children = rows.length === 0 ? [] : this.db.select().from(subtasks)
       .where(inArray(subtasks.taskId, rows.map(row => row.task.id)))
@@ -48,7 +51,7 @@ export class TasksRepository {
       list.push(item);
       remindersByTask.set(item.taskId, list);
     }
-    return rows.map(row => ({ ...row.task, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}), subtasks: byTask.get(row.task.id) ?? [],
+    return rows.map(row => ({ ...row.task, favorite: row.task.favorite === true, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}), subtasks: byTask.get(row.task.id) ?? [],
       reminders: this.withTriggers(row.task, remindersByTask.get(row.task.id) ?? []) }));
   }
 
@@ -57,7 +60,7 @@ export class TasksRepository {
     if (!row) return undefined;
     const children = this.db.select().from(subtasks).where(eq(subtasks.taskId, id))
       .orderBy(asc(subtasks.createdAt), asc(subtasks.id)).all();
-    return { ...row.task, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}), subtasks: children, reminders: this.remindersFor(row.task) };
+    return { ...row.task, favorite: row.task.favorite === true, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}), subtasks: children, reminders: this.remindersFor(row.task) };
   }
 
   updateById(id: string, changes: Omit<UpdateTask, 'reminders'> & { done?: boolean; progress?: number }, updatedAt: string) {
@@ -67,7 +70,7 @@ export class TasksRepository {
 
   findIncludingDeleted(id: string) {
     const row = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
-    return row ? { ...row, reminders: this.remindersFor(row) } : undefined;
+    return row ? { ...row, favorite: row.favorite === true, reminders: this.remindersFor(row) } : undefined;
   }
 
   findDetailedIncludingDeleted(id: string) {
@@ -75,7 +78,7 @@ export class TasksRepository {
     if (!row) {return undefined;}
     const children = this.db.select().from(subtasks).where(eq(subtasks.taskId, id))
       .orderBy(asc(subtasks.createdAt), asc(subtasks.id)).all();
-    return { ...row.task, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}),
+    return { ...row.task, favorite: row.task.favorite === true, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}),
       subtasks: children, reminders: this.remindersFor(row.task) };
   }
 

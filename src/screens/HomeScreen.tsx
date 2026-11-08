@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
+  TextInput,
   View,
   Text,
   StyleSheet,
@@ -8,11 +9,14 @@ import {
   StatusBar,
   Alert,
   AppState,
+  ActivityIndicator,
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
+import { useTaskSearch } from '../hooks/useTaskSearch';
+import SavedTaskFilters from '../components/SavedTaskFilters';
 import BottomNavigation from '../components/BottomNavigation';
 import { useTasks, Task } from '../context/TaskContext';
 
@@ -48,9 +52,25 @@ const priorityColors = {
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
 
-  const { tasks, toggleTask, loading, readError } = useTasks();
+  const { tasks, toggleTask, toggleFavorite, loading, readError } = useTasks();
 
   const { projects, hydrated } = useProjects();
+  const search = useTaskSearch();
+  const { retry: retrySearch, cancel: cancelSearch } = search;
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState<Set<string>>(new Set());
+  const searchInputRef =
+    React.useRef<React.ComponentRef<typeof TextInput>>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const favoriteRequests = React.useRef(new Set<string>());
+  useEffect(() => {
+    const focus = navigation.addListener?.('focus', retrySearch);
+    const blur = navigation.addListener?.('blur', cancelSearch);
+    return () => {
+      focus?.();
+      blur?.();
+    };
+  }, [navigation, retrySearch, cancelSearch]);
   const [period, setPeriod] = useState<DashboardPeriod>('today');
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -59,21 +79,35 @@ export default function HomeScreen() {
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') {
         refresh();
+        retrySearch();
       }
     });
     return () => {
       clearInterval(timer);
       subscription.remove();
     };
-  }, []);
+  }, [retrySearch]);
   const [filters, setFilters] = useState<TaskFilters>({ ...DEFAULT_FILTERS });
   const [sorting, setSorting] = useState<TaskSorting>({ ...DEFAULT_SORTING });
   const visibleTasks = useMemo(
-    () => sortTasks(filterTasks(tasks, filters, projects, now), sorting),
-    [tasks, filters, projects, now, sorting],
+    () =>
+      sortTasks(
+        filterTasks(
+          search.tasks.filter(task => !favoriteOnly || task.favorite),
+          filters,
+          projects,
+          now,
+        ),
+        sorting,
+      ),
+    [search.tasks, favoriteOnly, filters, projects, now, sorting],
   );
   const projectOptions = useMemo(
-    () => taskProjectOptions(projects, tasks),
+    () =>
+      taskProjectOptions(projects, tasks).map(option => ({
+        ...option,
+        remoteId: projects.find(project => project.id === option.id)?.remoteId,
+      })),
     [projects, tasks],
   );
   const sorted = sorting.criterion !== 'none';
@@ -82,9 +116,10 @@ export default function HomeScreen() {
     ? visibleTasks
     : visibleTasks.filter(task => !isCompleted(task));
   const noResults =
-    tasks.length > 0 &&
     visibleTasks.length === 0 &&
-    activeFilterCount(filters) > 0;
+    (search.active || favoriteOnly || activeFilterCount(filters) > 0) &&
+    search.phase !== 'typing' &&
+    search.phase !== 'loading';
   const metrics = dashboardMetrics(tasks, period, now);
   const progress = metrics.progress;
   // Context appends newly created projects; show the last three with linked tasks.
@@ -117,6 +152,33 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleFavorite(id: string) {
+    if (favoriteRequests.current.has(id)) {
+      return;
+    }
+    favoriteRequests.current.add(id);
+    setFavoriteBusy(new Set(favoriteRequests.current));
+    try {
+      const result = await toggleFavorite(id);
+      if (!result.cacheSaved) {
+        Alert.alert(
+          'Favorito salvo no servidor',
+          'O cache local falhou. Não é necessário enviar novamente.',
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Não foi possível alterar favorito',
+        error instanceof Error
+          ? error.message
+          : 'Verifique a conexão e tente novamente.',
+      );
+    } finally {
+      favoriteRequests.current.delete(id);
+      setFavoriteBusy(new Set(favoriteRequests.current));
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
@@ -125,6 +187,8 @@ export default function HomeScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Cabeçalho */}
         <View style={styles.header}>
@@ -248,17 +312,124 @@ export default function HomeScreen() {
         )}
 
         {/* Tarefas pendentes */}
-        <TaskListControls
-          filters={filters}
-          sorting={sorting}
-          projects={projectOptions}
-          onApply={(nextFilters, nextSorting) => {
-            setFilters(nextFilters);
-            setSorting(nextSorting);
-          }}
-        />
+        <View style={styles.discoveryPanel}>
+          <View
+            style={[styles.searchField, searchFocused && styles.focusedField]}
+          >
+            <TextInput
+              ref={searchInputRef}
+              accessibilityLabel="Buscar tarefas"
+              placeholder="Buscar tarefas..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={search.query}
+              onChangeText={search.changeQuery}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              style={styles.searchInput}
+            />
+            {search.query.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Limpar busca"
+                style={styles.clearSearch}
+                onPress={() => {
+                  search.changeQuery('');
+                  searchInputRef.current?.focus();
+                }}
+              >
+                <Text style={styles.clearSearchText}>×</Text>
+              </Pressable>
+            )}
+          </View>
+          <View style={styles.quickActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Favoritas"
+              accessibilityState={{ selected: favoriteOnly }}
+              onPress={() => setFavoriteOnly(value => !value)}
+              style={[
+                styles.favoriteChip,
+                favoriteOnly && styles.favoriteChipSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.quickActionText,
+                  favoriteOnly && styles.favoriteSelectedText,
+                ]}
+              >
+                Favoritas
+              </Text>
+            </Pressable>
+            <SavedTaskFilters
+              filters={filters}
+              projects={projects}
+              onApply={setFilters}
+            />
+          </View>
+          <TaskListControls
+            filters={filters}
+            sorting={sorting}
+            projects={projectOptions}
+            onApply={(nextFilters, nextSorting) => {
+              setFilters(nextFilters);
+              setSorting(nextSorting);
+            }}
+          />
+          <Text
+            style={styles.searchStatus}
+            accessibilityLiveRegion="polite"
+            accessibilityRole={
+              search.phase === 'typing' || search.phase === 'loading'
+                ? 'progressbar'
+                : 'text'
+            }
+          >
+            {search.phase === 'typing' || search.phase === 'loading'
+              ? 'Atualizando resultados…'
+              : search.active && !search.error
+              ? `${visibleTasks.length} ${
+                  visibleTasks.length === 1
+                    ? 'tarefa encontrada'
+                    : 'tarefas encontradas'
+                }`
+              : 'Busque por título, descrição ou observação.'}
+          </Text>
+        </View>
+        {search.localOnlyMatches && (
+          <Text style={styles.searchStatus} accessibilityLiveRegion="polite">
+            Tarefas apenas neste aparelho são pesquisadas por título e
+            descrição.
+          </Text>
+        )}
+        {search.error && (
+          <View accessibilityRole="alert">
+            <Text style={styles.errorText}>
+              {search.error} Busca local em título e descrição. Observações
+              indisponíveis sem conexão.{' '}
+              {search.retained
+                ? 'Os últimos resultados confirmados desta busca foram mantidos.'
+                : ''}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tentar busca novamente"
+              onPress={search.retry}
+              style={styles.seeAllButton}
+            >
+              <Text>Tentar novamente</Text>
+            </Pressable>
+          </View>
+        )}
         <Text style={styles.sectionTitle}>
-          {sorted || activeFilterCount(filters) > 0 ? 'Tarefas' : 'Para fazer'}
+          {favoriteOnly
+            ? 'Favoritas'
+            : sorted || search.active || activeFilterCount(filters) > 0
+            ? 'Tarefas'
+            : 'Para fazer'}
         </Text>
 
         {loading && (
@@ -284,12 +455,18 @@ export default function HomeScreen() {
 
         {!loading && noResults && (
           <Text style={styles.emptyStateText}>
-            Nenhuma tarefa encontrada com esses filtros.
+            {search.phase === 'error'
+              ? 'Nenhuma tarefa local encontrada.'
+              : search.active || favoriteOnly
+              ? 'Nenhuma tarefa encontrada.'
+              : 'Nenhuma tarefa encontrada com esses filtros.'}
           </Text>
         )}
         {!loading &&
           !readError &&
           !noResults &&
+          !search.active &&
+          !favoriteOnly &&
           pendingTasks.length === 0 &&
           (tasks.length === 0 || activeFilterCount(filters) === 0) && (
             <View style={styles.emptyState}>
@@ -312,6 +489,8 @@ export default function HomeScreen() {
             key={task.id}
             task={task}
             onToggle={handleToggle}
+            onFavorite={handleFavorite}
+            favoriteBusy={favoriteBusy.has(task.id)}
             onPress={() =>
               navigation.navigate('DetalheTarefa', {
                 taskId: task.id,
@@ -330,6 +509,8 @@ export default function HomeScreen() {
                 key={task.id}
                 task={task}
                 onToggle={handleToggle}
+                onFavorite={handleFavorite}
+                favoriteBusy={favoriteBusy.has(task.id)}
                 onPress={() =>
                   navigation.navigate('DetalheTarefa', {
                     taskId: task.id,
@@ -450,10 +631,14 @@ function TaskCard({
   task,
   onToggle,
   onPress,
+  onFavorite,
+  favoriteBusy,
 }: {
   task: Task;
   onToggle: (id: string) => void;
   onPress: () => void;
+  onFavorite: (id: string) => void;
+  favoriteBusy: boolean;
 }) {
   return (
     <Pressable
@@ -500,11 +685,99 @@ function TaskCard({
           {task.time ? ` · ${task.time}` : ''}
         </Text>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${
+          task.favorite ? 'Remover dos favoritos' : 'Favoritar'
+        }: ${task.title}`}
+        accessibilityState={{
+          selected: !!task.favorite,
+          disabled: favoriteBusy,
+          busy: favoriteBusy,
+        }}
+        disabled={favoriteBusy}
+        style={styles.checkboxTarget}
+        onPress={event => {
+          event?.stopPropagation();
+          onFavorite(task.id);
+        }}
+      >
+        {favoriteBusy ? (
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        ) : (
+          <Text
+            style={[
+              styles.favoriteStar,
+              task.favorite && styles.favoriteStarSelected,
+            ]}
+          >
+            {task.favorite ? '★' : '☆'}
+          </Text>
+        )}
+      </Pressable>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  discoveryPanel: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginVertical: SPACING.md,
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.background,
+  },
+  focusedField: { borderColor: COLORS.primary },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    paddingHorizontal: SPACING.md,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  clearSearch: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearSearchText: { color: COLORS.textSecondary, fontSize: 24 },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  favoriteChip: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.sm,
+  },
+  favoriteChipSelected: {
+    backgroundColor: COLORS.primarySoft,
+    borderColor: COLORS.primary,
+  },
+  quickActionText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  favoriteSelectedText: { color: COLORS.primary, fontWeight: '700' },
+  searchStatus: { minHeight: 20, color: COLORS.textSecondary, fontSize: 12 },
+  favoriteStar: { color: COLORS.textSecondary, fontSize: 24 },
+  favoriteStarSelected: { color: COLORS.primary },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: {
     paddingHorizontal: SPACING.lg,

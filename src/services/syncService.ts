@@ -19,7 +19,7 @@ const newClientId = () => `mobile-${Date.now().toString(36)}-${Math.random().toS
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function taskFields(task: Task) {
   return JSON.stringify([task.title, task.description ?? '', task.projectId, task.startDateKey ?? localDay(task.startDate), task.dueDateKey ?? localDay(task.dueDate),
-    task.time ?? '', task.priority, task.status, task.done, task.reminderTimeZone ?? null,
+    task.time ?? '', task.favorite === true, task.priority, task.status, task.done, task.reminderTimeZone ?? null,
     task.recurrenceSeriesId ?? null, task.occurrenceKey ?? null, task.recurrence?.frequency ?? 'NONE',
     task.recurrence?.timeZone ?? null, task.recurrence?.anchorDate ?? null,
     [...(task.reminders ?? [])].sort((a, b) => a.offsetMinutes - b.offsetMinutes).map(item => [item.id, item.taskId, item.offsetMinutes])]);
