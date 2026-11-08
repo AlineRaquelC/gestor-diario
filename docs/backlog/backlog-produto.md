@@ -7,8 +7,8 @@
 - **Origem:** exclusivamente as páginas **1 a 35** do PDF fornecido pelo professor
 - **Plataforma:** Android
 - **Mobile:** React Native + TypeScript
-- **Backend previsto:** Node.js
-- **Arquitetura prevista:** Mobile → Services/Context → API REST → Node.js → Banco de Dados
+- **Backend atual:** Node.js + TypeScript / Express
+- **Arquitetura atual:** Mobile → Services/Context → API REST → Node.js → SQLite
 - **Método de trabalho:** Scrum, Git/GitHub, Pull Requests, integração contínua e entrega contínua
 
 > **Importante:** os requisitos são oficiais; a transformação em PBIs/User Stories, a prioridade, a divisão em três entregas e o status abaixo são **decisões de planejamento do projeto**. Este arquivo não substitui `requisitos-oficiais.md`; ele organiza os requisitos para execução ágil e mantém referência aos IDs de origem.
@@ -33,6 +33,9 @@ Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à p
 
 ### Status utilizados
 
+“Parcial — Integrado” não implica aceite integral do PBI; preferências locais
+podem compor um recorte com dados canônicos da API, sem backend próprio.
+
 | Status | Significado |
 |---|---|
 | **Concluído** | Trabalho correspondente concluído e validado |
@@ -47,7 +50,7 @@ Disponibilizar um aplicativo móvel de gerenciamento de tarefas que permita à p
 
 # 4. Visão consolidada do Product Backlog
 
-Status operacionais conferidos no GitHub em 22/10/2026: fechamento técnico pós-entrega
+**Histórico da Sprint 1 — conferência em 22/10/2026:** fechamento técnico pós-entrega
 em 21/10/2026, **15/15 Issues da Sprint 1 concluídas, 100%, 0 abertas**.
 A Sprint havia sido apresentada/entregue antes do fechamento técnico. Entrega 1
 mantém cobertura parcial conforme os PBIs abaixo; não recebe aceite integral
@@ -57,6 +60,26 @@ entregas foram preservados. [Rastreabilidade completa](../sprints/sprint-1.md).
 Histórico em 2026-10-04: #7 e #3 concluídas não bastavam para completar seus PBIs;
 exclusão/restauração dependia de #10 e reconciliação de projetos dependia de #12.
 Ambas as Issues foram concluídas posteriormente.
+
+## Atualização — 08/11/2026
+
+Sprint 2 core #39–#42 CLOSED/completed e integrado em `dev`: **4/4 Issues,
+37/37 pontos, 100%**. Recortes dos PBIs 13, 14 e 17 estão parcialmente integrados;
+não representam conclusão integral desses PBIs ou da Entrega 2 (PBIs 12–24).
+PBI-19/#43 permanece Planejado/OPEN: stretch de 13 pontos fora do core, avaliada
+pelo gate técnico NO-GO, sem implementação. [Sprint 2](../sprints/sprint-2.md).
+
+| PBI | Recorte entregue e rastreabilidade | Limites preservados |
+|---|---|---|
+| PBI-13 | RF08 ✅ (#40 / PR #48); RF15/RF16 ✅ (#39 / PR #46), no recorte validado | RF43–RF45 e REQ114–REQ116 não integralmente atestados |
+| PBI-14 | RF13 parcial: título/descrição/observações ✅; RF49/RF51 ✅ (#41 / PR #50) | Etiquetas ❌; RF14/drag and drop ❌; PBI não integral |
+| PBI-17 | RF22 parcial: quantidade de Tasks concluídas ✅; RF46/RF47 ✅ (#42 / PR #52) | Tempo total ❌; REQ084/REQ085/REQ111 não atestados por este recorte |
+| PBI-19 | Gate documental #43 / PR #53; arquitetura futura exige isolamento validado | Não implementado; RF33/RF34 não entregues; perfil local não é autenticação |
+
+Os demais PBIs da Entrega 2 conservam seu estado planejado. Referências técnicas:
+[#39](../sprints/sprint-2-issue-39.md), [#40](../sprints/sprint-2-issue-40.md),
+[#41](../sprints/sprint-2-issue-41.md), [#42](../sprints/sprint-2-issue-42.md) e
+[gate #43](../sprints/sprint-2-issue-43.md).
 
 | PBI | User Story / Capacidade | Requisitos de origem | Área principal | Prioridade | Entrega | Status atual |
 |---|---|---|---|---|---|---|
@@ -72,13 +95,13 @@ Ambas as Issues foram concluídas posteriormente.
 | **PBI-10** | Filtrar e ordenar tarefas | RF48, RF50 | Front / Backend | Alta | 1 | Concluído no recorte planejado da Sprint — #21 / PR #32; RF48 integral não atestado |
 | **PBI-11** | Sincronizar manualmente com servidor Node.js | RF20 | Front / Backend / Banco | Alta | 1 | Concluído no escopo RF20 — #12 / PR #33; limites de legado preservados |
 | **PBI-12** | Priorização inteligente e prioridades personalizadas | RF02, RF24, RF63, RF64, RF65, REQ120–REQ122 | Front / Backend / Banco | Média | 2 | Planejado |
-| **PBI-13** | Tarefas recorrentes, lembretes e notificações | RF08, RF15, RF16, RF43, RF44, RF45, REQ114–REQ116 | Front / Backend / Banco / Android | Média | 2 | Planejado |
-| **PBI-14** | Busca, ordenação manual, filtros salvos e favoritos | RF13, RF14, RF49, RF51 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-13** | Tarefas recorrentes, lembretes e notificações | RF08, RF15, RF16, RF43, RF44, RF45, REQ114–REQ116 | Front / Backend / Banco / Android | Média | 2 | Parcial — Integrado (recorte Sprint 2; limites acima) |
+| **PBI-14** | Busca, ordenação manual, filtros salvos e favoritos | RF13, RF14, RF49, RF51 | Front / Backend / Banco | Média | 2 | Parcial — Integrado (recorte Sprint 2; limites acima) |
 | **PBI-15** | Exportar/importar dados, backup, integridade e migração | RF18, RF19, RF58, RF59, RF60, RF61, RF77, RF78 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-16** | Sincronização automática, API segura e múltiplos servidores | RF21, RF79, RF80, REQ081, REQ192 | Front / Backend / Banco / DevOps | Média | 2 | Planejado |
-| **PBI-17** | Metas, relatórios e métricas locais | RF22, RF46, RF47, REQ084, REQ085, REQ111 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-17** | Metas, relatórios e métricas locais | RF22, RF46, RF47, REQ084, REQ085, REQ111 | Front / Backend / Banco | Média | 2 | Parcial — Integrado (recorte Sprint 2; limites acima) |
 | **PBI-18** | Tema, acessibilidade e personalização visual | RF25, RF26, RF27, RF71, RF72, REQ112 | Front / Banco / Android | Média | 2 | Planejado |
-| **PBI-19** | Perfis locais e tarefas compartilhadas | RF33, RF34 | Front / Backend / Banco | Média | 2 | Planejado |
+| **PBI-19** | Perfis locais e tarefas compartilhadas | RF33, RF34 | Front / Backend / Banco | Média | 2 | Planejado — Stretch #43 OPEN; gate NO-GO em 08/11/2026, sem implementação |
 | **PBI-20** | Duplicação, modelos e dependências entre tarefas | RF35, RF36, RF37, REQ117–REQ119 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-21** | Linha do tempo, estimativas, cronômetro e conflitos de agenda | RF38, RF39, RF40, RF41, RF42, REQ123–REQ126 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-22** | Operações em lote, arquivamento e campos personalizados | RF66, RF67, RF68, RF69, RF70, REQ109, REQ110 | Front / Backend / Banco | Média | 2 | Planejado |
@@ -379,7 +402,7 @@ Os itens abaixo são **enablers técnicos de planejamento**. Eles não são apre
 | **TEC-05** | Definir estratégia entre AsyncStorage e servidor para evitar duas fontes de verdade conflitantes | Arquitetura | Alta | Concluído/documentado no escopo #12 / PR #33 |
 | **TEC-06** | Implementar validações de negócio também no backend | Backend | Alta | Concluído no escopo técnico da Sprint — Zod/services e testes backend |
 | **TEC-07** | Implementar tratamento padronizado de erros da API | Backend / Front | Alta | Concluído no escopo dos fluxos integrados — erros API/HTTP e feedback validados |
-| **TEC-08** | Adicionar testes mínimos do CRUD e regras críticas | Testes | Alta | Concluído no escopo técnico da Sprint — 278 testes backend / 322 mobile |
+| **TEC-08** | Adicionar testes mínimos do CRUD e regras críticas | Testes | Alta | Concluído no escopo técnico da Sprint 1 — referência histórica: 278 testes backend / 322 mobile |
 | **TEC-09** | Configurar CI inicial para TypeScript/lint/testes | DevOps | Alta | Concluído — #13 / PR #34 |
 | **TEC-10** | Manter documentação e rastreabilidade requisito → PBI → Issue → PR → teste | Documentação / DevOps | Alta | Atualizado no escopo da Sprint — 15 vínculos Issue → PR e evidências; aceite integral dos PBIs não presumido |
 
@@ -511,7 +534,7 @@ Um item somente deve ser marcado como concluído quando:
 
 ---
 
-# 12. Próxima etapa
+# 12. Próximas etapas do planejamento inicial — histórico
 
 Após versionar este Product Backlog:
 

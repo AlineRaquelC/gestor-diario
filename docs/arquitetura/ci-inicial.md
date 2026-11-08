@@ -130,7 +130,7 @@ permissão apropriada, sem transformar EPERM em sucesso. O workflow em runner
 GitHub não depende dessa permissão local.
 
 YAML foi analisado localmente; diff --check aprovado. Nenhuma alteração em src/,
-backend/src/, dependências ou regras de produto. docs/prompts continua ausente.
+backend/src/, dependências ou regras de produto.
 A conclusão operacional exige ainda observar **Mobile** e **Backend** no run real
 do PR; sucesso local/validade sintática não substituem a execução do Actions.
 

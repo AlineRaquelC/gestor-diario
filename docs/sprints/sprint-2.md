@@ -3,13 +3,13 @@
 ## Identificação e datas
 
 - **Formalização:** 23/10/2026; estado original: planejada, nenhuma Issue iniciada.
-- **Atualização em 08/11/2026:** core #39–#42 CLOSED/completed e integrado em `dev` (PRs #46/#48/#50/#52): **4/4 Issues, 37/37 pontos, 100%**. [CI Mobile/Backend de dev aprovada](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42483127495) em `2d23931`. #43 OPEN, stretch 13 pontos, refinamento/gate documental concluído com **NO-GO hoje**; nenhuma implementação iniciada.
+- **Atualização em 08/11/2026:** core #39–#42 CLOSED/completed e integrado em `dev` (PRs #46/#48/#50/#52): **4/4 Issues, 37/37 pontos, 100%**. [CI Mobile/Backend de dev aprovada após PR #53](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42485415796) em `b850b5f`. #43 OPEN, stretch 13 pontos, refinamento/gate documental concluído com **NO-GO hoje**; nenhuma implementação iniciada.
 - **Histórico em 29/10/2026:** #39 concluída e integrada em `dev` pelo PR #46, com T12 aprovada; Issue CLOSED/completed. #40 em refinamento técnico documental, sem implementação iniciada; #41–#43 não iniciadas.
 - **Janela operacional atualizada:** 23/10/2026 → 08/11/2026.
 - **Milestone:** [Sprint 2](https://github.com/AlineRaquelC/gestor-diario/milestone/2), data alvo **08/11/2026**.
 - **Freeze absoluto / data máxima para commit e push:** **08/11/2026**.
 - **Apresentação:** **08/11/2026**; a data máxima de commit/push também passou a 08/11 por decisão do professor.
-- **Branch desta documentação:** `docs/plan-sprint-2`; PR exclusivamente para `dev`, sem merge automático.
+- **Branch histórica da formalização:** `docs/plan-sprint-2`, integrada por PR para `dev`; não representa branch operacional atual.
 
 Esta documentação registra o planejamento da Sprint 2 e suas Issues no GitHub.
 No momento da formalização, as Issues estavam planejadas e a implementação
@@ -31,7 +31,7 @@ preservando a estabilidade do MVP integrado.
 - [CI da base](https://github.com/AlineRaquelC/gestor-diario/actions/runs/39967136926): **Mobile e Backend aprovados**. Referência mobile: 352 testes em 22 suítes; 16 testes dos validadores; lint com 3 erros/7 warnings conhecidos e TypeScript com 11 diagnósticos conhecidos, sem regressão e sem ampliar baselines.
 - Arquitetura vigente: React Native → Context/State → services HTTP → API Node.js → services/repositories → Drizzle/SQLite. AsyncStorage é cache/apoio local; identidades e reconciliação existentes devem ser preservadas.
 - Três tarefas legadas sem `projectId` continuam locais, com pendências explícitas. Não associar por nome, apagar ou migrar silenciosamente para aparentar sincronização completa.
-- O gap de horário/antecedência no passado já está [registrado na Entrega 2](../backlog/entregas.md); passa a integrar o recorte de lembretes da Issue #39.
+- O gap histórico de horário/antecedência no passado está [registrado na Entrega 2](../backlog/entregas.md) e foi tratado/validado no recorte #39/#40.
 
 ## Entrega 2 não equivale à Sprint 2
 
@@ -153,7 +153,9 @@ proprietário em Tasks/Projects/séries. Isolamento local sozinho é insuficient
 [Refinamento e matriz de segurança da #43](sprint-2-issue-43.md): alternativa B
 com propriedade persistida, bootstrap preservando legado, caches/troca coerentes
 e política de reminders exigem trabalho transversal e validação posterior.
-Manter #43 OPEN e não implementada; stretch adiado sem reduzir o core entregue.
+Gate documental integrado pelo [PR #53](https://github.com/AlineRaquelC/gestor-diario/pull/53),
+commit `b850b5f`. Manter #43 OPEN e não implementada; stretch adiada sem reduzir
+o core entregue.
 
 **Fora do compromisso principal; 13 pontos.** Iniciar somente se #39–#42 estiverem
 concluídas ou com risco operacional praticamente zero antes do freeze.

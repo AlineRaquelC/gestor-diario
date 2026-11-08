@@ -60,7 +60,9 @@ CI inicial integrado: Mobile ✅ / Backend ✅, em PR/push de `dev`/`main`, com
 baselines explícitas que bloqueiam regressões novas, sem declarar dívida corrigida.
 Permanecem TypeScript/lint históricos, App.test.tsx/Jest, alertas de dependências,
 offline parcial, três Tasks legadas sem projectId locais e filhos não migrados
-automaticamente. Sem sync automático, autenticação real ou recursos da Entrega 2.
+automaticamente. No fechamento da Sprint 1, não havia recursos da Entrega 2;
+os recortes posteriores estão registrados no status da Sprint 2 abaixo.
+Sync automático e autenticação real permanecem fora.
 Esses limites não são Issues pendentes da Sprint 1.
 
 ## Status histórico — 2026-10-04
@@ -201,6 +203,25 @@ A Entrega 1 somente deve ser considerada concluída quando:
 
 # 4. Entrega 2 — Produtividade, automação e sincronização avançada
 
+## Status atual — 08/11/2026
+
+**Sprint 2 concluída no core selecionado da Entrega 2:** #39–#42 CLOSED/completed,
+4/4 Issues, 37/37 pontos, 100%, integradas em dev. **Entrega 2 permanece parcial**;
+PBIs 12–24 não foram integralmente concluídos.
+
+| PBI | Recorte implementado | Rastreabilidade |
+|---|---|---|
+| PBI-13 | RF08, RF15/RF16 no recorte validado; sem atestar RF43–RF45/REQ114–REQ116 integrais | #39 / PR #46; #40 / PR #48 |
+| PBI-14 | RF13 parcial (título/descrição/observações, sem etiquetas), RF49/RF51; RF14 fora | #41 / PR #50 |
+| PBI-17 | RF22 parcial (quantidade concluída, sem tempo total), RF46/RF47 | #42 / PR #52 |
+| PBI-19 | Somente refinamento/gate NO-GO; sem perfil implementado | Stretch #43 OPEN / PR documental #53 |
+
+Os 13 pontos da stretch não integram os 37 entregues. A #43 foi avaliada e adiada
+por segurança/integridade, sem caracterizar falha do core. Os demais PBIs preservam
+o planejamento: não há sync automático, autenticação real ou aceite da entrega
+inteira. [Fechamento da Sprint 2](../sprints/sprint-2.md) e
+[cobertura conservadora dos PBIs](backlog-produto.md#atualização--08112026).
+
 ## 4.1 Objetivo
 
 Evoluir o núcleo funcional com recursos de produtividade, recorrência, notificações, personalização, backup, relatórios, automação e sincronização mais robusta.
@@ -225,18 +246,25 @@ A Entrega 2 será composta pelos seguintes PBIs:
 | **PBI-23** | Prazos úteis, feriados, atrasos e revisão semanal | REQ086–REQ092, REQ113 |
 | **PBI-24** | Anexos, links, áudio, compartilhamento e impressão | RF52–RF57, REQ102–REQ106, REQ127–REQ132 |
 
-## Gap observado / item para refinamento — Sprint 2 / PBI-13
+## Gap histórico tratado — Sprint 2 / PBI-13
 
-Observação do teste manual, vinculada ao planejamento da Entrega 2, PBI-13 (RF15/RF16): ao criar uma tarefa para o dia atual, o aplicativo ainda pode permitir horário já passado. Com lembrete de 15 minutos antes, horário da tarefa menos antecedência também pode resultar em disparo no passado.
+**Situação anterior à Sprint 2:** observação do teste manual, vinculada ao planejamento da Entrega 2, PBI-13 (RF15/RF16): ao criar uma tarefa para o dia atual, o aplicativo ainda pode permitir horário já passado. Com lembrete de 15 minutos antes, horário da tarefa menos antecedência também pode resultar em disparo no passado.
 
-Pontos a refinar na Sprint 2:
+Pontos identificados naquele refinamento:
 
 - tarefa do dia atual deve utilizar horário futuro quando aplicável;
 - antecedência do lembrete não deve produzir disparo no passado;
 - UI deve apresentar mensagem compreensível;
 - validação deverá existir na camada adequada quando o recurso for persistido.
 
-Este é um gap observado / item para refinamento, não um novo requisito oficial, compromisso da Sprint 1 ou funcionalidade implementada. Requisitos, prioridades e divisão das entregas permanecem preservados.
+**Situação em 08/11/2026:** tratado e validado no recorte #39/#40 (PRs #46/#48):
+validação de horário/antecedência no passado, mensagens de erro e próximo minuto
+automático enquanto o horário do formulário não foi editado manualmente.
+Lembretes expirados conservam configuração, sem publicação retroativa indevida.
+O registro permanece por rastreabilidade histórica, não como pendência atual.
+Evidências: [#39](../sprints/sprint-2-issue-39.md) e
+[#40](../sprints/sprint-2-issue-40.md). Requisitos oficiais e divisão das entregas
+permanecem preservados; isso não atesta todo o PBI-13.
 
 ## 4.3 Resultado esperado
 
