@@ -5,13 +5,16 @@ Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido 
 ## Status atual — 08/11/2026
 
 - **Sprint 1:** 15/15 Issues concluídas, 100% ([fechamento](docs/sprints/sprint-1.md)).
-- **Sprint 2 core:** #39–#42 concluídas e integradas em `dev`, **4/4 Issues,
-  37/37 pontos, 100%** ([fechamento e evidências](docs/sprints/sprint-2.md)).
+- **Sprint 2 core:** #39–#42 concluídas, integradas em `dev` e promovidas para
+  `main` pelo [PR #55](https://github.com/AlineRaquelC/gestor-diario/pull/55) —
+  **4/4 Issues, 37/37 pontos, 100%** ([fechamento e evidências](docs/sprints/sprint-2.md)).
 - **Stretch #43:** gate técnico NO-GO, não implementada e OPEN. Seus 13 pontos
   ficam fora do core entregue; adiada por segurança/integridade.
 
 A Sprint 2 concluiu o core selecionado da Entrega 2, não a Entrega 2 inteira.
-Não houve promoção `dev → main` neste fechamento.
+O core concluído foi promovido de `dev` para `main` pelo PR #55 em 08/11/2026,
+após revisão e CI verde. `main` contém o estado estável da Sprint 2; `dev` permanece
+como branch de integração.
 
 ## Funcionalidades atuais
 
@@ -77,8 +80,10 @@ cache/apoio local durante a transição
   17 suítes** e **16 validadores CI aprovados**; backend typecheck/build aprovados.
 - Android assembleDebug/assembleRelease aprovados no fechamento da #42, com
   Hermes, New Architecture e Codegen; validação manual Android registrada.
-- [CI de dev Mobile/Backend aprovada após o PR #53](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42485415796),
-  commit `b850b5f`. GitHub Actions valida PR/push de `dev`/`main`.
+- [CI pós-merge de main — execução 42488972344](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42488972344):
+  **completed / success — Mobile ✅ / Backend ✅**, no merge do PR #55,
+  commit `403ef114e1c7f21229a85f1522c6d6e58662ebe4`.
+  GitHub Actions valida PR/push de `dev`/`main`.
 - Lint/TypeScript sem regressão nem ampliação de baselines: 3 erros/7 warnings
   conhecidos no lint (10 diagnósticos / baseline 13); TS 11 / baseline 11.
   Backend permanece estrito. CI verde não significa ausência de dívida técnica.
@@ -116,7 +121,7 @@ Triggers, jobs, banco temporário e limites estão no [README do workflow](.gith
 
 ## Metodologia e branches
 
-Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` recebe promoção por PR após revisão. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. O workflow CI valida Mobile e Backend separadamente; não publica nem gera APK. O fechamento documental usa PR para `dev`, sem merge automático ou promoção para `main`.
+Scrum, backlog, Sprints e Pull Requests. `dev` integra o desenvolvimento; `main` mantém o estado estável. `feature/*`, `fix/*` e `docs/*` isolam os trabalhos. O workflow CI valida Mobile e Backend separadamente; não publica nem gera APK. Documentação segue o mesmo fluxo de PR; promoções de `dev` para `main` são realizadas por PR após revisão e CI.
 
 ## Estrutura
 
