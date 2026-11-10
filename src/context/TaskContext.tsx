@@ -89,8 +89,8 @@ export type Task = RecurrenceFields & {
 
 type TaskContextType = {
   loadRecurrenceSeries: (id: string) => Promise<RecurrenceSeries>;
-  changeRecurrenceRule: (taskId: string, seriesId: string, expectedUpdatedAt: string, frequency: RecurrenceFrequency) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
-  activateTaskRecurrence: (taskId: string, frequency: RecurrenceFrequency, timeZone: string, requestId: string) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean }>;
+  changeRecurrenceRule: (taskId: string, seriesId: string, expectedUpdatedAt: string, frequency: RecurrenceFrequency) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean; recurrenceRefreshFailed?: boolean; scheduling?: SchedulingResult }>;
+  activateTaskRecurrence: (taskId: string, frequency: RecurrenceFrequency, timeZone: string, requestId: string) => Promise<{ series: RecurrenceSeries; cacheSaved: boolean; recurrenceRefreshFailed?: boolean; scheduling?: SchedulingResult }>;
   tasks: Task[];
   searchRevision: number;
   searchTasks: (query: string, isCurrent: () => boolean) => Promise<Task[] | null>;
@@ -498,6 +498,37 @@ export function TaskProvider({
     } finally { deletionBusy.current = false; updating.current.delete(id); dataGuard.activeTasks--; }
   }
 
+  // Both creation and activation retain the confirmed origin if the window refresh fails.
+  async function refreshRecurrenceWindow(task: Task) {
+    const revision = mutationRevision.current;
+    let cacheSaved = true;
+    try {await persistTasks(tasksRef.current);} catch {cacheSaved = false;}
+    let recurrenceRefreshFailed = false;
+    let snapshot: Task[] = [task];
+    const isCurrent = () => revision === mutationRevision.current && !dataGuard.syncing && dataGuard.activeTasks === 1;
+    try {
+      await materializeRecurrences(true);
+      const remote = await getTasks();
+      if (!isCurrent()) {throw new Error('Snapshot de recorrência superado por outra operação.');}
+      const next = mergeReadTasks(tasksRef.current, remote.filter(item => !deletedIds.current.has(item.id)));
+      try {await persistTasks(next); cacheSaved = true;} catch {cacheSaved = false;}
+      if (!isCurrent()) {
+        try {await persistTasks(tasksRef.current);} catch {cacheSaved = false;}
+        throw new Error('Snapshot de recorrência superado por outra operação.');
+      }
+      tasksRef.current = next;
+      setTasks(next);
+      snapshot = next.filter(item => remote.some(confirmed => confirmed.id === item.id));
+    } catch {
+      recurrenceRefreshFailed = true;
+    }
+    const scheduling: SchedulingResult = cacheSaved && isCurrent()
+      ? await reminderScheduler.reconcile(snapshot.filter(item => !deletedIds.current.has(item.id)), !recurrenceRefreshFailed)
+      : { state: 'pending', message: 'Tarefa salva; cache e reconciliação local pendentes.' };
+    reportScheduling(Object.fromEntries(snapshot.map(item => [item.id, scheduling])));
+    return { task, cacheSaved, scheduling, recurrenceRefreshFailed };
+  }
+
   async function addTask(draft: NewTask) {
     assertDataAvailable();
     if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
@@ -516,28 +547,7 @@ export function TaskProvider({
       mutationRevision.current++;
       setSearchRevision(value => value + 1);
       if (!task.recurrenceSeriesId) {return await persistConfirmed(nextTasks, task);}
-      // Persist the confirmed first occurrence before the optional window refresh.
-      let cacheSaved = true;
-      try {await persistTasks(nextTasks);} catch {cacheSaved = false;}
-      const revision = mutationRevision.current;
-      let recurrenceRefreshFailed = false;
-      let snapshot: Task[] = [task];
-      try {
-        await materializeRecurrences();
-        const remote = await getTasks();
-        const next = mergeReadTasks(tasksRef.current, remote.filter(item => !deletedIds.current.has(item.id)));
-        try {await persistTasks(next); cacheSaved = true;} catch {cacheSaved = false;}
-        tasksRef.current = next;
-        setTasks(next);
-        snapshot = next.filter(item => remote.some(confirmed => confirmed.id === item.id));
-      } catch {
-        recurrenceRefreshFailed = true;
-      }
-      const scheduling: SchedulingResult = cacheSaved
-        ? await reminderScheduler.reconcile(snapshot, !recurrenceRefreshFailed && revision === mutationRevision.current && dataGuard.activeTasks === 1)
-        : { state: 'pending', message: 'Tarefa salva; cache e reconciliação local pendentes.' };
-      reportScheduling(Object.fromEntries(snapshot.map(item => [item.id, scheduling])));
-      return { task, cacheSaved, scheduling, recurrenceRefreshFailed };
+      return await refreshRecurrenceWindow(task);
     } finally {
       creating.current = false;
       dataGuard.activeTasks--;
@@ -561,6 +571,12 @@ export function TaskProvider({
       mutationRevision.current++;
       setSearchRevision(value => value + 1);
       tasksRef.current = next; setTasks(next);
+      const activating = result.series.frequency !== 'NONE' && (result.task || current.recurrence?.frequency === 'NONE');
+      if (activating) {
+        const refreshed = await refreshRecurrenceWindow(next.find(task => task.id === taskId)!);
+        const latest = tasksRef.current.find(task => task.id === taskId)?.recurrence;
+        return { ...refreshed, series: latest ? { ...result.series, ...latest } : result.series };
+      }
       let cacheSaved = true;
       if (result.task) {cacheSaved = (await persistConfirmed(next, next.find(task => task.id === taskId)!, current)).cacheSaved;}
       else {try {await persistTasks(next);} catch {cacheSaved = false;}}

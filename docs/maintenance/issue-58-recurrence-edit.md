@@ -240,3 +240,93 @@ Próxima execução funcional, somente quando autorizada: branch
 `fix/58-recurrence-edit-materialization` a partir de `dev`, PR para `dev`,
 CI verde, Android e limpeza técnica comprovados antes do merge. Este PR
 documental referencia #58 sem fechá-la, não inicia implementação nem Sprint 3.
+
+## Implementação — 10/11/2026
+
+O refinamento acima registra a base aprovada antes da implementação. Nesta etapa,
+na branch `fix/58-recurrence-edit-materialization`, a inspeção confirmou novamente
+que `mutateRule` persistia a origem vinculada sem materializar/baixar futuras.
+
+Antes da correção, um teste de integração do Context reproduziu a falha em
+DAILY, WEEKLY e MONTHLY: esperava `future-58`, mas recebia apenas `server-uuid`.
+Resultado vermelho: **3 falhas / 58 aprovações** na suíte do Context, depois de
+completar o mock com o mapper real `fromApiTask`.
+
+### Alteração aplicada
+
+- `TaskContext.refreshRecurrenceWindow` extrai a sequência antes exclusiva de
+  `addTask`: persiste origem confirmada, materializa, faz GET /tasks, concilia
+  via mergeReadTasks, persiste/publica snapshot e reconcilia reminders.
+- `addTask` reutiliza o helper. `mutateRule` o usa na ativação sem série e na
+  reativação NONE → frequência ativa de série existente. Mudanças entre regras
+  já ativas e desativação para NONE mantêm o comportamento anterior.
+- Revision/guards são checados antes e depois da escrita do snapshot; leituras
+  superadas não publicam dados antigos nem iniciam scheduling autoritativo.
+  A revisão mais recente da série no Context é devolvida ao draft da edição.
+- `materializeRecurrences(true)` aguarda eventual lote iniciado antes da mutação
+  e solicita nova passagem controlada; chamadas comuns mantêm coalescing e a
+  mesma Promise compartilhada. Não há geração por render/navegação.
+- `EditTaskScreen` apenas apresenta aviso quando a regra foi salva, mas
+  materialização/GET ficaram pendentes. Cache falho mantém o snapshot confirmado
+  em memória e scheduling pendente; série confirmada não sofre rollback.
+
+Não houve alteração funcional no backend, calendário, scheduler nativo ou schema;
+nenhuma migration. Os testes backend novos exercitam os contratos existentes.
+Nenhuma baseline foi ampliada. Planning Poker permanece **5**.
+
+### Cobertura e limites
+
+Testes novos cobrem NONE → DAILY/WEEKLY/MONTHLY com Context/cache/calendário,
+restart e foreground repetido; reativação NONE; criação nas três frequências;
+falha de materialização, GET e cache com recuperação no restart; criação
+concorrente com GET atrasado; feedback de sucesso parcial na tela; materialização
+anterior em voo. Scheduler real com bridge simulada confirma dois reminders
+próprios e nenhuma chamada de agendamento adicional em restart/foreground.
+
+Backend em SQLite `:memory:` valida nas três frequências ativação + geração
+repetida, mesmos IDs/reminders e tombstone sem renascimento. Regressões de troca
+de frequência, desativação e Tasks materializadas permanecem na suíte completa.
+Mocks de rede não substituem aceite Android nem provam entrega real de alarmes.
+
+### Android preparado; aceite manual pendente
+
+Pixel_7 iniciado, `emulator-5554`; build `assembleDebug` aprovado
+(**BUILD SUCCESSFUL**, 205 tarefas). APK atualizado por `adb install -r`, com
+sucesso, sem limpar dados. API `/health` = `ok`, Metro `/status` =
+`packager-status:running`; reverses 3000 e 8081 configurados. O app não foi aberto
+por esta execução e nenhuma Task foi criada no dispositivo. Backend existente
+foi iniciado sem executar migration.
+
+Roteiro obrigatório para a usuária, ainda **não executado/aprovado**:
+
+1. DAILY: criar Task técnica sem recorrência, salvar, editar para Diariamente,
+   salvar; conferir regra nos detalhes e próximas Tasks reais no calendário.
+2. WEEKLY: repetir e conferir o próximo mesmo dia da semana dentro da janela.
+3. MONTHLY: repetir e conferir o próximo mês dentro da janela hoje + 31 dias.
+4. Fechar/reabrir e alternar background → foreground; conferir mesmas Tasks e
+   ausência de duplicações. Repetir refresh/sync e conferir reminders próprios,
+   sem alarmes duplicados. Usar horário futuro quando houver lembrete.
+5. Conferir sucesso parcial e recuperação online, além das regressões já
+   listadas no refinamento.
+6. **Antes do merge**, desativar as séries técnicas e remover todas as suas Tasks
+   pelo fluxo canônico; conferir Home, ausência de ocorrências de QA regeneradas
+   e cancelamento de reminders técnicos. Registrar evidência no PR.
+
+Nenhuma massa persistente de QA foi criada nesta execução: testes mobile usam
+storage em memória e backend usa SQLite em memória. A limpeza acima continua
+obrigatória para a futura validação manual. Não executar limpeza geral da Home,
+que permanece etapa separada da Sprint 3. #43 não foi alterada. PR da correção
+permanece sem merge até validação e limpeza, e #58 não é fechada manualmente.
+
+### Evidência final automatizada
+
+- Mobile: **712 testes / 37 suítes**, todos aprovados; **16 validadores CI**.
+- Lint: **3 erros / 7 warnings conhecidos**, 10 diagnósticos / baseline 13,
+  nenhuma regressão. TypeScript: **11 conhecidos / baseline 11**, sem ampliação.
+- Backend: typecheck e build aprovados; **459 testes / 17 suítes** aprovados.
+- `git diff --check` aprovado; Android debug compilado e instalado com sucesso.
+- Lint precisou execução fora do sandbox por EPERM ao iniciar Node; Supertest
+  precisou sockets locais permitidos. A execução final nesse ambiente passou.
+- #58 confirmada OPEN antes da publicação; #43 permanece OPEN, sem mudança de
+  updatedAt (`2026-10-29T13:22:03Z`). CI remoto do novo PR deve ser conferido
+  posteriormente; sucesso local não é aprovação manual Android.
