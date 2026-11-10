@@ -154,3 +154,19 @@ it('ocorrências reconciliam IDs próprios e conservam offset expirado sem bloqu
   await scheduler.reconcile([first, second], true);
   expect(bridge.schedule).toHaveBeenCalledTimes(3); expect(JSON.stringify([first, second])).toBe(snapshot);
 });
+
+it.each(['single', 'future', 'all'] as const)('issue 61: batch %s cancela somente afetadas e preserva outras agendas', async scope => {
+  const tasks = [0, 1, 2, 3].map(index => ({ ...task, id: `task-${index}`, remoteId: `task-${index}`,
+    reminders: [{ ...task.reminders![0], id: `reminder-${index}`, taskId: `task-${index}` }] }));
+  await scheduler.reconcile(tasks, true);
+  const affected = scope === 'single' ? [tasks[1]] : scope === 'future' ? tasks.slice(1, 3) : tasks.slice(0, 3);
+  const removed = new Set(affected.map(item => item.id));
+  expect((await scheduler.suspendMany(affected)).state).toBe('not_required');
+  expect(bridge.cancel).toHaveBeenCalledTimes(affected.length);
+  for (const kept of tasks.filter(item => !removed.has(item.id))) {expect(records.has(notificationId(kept.id, kept.reminders[0].id))).toBe(true);}
+  const originalScheduleCount = bridge.schedule.mock.calls.length;
+  await scheduler.suspendMany(affected);
+  await new ReminderScheduler(bridge, storage, () => now).reconcile(tasks.filter(item => !removed.has(item.id)), true);
+  expect(bridge.schedule).toHaveBeenCalledTimes(originalScheduleCount);
+  expect(records.size).toBe(tasks.length - affected.length);
+});

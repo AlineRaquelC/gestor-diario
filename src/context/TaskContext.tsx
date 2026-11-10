@@ -1,6 +1,9 @@
+import { pendingRecurrenceDeletions, recordRecurrenceDeletion, completeRecurrenceDeletion } from '../services/recurrenceDeletionJournal';
+import type { RecurrenceDeletionResult } from '../services/recurrenceService';
+import { ApiError } from '../services/api';
 import { normalizeRecurrenceCache, recurrenceSummary } from '../models/recurrence';
 import type { RecurrenceFields, RecurrenceSeries, RecurrenceFrequency } from '../models/recurrence';
-import { materializeRecurrences, getRecurrenceSeries, updateRecurrenceSeries, activateRecurrence } from '../services/recurrenceService';
+import { materializeRecurrences, getRecurrenceSeries, updateRecurrenceSeries, activateRecurrence, deleteRecurrenceOccurrences } from '../services/recurrenceService';
 import { fromApiTask } from '../services/taskService';
 import React, {
   createContext,
@@ -113,6 +116,7 @@ type TaskContextType = {
     id: string,
   ) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
 
+  deleteRecurringTask: (id: string, scope: 'future' | 'all') => Promise<{ cacheSaved: boolean; scheduling: SchedulingResult; pending: boolean }>;
   deleteTask: (id: string) => Promise<{ cacheSaved: boolean; scheduling: SchedulingResult }>;
   restoreTask: (id: string) => Promise<{ task: Task; cacheSaved: boolean; scheduling: SchedulingResult }>;
   undo: { id: string; expiresAt: number } | null;
@@ -191,6 +195,8 @@ export function TaskProvider({
   }, []);
   const deletedIds = useRef(new Set<string>());
   const deletionBusy = useRef(false);
+  const recurringDeletionBusy = useRef(false);
+  const deletionPending = useRef(false);
   const [undo, setUndo] = useState<{ id: string; expiresAt: number } | null>(null);
   const undoRef = useRef<{ id: string; expiresAt: number; task: Task } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -277,6 +283,56 @@ export function TaskProvider({
     setHydrated,
   ] = useState(false);
 
+  const applyRecurringDeletion = useCallback(async (result: RecurrenceDeletionResult) => {
+    const knownRemoved = tasksRef.current.filter(task => task.recurrenceSeriesId === result.series.id &&
+      (result.series.deletedAt || (result.series.endBeforeOccurrenceKey && task.occurrenceKey! >= result.series.endBeforeOccurrenceKey)));
+    const removed = [...new Map([...knownRemoved, ...result.tombstones.map(task => fromApiTask(task))].map(task => [task.id, task])).values()];
+    const ids = new Set(removed.map(task => task.id));
+    removed.forEach(task => deletedIds.current.add(task.id));
+    const summary = recurrenceSummary(result.series);
+    const next = tasksRef.current.filter(task => !ids.has(task.id)).map(task =>
+      task.recurrenceSeriesId === result.series.id ? { ...task, recurrence: summary } : task);
+    mutationRevision.current++;
+    setSearchRevision(value => value + 1);
+    tasksRef.current = next; setTasks(next);
+    let cacheSaved = true;
+    try {await persistTasks(next);} catch {cacheSaved = false;}
+    const scheduling = await reminderScheduler.suspendMany(removed);
+    reportScheduling(Object.fromEntries(removed.map(task => [task.id, scheduling])));
+    let pending = !cacheSaved || ['pending', 'error', 'unavailable'].includes(scheduling.state);
+    if (!pending) {try {await completeRecurrenceDeletion(result.series.id);} catch {pending = true;}}
+    return { cacheSaved, scheduling, pending };
+  }, [persistTasks, reportScheduling]);
+
+  const recoverRecurringDeletions = useCallback(async () => {
+    if (recurringDeletionBusy.current) {throw new Error('Exclusão recorrente em andamento.');}
+    deletionPending.current = true;
+    const entries = await pendingRecurrenceDeletions();
+    deletionPending.current = entries.length > 0;
+    if (!entries.length) {return;}
+    recurringDeletionBusy.current = true; dataGuard.activeTasks++;
+    try {
+      for (const entry of entries) {
+        let result: RecurrenceDeletionResult;
+        try {result = await deleteRecurrenceOccurrences(entry.seriesId, entry.input);} catch (error) {
+          if (error instanceof ApiError && error.status !== undefined && [400, 404, 409].includes(error.status)) {
+            const remote = await getTasks(true);
+            const next = mergeReadTasks(tasksRef.current, remote);
+            await persistTasks(next); tasksRef.current = next; setTasks(next);
+            mutationRevision.current++; setSearchRevision(value => value + 1);
+            await reminderScheduler.reconcile(remote.filter(task => !task.deletedAt), true);
+            await completeRecurrenceDeletion(entry.seriesId);
+            deletionPending.current = (await pendingRecurrenceDeletions()).length > 0;
+          }
+          throw error;
+        }
+        const applied = await applyRecurringDeletion(result);
+        if (applied.pending) {throw new Error('Exclusão salva; cache ou cancelamento dos lembretes pendente.');}
+      }
+      deletionPending.current = false;
+    } finally {recurringDeletionBusy.current = false; dataGuard.activeTasks--;}
+  }, [applyRecurringDeletion, persistTasks]);
+
   /*
    * Carrega as tarefas salvas
    * quando o aplicativo inicia.
@@ -303,9 +359,10 @@ export function TaskProvider({
       setHydrated(true);
       setReadError(cacheError);
       try {
+        if (cacheWritable.current) {await recoverRecurringDeletions();}
         const revision = mutationRevision.current;
         await materializeRecurrences();
-        const remote = await getTasks();
+        const remote = await getTasks(true);
         if (!active || dataGuard.activeTasks || dataGuard.syncing || revision !== mutationRevision.current) {return;}
         const next = mergeReadTasks(tasksRef.current, remote.filter(task => !deletedIds.current.has(task.id)));
         if (cacheWritable.current) {
@@ -333,7 +390,7 @@ export function TaskProvider({
     }
     loadTasks();
     return () => { active = false; };
-  }, [persistTasks, reportScheduling]);
+  }, [persistTasks, reportScheduling, recoverRecurringDeletions]);
 
   useEffect(() => {
     if (!hydrated || loading || !cacheWritable.current) {return;}
@@ -341,11 +398,13 @@ export function TaskProvider({
     const subscription = AppState.addEventListener('change', state => {
       if (state !== 'active' || refreshing.current || dataGuard.syncing || dataGuard.activeTasks || undoRef.current) {return;}
       refreshing.current = true;
-      const revision = mutationRevision.current;
+      let revision = mutationRevision.current;
       (async () => {
         try {
+          await recoverRecurringDeletions();
+          revision = mutationRevision.current;
           await materializeRecurrences();
-          const remote = await getTasks();
+          const remote = await getTasks(true);
           if (!active || dataGuard.syncing || dataGuard.activeTasks || revision !== mutationRevision.current) {return;}
           const next = mergeReadTasks(tasksRef.current, remote);
           await persistTasks(next);
@@ -362,7 +421,7 @@ export function TaskProvider({
       })();
     });
     return () => {active = false; subscription.remove();};
-  }, [hydrated, loading, persistTasks, reportScheduling]);
+  }, [hydrated, loading, persistTasks, reportScheduling, recoverRecurringDeletions]);
 
   const loadTaskById = useCallback(async (id: string) => {
     if (dataGuard.syncing) {throw new Error('Sincronização em andamento.');}
@@ -407,6 +466,7 @@ export function TaskProvider({
 
   async function synchronizeManually() {
     assertDataAvailable();
+    await recoverRecurringDeletions();
     if (!hydrated || !projectsHydrated || loading || !cacheWritable.current || projectReadError) {
       throw new Error('Aguarde o carregamento seguro dos dados antes de sincronizar.');
     }
@@ -438,8 +498,55 @@ export function TaskProvider({
     return updateTask(id, { status: task.status === 'completed' ? 'todo' : 'completed' });
   }
 
+  function clearUndo() {
+    if (undoTimer.current) {clearTimeout(undoTimer.current);}
+    undoRef.current = null; setUndo(null);
+  }
+
+  async function deleteRecurringTask(id: string, scope: 'future' | 'all') {
+    assertDataAvailable();
+    if (!hydrated || loading || dataGuard.activeTasks || recurringDeletionBusy.current || deletionPending.current || refreshing.current) {
+      throw new Error('Aguarde a atualização dos dados ou conclua a exclusão pendente.');
+    }
+    const task = tasksRef.current.find(item => item.id === id);
+    if (!task?.recurrenceSeriesId || !task.occurrenceKey) {throw new Error('Ocorrência não confirmada.');}
+    recurringDeletionBusy.current = true; dataGuard.activeTasks++;
+    clearUndo();
+    const seriesId = task.recurrenceSeriesId;
+    const known = tasksRef.current.filter(item => item.recurrenceSeriesId === seriesId && (scope === 'all' || item.occurrenceKey! >= task.occurrenceKey!));
+    let intentSaved = false;
+    try {
+      const series = await getRecurrenceSeries(seriesId);
+      const input = { scope, taskId: id, occurrenceKey: task.occurrenceKey, expectedUpdatedAt: series.updatedAt };
+      await recordRecurrenceDeletion({ seriesId, input }); intentSaved = true; deletionPending.current = true;
+      const suppressed = await reminderScheduler.suspendMany(known);
+      if (['error', 'pending', 'unavailable'].includes(suppressed.state)) {
+        await completeRecurrenceDeletion(seriesId); intentSaved = false; deletionPending.current = false;
+        await reminderScheduler.reconcile(known);
+        throw new Error(suppressed.message ?? 'Não foi possível cancelar os lembretes neste aparelho.');
+      }
+      let result: RecurrenceDeletionResult;
+      try {result = await deleteRecurrenceOccurrences(seriesId, input);} catch (error) {
+        if (error instanceof ApiError && error.status !== undefined && error.status >= 400 && error.status < 600) {
+          await completeRecurrenceDeletion(seriesId); intentSaved = false; deletionPending.current = false;
+          await reminderScheduler.reconcile(known);
+        }
+        throw error;
+      }
+      const applied = await applyRecurringDeletion(result);
+      deletionPending.current = applied.pending;
+      return applied;
+    } catch (error) {
+      if (intentSaved) {
+        throw new Error('Confirmação da exclusão pendente. Atualize quando houver conexão; não repita com outro alcance.');
+      }
+      throw error;
+    } finally {recurringDeletionBusy.current = false; dataGuard.activeTasks--;}
+  }
+
   async function deleteTask(id: string) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     if (!hydrated || loading) {throw new Error('Aguarde o carregamento das tarefas.');}
     if (deletionBusy.current || updating.current.has(id)) {throw new Error('Uma operação já está em andamento.');}
     const task = tasksRef.current.find(item => item.id === id);
@@ -449,7 +556,21 @@ export function TaskProvider({
     dataGuard.activeTasks++;
     try {
       const scheduling = await prepareSuppression(task);
-      try {await remoteDeleteTask(id);} catch (error) {return await compensate(task, error);}
+      let undoAllowed = true;
+      try {await remoteDeleteTask(id);} catch (error) {
+        if (error instanceof ApiError && error.status !== undefined && error.status !== 404) {return await compensate(task, error);}
+        let confirmed: Task | undefined;
+        try {confirmed = (await getTasks(true)).find(item => item.id === id);} catch {
+          throw new Error('Confirmação da exclusão pendente; lembrete suprimido até atualizar com conexão.');
+        }
+        if (!confirmed?.deletedAt) {
+          if (confirmed) {return await compensate(confirmed, error);}
+          throw error;
+        }
+        // A remote tombstone confirms removal, not who performed it. Do not
+        // offer Undo for an uncertain request that may have preceded our click.
+        undoAllowed = false;
+      }
       mutationRevision.current++;
       setSearchRevision(value => value + 1);
       deletedIds.current.add(id);
@@ -457,12 +578,14 @@ export function TaskProvider({
       tasksRef.current = next;
       setTasks(next);
       if (undoTimer.current) {clearTimeout(undoTimer.current);}
-      const opportunity = { id, expiresAt: Date.now() + 5000, task };
-      undoRef.current = opportunity;
-      setUndo({ id, expiresAt: opportunity.expiresAt });
-      undoTimer.current = setTimeout(() => {
-        if (undoRef.current === opportunity) {undoRef.current = null; setUndo(null);}
-      }, 5000);
+      if (undoAllowed) {
+        const opportunity = { id, expiresAt: Date.now() + 5000, task };
+        undoRef.current = opportunity;
+        setUndo({ id, expiresAt: opportunity.expiresAt });
+        undoTimer.current = setTimeout(() => {
+          if (undoRef.current === opportunity) {undoRef.current = null; setUndo(null);}
+        }, 5000);
+      } else {clearUndo();}
       // Native cancellation was already confirmed before DELETE. Do not make
       // the five-second undo window wait for another scheduler round-trip.
       let cacheSaved = true;
@@ -473,6 +596,7 @@ export function TaskProvider({
 
   async function restoreTask(id: string) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     const opportunity = undoRef.current;
     if (!opportunity || opportunity.id !== id || Date.now() >= opportunity.expiresAt) {
       throw new Error('O prazo para desfazer terminou.');
@@ -508,7 +632,7 @@ export function TaskProvider({
     const isCurrent = () => revision === mutationRevision.current && !dataGuard.syncing && dataGuard.activeTasks === 1;
     try {
       await materializeRecurrences(true);
-      const remote = await getTasks();
+      const remote = await getTasks(true);
       if (!isCurrent()) {throw new Error('Snapshot de recorrência superado por outra operação.');}
       const next = mergeReadTasks(tasksRef.current, remote.filter(item => !deletedIds.current.has(item.id)));
       try {await persistTasks(next); cacheSaved = true;} catch {cacheSaved = false;}
@@ -531,6 +655,7 @@ export function TaskProvider({
 
   async function addTask(draft: NewTask) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     if (creating.current) {throw new Error('A criação de tarefa já está em andamento.');}
     const project = projects.find(item => item.id === draft.projectId);
@@ -556,6 +681,7 @@ export function TaskProvider({
 
   async function mutateRule(taskId: string, operation: (task: Task) => Promise<{ series: RecurrenceSeries; task?: Task }>) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     if (!hydrated || loading) {throw new Error('Aguarde o carregamento dos dados.');}
     const current = tasksRef.current.find(task => task.id === taskId);
     if (!current) {throw new Error('Tarefa não encontrada.');}
@@ -599,6 +725,7 @@ export function TaskProvider({
   const searchTasks = useCallback(async (query: string, isCurrent: () => boolean) => {
     if (!isCurrent()) { return null; }
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     if (!hydrated || loading) { throw new Error('Aguarde o carregamento das tarefas.'); }
     if (dataGuard.syncing) { throw new Error('Aguarde a sincronização para buscar tarefas.'); }
     const revision = mutationRevision.current;
@@ -621,6 +748,7 @@ export function TaskProvider({
 
   async function updateTask(id: string, changes: TaskUpdate) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     if (!hydrated || !projectsHydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     const current = tasksRef.current.find(task => task.id === id);
     if (!current) {throw new Error('Tarefa não encontrada.');}
@@ -675,6 +803,7 @@ export function TaskProvider({
       Partial<Task>,
   ) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     const next = tasksRef.current.map(task => task.id === id ? { ...task, ...updatedTask } : task);
     tasksRef.current = next;
     setTasks(next);
@@ -682,6 +811,7 @@ export function TaskProvider({
 
   async function mutateSubtask(id: string, request: (current: Task) => Promise<Task>) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     const current = tasksRef.current.find(task => task.id === id);
     if (!current) {throw new Error('Tarefa não encontrada.');}
@@ -711,6 +841,7 @@ export function TaskProvider({
 
   async function mutateNote(id: string, operation: () => Promise<Note | { id: string; taskId: string; updatedAt: string }>, remove = false) {
     assertDataAvailable();
+    if (recurringDeletionBusy.current || deletionPending.current) {throw new Error('Exclusão recorrente pendente; atualize o aplicativo antes de alterar tarefas.');}
     if (!hydrated) {throw new Error('Aguarde o carregamento dos dados.');}
     if (!tasksRef.current.some(task => task.id === id)) {throw new Error('Tarefa não encontrada.');}
     if (updating.current.has(id)) {throw new Error('A atualização da tarefa já está em andamento.');}
@@ -771,6 +902,7 @@ export function TaskProvider({
         removeTaskNote,
         toggleTask,
         deleteTask,
+        deleteRecurringTask,
         restoreTask,
         undo,
         addTask,

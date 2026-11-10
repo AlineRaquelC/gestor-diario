@@ -364,3 +364,21 @@ it('issue 58: materialização pós-ativação aguarda lote anterior e executa p
   finish({}); await old; await activated;
   expect(apiRequest).toHaveBeenCalledTimes(calls + 1);
 });
+
+it('issue 61: resumo preserva limite/tombstone e valida data civil', () => {
+  const ended = { ...summary, endBeforeOccurrenceKey: '2026-11-10', deletedAt: '2026-11-10T15:00:00Z' };
+  expect(recurrenceFields({ recurrenceSeriesId: 'series', occurrenceKey: summary.anchorDate, recurrence: ended }).recurrence).toEqual(ended);
+  expect(() => recurrenceFields({ recurrenceSeriesId: 'series', occurrenceKey: summary.anchorDate, recurrence: { ...ended, endBeforeOccurrenceKey: '2026-02-30' } })).toThrow();
+});
+
+it('issue 61: contrato de exclusão valida resposta canônica antes de publicar', async () => {
+  const { deleteRecurrenceOccurrences } = require('../src/services/recurrenceService') as typeof import('../src/services/recurrenceService');
+  const input = { scope: 'future' as const, taskId: remote.id, occurrenceKey: remote.occurrenceKey!, expectedUpdatedAt: series.updatedAt };
+  const result = { series: { ...series, endBeforeOccurrenceKey: remote.occurrenceKey }, scope: 'future', fromOccurrenceKey: remote.occurrenceKey,
+    tombstones: [{ ...remote, deletedAt: summary.updatedAt }], alreadyApplied: false, deletedCount: 1 };
+  jest.mocked(apiRequest).mockResolvedValueOnce(result);
+  expect(await deleteRecurrenceOccurrences(series.id, input)).toEqual(result);
+  expect(apiRequest).toHaveBeenLastCalledWith('/recurrence-series/series/deletions', 'POST', input);
+  jest.mocked(apiRequest).mockResolvedValueOnce({ ...result, tombstones: [{ ...remote, deletedAt: null }] });
+  await expect(deleteRecurrenceOccurrences(series.id, input)).rejects.toThrow('não confirmada');
+});

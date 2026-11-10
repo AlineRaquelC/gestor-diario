@@ -420,3 +420,147 @@ Evitar redesign do calendário, refatoração geral de sync, autenticação/perf
 purge físico ou reabertura de série em lote. Não alterar #43 nem iniciar Sprint 3.
 Este refinamento só adiciona este documento. Issue #61 segue OPEN; PR documental
 referencia a Issue sem Closes e sem merge automático.
+
+## 13. Implementação funcional — 10/11/2026
+
+Este registro sucede o refinamento acima. Implementação na branch
+`feature/61-recurring-delete-scope`, a partir de `dev` limpa/atualizada no merge
+`5d0927163696dafb94bcbcdc8c3379afe7184c2c`. O refinamento permanece como histórico
+das decisões; os contratos e limites efetivos desta etapa estão abaixo.
+
+### Testes antes da correção
+
+A suíte API recebeu primeiro os três cenários DAILY. Resultado anterior à
+implementação: **single aprovado; future/all falharam com 404 esperado 200**;
+72 testes aprovados e 2 falhas na suíte então existente. Tudo em SQLite em
+memória, sem massa de QA no aparelho. A matriz foi ampliada às três frequências.
+
+### Migration e domínio
+
+Migration **0005_recurring_delete_scope**, somente dois ALTER TABLE ADD nullable:
+`end_before_occurrence_key` e `deleted_at`. Snapshot/journal Drizzle atualizados;
+CHECKs rejeitam corte civil/timestamp inválidos; sem rebuild de tabela ou
+reescrita de migrations anteriores. Séries antigas recebem null/null e não são
+encerradas implicitamente. Testes cobrem bootstrap, upgrade da 0004, execução
+repetida, preservação de Tasks/tombstones, foreign keys e integridade SQLite.
+
+Domínio/modelo/DTOs/resumos transportam os campos novos. Cache legado sem esses
+campos continua equivalente a null; preserveRecurrence respeita a revisão.
+Gerador filtra slots >= endBeforeOccurrenceKey e ignora série com deletedAt;
+materializedThrough não é reduzido. Restore individual consulta série e rejeita
+Task no intervalo encerrado ou série excluída; anteriores ao corte continuam
+restauráveis. Patch de regra não aceita apagar/ampliar os campos de término.
+
+### API e transação
+
+Contrato implementado: **POST /recurrence-series/:seriesId/deletions**, body
+estrito `{ scope: 'future' | 'all', taskId, occurrenceKey, expectedUpdatedAt }`.
+Single preserva DELETE /tasks/:id e sua política 404 em repetição sem novo efeito.
+Servidor confirma Task incluindo tombstone, série/chave e revisão; não usa título.
+
+Future define limite exclusivo e soft-deleta selecionada/posteriores pela chave
+nominal. All define deletedAt + NONE e soft-deleta todas as ativas da série.
+Uma transação immediate engloba série, Tasks e History. Erro reverte tudo.
+History tem DELETE só nas Tasks que mudaram, e UPDATED na origem para a série;
+Notes, filhos e reminders históricos permanecem vinculados. Nenhum purge.
+
+Resposta inclui série, scope, fromOccurrenceKey, tombstones canônicos do escopo,
+deletedCount e alreadyApplied. Retry satisfeito retorna 200, contagem 0 e não
+acrescenta eventos. Corte pode antecipar, nunca ampliar. Materialização posterior
+não repõe slots proibidos; estado inconsistente é rejeitado antes de mutação.
+Timestamps avançam monotonicamente, sem depender de múltiplos spreads de lotes.
+
+### Context, cache, sync e reminders
+
+`deleteRecurringTask` coordena locks, confirmação da série, intenção durável,
+supressão seletiva, API, publicação/persistência e cancelamento final. O journal
+`@taskflow:recurrence-deletions:v1` guarda intenção antes do POST; escopo diferente
+não sobrescreve operação incerta da mesma série. Resposta perdida recupera pelo
+mesmo comando idempotente no startup, foreground ou sync manual.
+
+O Context aplica a resposta em uma publicação, atualiza resumo nas mantidas,
+deletedIds, mutationRevision/searchRevision e cache. O limite confirmado também
+retira registros antigos incompatíveis do cache, mesmo em retry com corte mais
+restrito já aplicado. Lote invalida Undo pendente e não oferece Undo próprio.
+Falha de cache/cancelamento não restaura série ou Tasks confirmadas: retorna
+pendência e mantém intenção para recuperação. Conflito definitivo reconcilia
+leitura canônica e permite nova confirmação, sem repetir com alcance diferente
+silenciosamente. Mutações ficam bloqueadas enquanto a exclusão estiver incerta.
+
+Startup/foreground e refresh recorrente consultam Tasks incluindo tombstones;
+a sync manual continua sem importar/recriar ocorrências remotas. Fingerprint de
+sync inclui corte/exclusão da série. GET antigo não sobrepõe mutação confirmada.
+Home e calendário usam o mesmo snapshot, sem geração ou exclusão na UI.
+
+Scheduler ganhou `suspendMany`, reutilizado por `suspend`: uma intenção/journal e
+cancelamentos limitados aos Task IDs afetados. Nenhum cancelAll ou snapshot
+parcial autoritativo. Reminders de anteriores/outras séries são preservados;
+registros nativos órfãos desses IDs também são cancelados. Falhas permanecem
+visíveis e recuperáveis. Exclusão individual mantém Undo de 5s quando DELETE
+confirma; resposta incerta confirmada depois por tombstone não oferece Undo que
+poderia restaurar exclusão anterior de outro cliente.
+
+### UI e acessibilidade
+
+Hook compartilhado abre `RecurringDeleteDialog` em Detalhes/Edição só para Task
+recorrente. Radio options: Somente esta ocorrência, Esta e as próximas, Toda a
+série; botão final destrutivo de alcance explícito e Cancelar. Não há confirmação
+dupla. Texto informa concluídas/anteriores e ausência de Undo em lote; data movida
+explica a chave original. Não recorrente mantém o Alert simples existente.
+
+Modal com foco no título, retorno ao acionador ao cancelar, roles/labels/checked,
+lock contra cliques repetidos e conteúdo rolável para texto ampliado. O aceite
+TalkBack/Android real ainda é pendente, sem inferência a partir de Jest.
+
+### Verificações automatizadas
+
+- **733 testes Mobile / 38 suítes**, incluindo Context/cache, modal, scheduler,
+  journal, resposta perdida, double click, conflito, restart, foreground e sync.
+- **476 testes Backend / 17 suítes**: matriz das três frequências × três scopes,
+  materialização de controle/avanço do relógio, idempotência, validação de input,
+  chaves nominais/datas movidas, corte antecipado, restore, concorrência e rollback.
+- **17 validadores CI** aprovados. O validador adicional protege a normalização
+  da impressão truncada da união barStyle do RN: a nova UI alterou a ordem que
+  TypeScript usa nos mesmos erros legados. Ajuste limitado ao diagnóstico,
+  preservando detecção de mudança de propriedade/tamanho; baselines não alteradas.
+- Lint: 10 diagnósticos conhecidos / baseline 13 (3 erros e 7 warnings).
+  TypeScript: 11 conhecidos / baseline 11, sem ampliação.
+- Backend typecheck/build e `git diff --check` aprovados.
+- Android assembleDebug/assembleRelease aprovados; não equivalem a aceite manual.
+
+### Preparação Android e limites de aceite
+
+Pixel_7 existente, serial emulator-5554. Migration local aplicada depois de backup
+consistente em `/tmp/gestor-diario-demo-backup/issue-61-android-preparation/`.
+Comparação integral das linhas de Projects, Tasks, Subtasks, Notes, History,
+Reminders e séries: todas preservadas; novos campos null nas séries antigas.
+**15 Tasks ativas preservadas; zero QA61**. API local atualizada com build novo.
+APK debug instalado com -r, preservando dados; API/Metro e reverses preparados.
+Nenhuma criação de QA ou execução de escopo destrutivo no Pixel nesta etapa.
+
+**Android manual PENDENTE.** Roteiro enxuto para a usuária:
+
+| Frequência / série técnica futura | Sequência controlada |
+| --- | --- |
+| DAILY / QA61 Daily | Criar recorrente com slots suficientes; single + Undo, single sem Undo e materialização; future em chave intermediária preservando anterior; all na anterior mantida |
+| WEEKLY / QA61 Weekly | Mesma sequência, conferindo semanas e chave nominal |
+| MONTHLY / QA61 Monthly | Single + Undo; future no próximo mês preservando a primeira; all na mantida. Janela pode só ter duas ocorrências: não alegar teste manual de posterior adicional sem existir; se necessário usar massa complementar mínima explicitamente inventariada |
+
+Em cada escopo: Home/calendário imediatos, reminders corretos, materialização
+posterior, restart, foreground e sync sem renascimento/duplicação. Testar
+Cancelar/Back, TalkBack, texto ampliado, data movida e falha/retry quando possível.
+Não mudar relógio do Pixel nem estender janela de produção para fabricar cenário.
+Casos de mais slots mensais estão cobertos em ambiente automatizado isolado.
+
+### Limpeza obrigatória e próximo passo
+
+Nenhuma massa QA61 persistente foi criada automaticamente nesta execução. Testes
+usam storage em memória e SQLite em memória/temporário. Antes do merge funcional,
+a usuária deve aprovar Android e registrar inventário/backup/limpeza de toda QA61
+criada manualmente: encerrar séries, remover Tasks canonicamente, preservar
+History/tombstones, cancelar reminders e conferir Home/calendário sem resíduos
+após restart/foreground/materialização. Sem limpeza geral das 15 Tasks mantidas.
+
+Planning Poker **8** preservado. PR para dev com Closes #61, **sem merge** nesta
+etapa; Issue continua OPEN. #43 intacta e Sprint 3 não iniciada. Sem promessa de
+Undo em lote, restore de série ou funcionalidade além dos escopos aprovados.

@@ -202,3 +202,22 @@ export function materializeRecurrences(afterMutation = false): Promise<void> {
   }
   return materializing;
 }
+
+export type RecurrenceDeletionInput = {
+  scope: 'future' | 'all'; taskId: string; occurrenceKey: string; expectedUpdatedAt: string;
+};
+export type RecurrenceDeletionResult = {
+  series: RecurrenceSeries; scope: 'future' | 'all'; fromOccurrenceKey: string | null;
+  tombstones: ApiTask[]; deletedCount: number; alreadyApplied: boolean;
+};
+export async function deleteRecurrenceOccurrences(seriesId: string, input: RecurrenceDeletionInput) {
+  const result = await apiRequest<RecurrenceDeletionResult>(`/recurrence-series/${encodeURIComponent(seriesId)}/deletions`, 'POST', input);
+  checkedSeries(result.series);
+  if (result.series.id !== seriesId || result.scope !== input.scope || result.fromOccurrenceKey !== (input.scope === 'future' ? input.occurrenceKey : null) ||
+    (input.scope === 'all' && !result.series.deletedAt) ||
+    (input.scope === 'future' && !result.series.deletedAt && (!result.series.endBeforeOccurrenceKey || result.series.endBeforeOccurrenceKey > input.occurrenceKey)) ||
+    !Array.isArray(result.tombstones) || !result.tombstones.some(task => task.id === input.taskId) || result.tombstones.some(task =>
+    !task.deletedAt || task.recurrenceSeriesId !== seriesId || !task.occurrenceKey ||
+    (input.scope === 'future' && task.occurrenceKey < input.occurrenceKey))) {throw new Error('Exclusão recorrente não confirmada.');}
+  return result;
+}

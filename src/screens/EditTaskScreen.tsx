@@ -875,13 +875,14 @@ export default function EditTaskScreen() {
               accessibilityRole="button"
               accessibilityLabel="Excluir tarefa"
               style={styles.dangerButton}
-              onPress={confirmDelete}
+              ref={confirmDelete.triggerRef}
+            onPress={confirmDelete}
             >
               <View style={styles.flex}>
                 <Text style={styles.deleteTitle}>Excluir tarefa</Text>
 
                 <Text style={styles.deleteSubtitle}>
-                  Você poderá desfazer por 5 segundos
+                  {task.recurrenceSeriesId ? 'Escolha o alcance. Desfazer somente para a ocorrência individual.' : 'Você poderá desfazer por 5 segundos'}
                 </Text>
               </View>
 
@@ -916,6 +917,7 @@ export default function EditTaskScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      {confirmDelete.dialog}
     </SafeAreaView>
   );
 }

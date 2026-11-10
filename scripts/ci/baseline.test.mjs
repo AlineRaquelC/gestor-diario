@@ -108,3 +108,11 @@ test('Jest exclui somente App.test.tsx exato e backend, mantendo futuros testes 
   assert.equal(ignored('/repo/__tests__/AppFeature.test.tsx'), false);
   assert.equal(ignored('/repo/future/new.test.tsx'), false);
 });
+
+test('RN barStyle truncado mantém identidade sem ocultar mudança de propriedade ou tamanho', () => {
+  const before = 'barStyle?: "default" | ... 3 more ... | undefined';
+  const reordered = 'barStyle?: "auto" | ... 3 more ... | undefined';
+  assert.equal(normalizeMessage(before), normalizeMessage(reordered));
+  assert.notEqual(normalizeMessage(before), normalizeMessage('barStyle?: "auto" | ... 2 more ... | undefined'));
+  assert.notEqual(normalizeMessage(before), normalizeMessage('different?: "auto" | ... 3 more ... | undefined'));
+});

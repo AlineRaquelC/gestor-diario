@@ -87,3 +87,29 @@ it('Edição continua renderizando sem erro de hooks quando exclusão remove Tas
   await act(async () => renderer.update(<EditTaskScreen />));
   expect(JSON.stringify(renderer.toJSON())).toContain('Tarefa não encontrada');
 });
+
+it.each(['future', 'all'] as const)('issue 61: modal acessível confirma %s uma vez sem DELETE individual', async scope => {
+  const removeSeries = jest.fn().mockResolvedValue({ cacheSaved: true, pending: false, scheduling: { state: 'not_required' } });
+  jest.mocked(useTasks).mockReturnValue({ ...context(), tasks: [{ ...task, recurrenceSeriesId: 'series', occurrenceKey: '2026-11-10', dueDateKey: '2026-11-10' }], deleteRecurringTask: removeSeries } as unknown as ReturnType<typeof useTasks>);
+  await mount(<TaskDetailsScreen />);
+  await act(async () => button('Excluir').props.onPress());
+  expect(alert).not.toHaveBeenCalled();
+  const option = renderer.root.findAll(node => node.props.accessibilityRole === 'radio').find(node => node.props.accessibilityLabel.startsWith(scope === 'future' ? 'Esta e as próximas.' : 'Toda a série.'))!;
+  await act(async () => option.props.onPress());
+  const confirm = button(scope === 'future' ? 'Excluir esta e as próximas' : 'Excluir toda a série');
+  await act(async () => {await confirm.props.onPress();});
+  expect(removeSeries).toHaveBeenCalledWith('task', scope); expect(remove).not.toHaveBeenCalled();
+  expect(mockNavigation.reset).toHaveBeenCalled();
+});
+
+it('issue 61: Cancelar ou somente esta preserva fluxo individual sem atingir série', async () => {
+  const removeSeries = jest.fn();
+  jest.mocked(useTasks).mockReturnValue({ ...context(), tasks: [{ ...task, recurrenceSeriesId: 'series', occurrenceKey: '2026-11-10' }], deleteRecurringTask: removeSeries } as unknown as ReturnType<typeof useTasks>);
+  await mount(<TaskDetailsScreen />);
+  await act(async () => button('Excluir').props.onPress());
+  await act(async () => button('Cancelar').props.onPress());
+  expect(removeSeries).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
+  await act(async () => button('Excluir').props.onPress());
+  await act(async () => {await button('Excluir ocorrência').props.onPress();});
+  expect(remove).toHaveBeenCalledWith('task'); expect(removeSeries).not.toHaveBeenCalled();
+});

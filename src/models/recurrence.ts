@@ -18,7 +18,7 @@ import type {
 export type { RecurrenceFrequency, RecurrenceSeries };
 export type RecurrenceSeriesSummary = Pick<
   RecurrenceSeries,
-  'frequency' | 'timeZone' | 'anchorDate' | 'materializedThrough' | 'updatedAt'
+  'frequency' | 'timeZone' | 'anchorDate' | 'materializedThrough' | 'updatedAt' | 'endBeforeOccurrenceKey' | 'deletedAt'
 >;
 export type RecurrenceInput = {
   frequency: RecurrenceFrequency;
@@ -66,7 +66,11 @@ export function recurrenceSummary(
   if (series.materializedThrough !== null) {
     civilDate(series.materializedThrough);
   }
+  if (series.endBeforeOccurrenceKey != null) {civilDate(series.endBeforeOccurrenceKey);}
+  if (series.deletedAt != null && !Number.isFinite(Date.parse(series.deletedAt))) {throw new Error('Exclusão de série inválida.');}
   return {
+    ...(series.endBeforeOccurrenceKey !== undefined ? { endBeforeOccurrenceKey: series.endBeforeOccurrenceKey } : {}),
+    ...(series.deletedAt !== undefined ? { deletedAt: series.deletedAt } : {}),
     frequency: series.frequency,
     timeZone: series.timeZone,
     anchorDate: series.anchorDate,

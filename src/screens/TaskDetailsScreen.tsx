@@ -573,12 +573,14 @@ export default function TaskDetailsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Excluir tarefa"
             style={styles.deleteButton}
+            ref={handleDeleteTask.triggerRef}
             onPress={handleDeleteTask}
           >
             <Text style={styles.deleteText}>Excluir</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      {handleDeleteTask.dialog}
     </SafeAreaView>
   );
 }
