@@ -375,3 +375,24 @@ it('dois comandos globais seguidos e seus GETs mantêm IDs, filhos, History e s�
   expect(second.status).toBe(200); expect(second.body.createdCount).toBe(0);
   expect((await request(app).get('/tasks?includeDeleted=true')).body).toEqual(firstRead); expect(snapshot()).toEqual(confirmed);
 });
+
+
+it.each(['DAILY', 'WEEKLY', 'MONTHLY'])('issue 58: ativação %s e geração repetida preservam identidade/reminders/tombstone', async frequency => {
+  const manual = (await request(app).post('/tasks').send({ title: 'QA isolado', projectId: 'p', startDate: draft.anchorDate, dueDate: draft.anchorDate,
+    time: '10:30', priority: 'LOW', reminderTimeZone: draft.timeZone, reminders: [{ offsetMinutes: 0 }] })).body;
+  const activated = await request(app).post(`/recurrence-series/from-task/${manual.id}`).send({ clientId: '58', frequency, timeZone: draft.timeZone });
+  expect(activated.status).toBe(201);
+  const id = activated.body.series.id;
+  expect((await generate(id)).status).toBe(200);
+  const before = snapshot();
+  expect(before.tasks.length).toBeGreaterThan(1);
+  expect(before.reminders.filter(item => item.taskId === manual.id).map(item => item.id)).toEqual(manual.reminders.map((item: { id: string }) => item.id));
+  expect((await generate(id)).body.created).toEqual([]);
+  expect(snapshot().tasks).toEqual(before.tasks);
+  expect(snapshot().reminders).toEqual(before.reminders);
+  const future = rows().find(item => item.id !== manual.id)!;
+  expect((await request(app).delete(`/tasks/${future.id}`)).status).toBe(200);
+  await generate(id);
+  expect(rows()).toHaveLength(before.tasks.length);
+  expect(new Set(rows().map(item => `${item.recurrenceSeriesId}:${item.occurrenceKey}`)).size).toBe(before.tasks.length);
+});

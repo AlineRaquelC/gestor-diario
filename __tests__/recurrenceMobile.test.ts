@@ -353,3 +353,14 @@ it('snapshot materializado com offset expirado mantém configuração e IDs can�
   const reminder = { id: 'reminder-own', taskId: 't', offsetMinutes: 1440, createdAt: summary.updatedAt, updatedAt: summary.updatedAt, triggerAt: '2026-10-29T09:00:00Z' };
   expect(fromApiTask({ ...remote, reminders: [reminder], reminderTimeZone: summary.timeZone }).reminders).toEqual([reminder]);
 });
+
+it('issue 58: materialização pós-ativação aguarda lote anterior e executa passagem nova', async () => {
+  let finish!: (value: unknown) => void;
+  jest.mocked(apiRequest).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  jest.mocked(apiRequest).mockResolvedValueOnce({});
+  const old = materializeRecurrences();
+  const activated = materializeRecurrences(true);
+  const calls = jest.mocked(apiRequest).mock.calls.length;
+  finish({}); await old; await activated;
+  expect(apiRequest).toHaveBeenCalledTimes(calls + 1);
+});

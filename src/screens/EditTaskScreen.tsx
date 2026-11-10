@@ -406,6 +406,9 @@ export default function EditTaskScreen() {
             timeZone: result.series.timeZone,
           });
           cacheWarning = cacheWarning || !result.cacheSaved;
+          if (result.recurrenceRefreshFailed) {
+            feedback += ' Recorrência salva; atualização das ocorrências pendente. Tente atualizar quando houver conexão.';
+          }
           feedback +=
             ' ' +
             (result.series.frequency === 'NONE'

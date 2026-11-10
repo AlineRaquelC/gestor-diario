@@ -184,7 +184,11 @@ export async function activateRecurrence(
 }
 let materializing: Promise<void> | null = null;
 /** Coalesces simultaneous controlled refreshes; neither GETs nor UI renders generate. */
-export function materializeRecurrences(): Promise<void> {
+export function materializeRecurrences(afterMutation = false): Promise<void> {
+  // An in-flight batch may have started before a newly confirmed series existed.
+  if (afterMutation && materializing) {
+    return materializing.catch(() => undefined).then(() => materializeRecurrences());
+  }
   if (!materializing) {
     materializing = apiRequest<unknown>(
       '/recurrence-series/materialize',
