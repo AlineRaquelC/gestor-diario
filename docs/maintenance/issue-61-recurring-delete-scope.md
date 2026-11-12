@@ -564,3 +564,119 @@ após restart/foreground/materialização. Sem limpeza geral das 15 Tasks mantid
 Planning Poker **8** preservado. PR para dev com Closes #61, **sem merge** nesta
 etapa; Issue continua OPEN. #43 intacta e Sprint 3 não iniciada. Sem promessa de
 Undo em lote, restore de série ou funcionalidade além dos escopos aprovados.
+
+## 14. Investigação da validação manual de all — 12/11/2026
+
+Foi relatado que selecionar uma ocorrência intermediária de **QA61 Daily All**
+e excluir **Toda a série** preservou anteriores, comportamento de future.
+A investigação não reproduziu esse defeito no código atual. Nenhuma correção
+funcional de query, Context ou escopo foi aplicada sem evidência.
+
+### Evidência persistida da reprodução (leitura somente)
+
+Banco local: backend/data/gestor-diario.db. Série
+`8cd7cb3b-0268-4064-bc43-d5ad9158c8a2` (**QA61 Daily All**):
+frequency NONE, deletedAt **2026-11-12T12:50:28.738Z**, corte null.
+History identifica origem **21/11/2026**, Task
+`1ce8fe22-fdc6-48d8-b0f7-10849c944c80`, scope all.
+As **32 Tasks** estão soft-deleted no mesmo timestamp, inclusive as **9 anteriores**
+à origem. Zero Task ativa dessa série. History e tombstones preservados.
+
+As três Tasks QA61 ainda ativas pertencem à **outra série**, **QA61Daily**,
+`74e3df90-80a5-45f5-8774-04bfdf619bad`, encerrada por future com corte
+16/11/2026. São 13/11, 14/11 e 15/11; sua preservação é correta.
+Isso é uma possível explicação visual, ainda não confirmação da causa do relato.
+Sem captura do estado do Context no momento relatado, não é possível atribuir
+a falha a mobile/cache nem afirmar que os títulos foram confundidos.
+
+IDs efetivamente tombstonados no banco da reprodução (não são IDs de resposta
+HTTP capturada; nenhuma mutação da massa QA foi executada nesta investigação):
+
+| occurrenceKey | Task ID |
+| --- | --- |
+| 2026-11-12 | bf2fe850-7c03-49ad-8083-3b4eee05b8ba |
+| 2026-11-13 | b0577c20-955f-4be5-b5d8-b241381d92e7 |
+| 2026-11-14 | b4779200-b1c4-41c2-bab2-453817be3750 |
+| 2026-11-15 | cffb246e-0120-42db-94c3-12f414d09b61 |
+| 2026-11-16 | b521703a-7256-4729-ac6e-0051b8751bca |
+| 2026-11-17 | 6f33a995-3fc1-4d11-a805-a6785c812f77 |
+| 2026-11-18 | b94722fd-39cf-489c-8b6c-bcc692699e95 |
+| 2026-11-19 | d7339e0b-2cfc-4148-8e31-c87bd4cc46ec |
+| 2026-11-20 | 8693da56-2a5f-463c-b4ed-e3553f1d3c02 |
+| 2026-11-21 | 1ce8fe22-fdc6-48d8-b0f7-10849c944c80 |
+| 2026-11-22 | 46259eb9-90bd-483d-a853-e99b6072d4f7 |
+| 2026-11-23 | 54323897-c80f-405d-be7f-79328f37717e |
+| 2026-11-24 | 93080a34-ce52-49af-81df-39578f06e974 |
+| 2026-11-25 | cb6c7451-81f6-4f19-9518-a8961dff1481 |
+| 2026-11-26 | 24306769-de87-49c0-8918-df77263240c5 |
+| 2026-11-27 | 9bdcbfd6-7a5d-41d1-869e-6e4259fad881 |
+| 2026-11-28 | 6b336af2-ea6e-4265-b6d5-4c42047636f3 |
+| 2026-11-29 | 56381bdc-88b1-4eac-8346-a298bbd81b16 |
+| 2026-11-30 | 637a0e0b-7887-4b29-aefc-bcc25ce76553 |
+| 2026-12-01 | cb4c01cb-f06d-4389-8066-7c695f5d9058 |
+| 2026-12-02 | af6c4ce5-9622-4d54-a947-34250bdff09e |
+| 2026-12-03 | 6a82be5f-d45c-4c1d-9d74-bc58bae96379 |
+| 2026-12-04 | 3880fa13-342c-4283-9645-2b4fd0c9d414 |
+| 2026-12-05 | 3f3db43a-113a-4f00-8b47-9685fc0605a2 |
+| 2026-12-06 | 726019ec-201e-4cb2-bc49-735bdcf507d3 |
+| 2026-12-07 | 7ae337f2-9967-435b-8660-94cb6eefa381 |
+| 2026-12-08 | 73359beb-d9d8-431e-ad2c-c10cc71a980c |
+| 2026-12-09 | f6a43785-4dde-467f-b54d-dca691f297f5 |
+| 2026-12-10 | 24a7d221-a51e-45b8-8b1a-39d2d6f0fc0f |
+| 2026-12-11 | 860b70b4-1450-4518-95fd-98782f75f306 |
+| 2026-12-12 | 92b98af5-762c-4d90-b785-84604245bd8e |
+| 2026-12-13 | 0528f2ae-d94d-4bab-ac02-d64fb22be769 |
+
+### Auditoria de seleção, transação e reminders
+
+TasksRepository.findBySeries usa exclusivamente WHERE recurrence_series_id = id,
+sem filtro de occurrenceKey. deleteOccurrences filtra por chave somente em future;
+all seleciona todas, ignora tombstones já aplicados na mutação e retorna todos os
+tombstones do escopo. Série, Tasks e History ficam na mesma transação immediate.
+All persiste deletedAt + NONE; materializeLocked retorna sem gerar quando
+series.deletedAt está preenchido. Future e exclusão individual não foram alterados.
+
+TaskContext calcula supressão provisória sem corte em all. A publicação combina
+IDs retornados com todas as Tasks locais da série cujo resumo confirma deletedAt,
+remove esses IDs de tasks/cache e envia todos a suspendMany. Nenhum cancelAll.
+Reminders históricos persistidos não são purgados; cancelamento local usa IDs de
+Task. A regressão verifica que os cinco IDs, inclusive D1/D2, entram nas duas
+chamadas de supressão/cancelamento, sem incluir a Task alheia. Não foi feita
+inspeção de alarms reais do Android nesta etapa.
+
+### Regressões explícitas de ocorrência intermediária
+
+API/SQLite: três novos testes DAILY/WEEKLY/MONTHLY, cada um com exatamente cinco
+snapshots persistidos D1–D5 e origem D3. All retorna os cinco IDs, deletedCount 5,
+fromOccurrenceKey null e deletedAt; nenhuma ativa sobra. Outra série permanece.
+History anterior, filhos e reminders persistidos são preservados. Retry retorna
+alreadyApplied/contagem zero sem modificar o snapshot, e materialização após
+avanço do relógio gera zero Tasks dessa série.
+
+Mobile: três novos testes DAILY/WEEKLY/MONTHLY com cinco ocorrências e origem D3,
+verificando payload all, remoção dos cinco IDs de Context/cache, journal concluído
+e cancelamento incluindo anteriores, preservando Task alheia.
+
+**Resultado antes de qualquer correção funcional:** suíte API com novas regressões
+**85/85 aprovadas**. Não houve vermelho funcional. A primeira execução falhou
+por restrição de porta local do sandbox/Supertest e foi repetida com permissão;
+isso não constitui reprodução do bug. Não alegar correção red/green deste relato.
+O aceite Android continua pendente de esclarecimento/reprodução da divergência.
+
+### Validação desta investigação
+
+- Mobile: **736 testes / 38 suítes** aprovados.
+- Backend: **479 testes / 17 suítes** aprovados, incluindo migration/rollback.
+- Backend typecheck e build aprovados.
+- Lint: 3 erros e 7 warnings legados, 10/baseline 13, sem regressão.
+- Typecheck mobile: 11/baseline 11, sem regressão. Baselines intactas.
+- Migration executada em banco novo isolado em /tmp, sem tocar a base QA.
+
+Nenhuma massa Android persistente criada, removida ou recriada. QA61 atual
+preservada para investigação. Após aceite manual, permanece obrigatória a
+limpeza canônica da massa antes do merge, preservando History/tombstones.
+Issue #61 permanece aberta, PR #63 existente sem merge, sem nova Issue/PR e
+sem início da Sprint 3.
+
+- 17 validadores CI aprovados; Android assembleDebug/assembleRelease aprovados.
+- git diff --check aprovado. Estes gates não substituem o aceite Android manual.

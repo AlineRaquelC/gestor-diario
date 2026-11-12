@@ -505,3 +505,42 @@ it('issue 61: corte usa occurrenceKey, preserva datas movidas anteriores e pode 
   expect(rows().filter(item => !item.deletedAt)).toHaveLength(2);
   expect((await request(app).patch(`/recurrence-series/${series.id}`).send({ taskId: items[0].id, expectedUpdatedAt: next.updatedAt, endBeforeOccurrenceKey: null })).status).toBe(400);
 });
+
+it.each(['DAILY', 'WEEKLY', 'MONTHLY'] as const)('issue 61 regressão intermediária %s: D3/all exclui D1–D5 sem corte e retry não gera efeitos', async frequency => {
+  const { series } = await create({ ...draft, frequency });
+  const first = rows()[0];
+  const keys = frequency === 'DAILY'
+    ? ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']
+    : frequency === 'WEEKLY'
+      ? ['2026-10-29', '2026-11-05', '2026-11-12', '2026-11-19', '2026-11-26']
+      : ['2026-10-29', '2026-11-29', '2026-12-29', '2027-01-29', '2027-02-28'];
+  // Isolated persisted snapshots: exactly five slots, including months beyond the materialization window.
+  keys.slice(1).forEach((key, index) => connection.db.insert(tasks).values({ ...first,
+    id: `D${index + 2}`, occurrenceKey: key, startDate: key, dueDate: key }).run());
+  const original = rows();
+  const { firstOccurrence: unrelated } = await create({ ...draft, clientId: 'unrelated-series' });
+  const before = snapshot();
+  const input = { scope: 'all', taskId: 'D3', occurrenceKey: keys[2], expectedUpdatedAt: series.updatedAt };
+  const path = `/recurrence-series/${series.id}/deletions`;
+  const response = await request(app).post(path).send(input);
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({ deletedCount: 5, fromOccurrenceKey: null, alreadyApplied: false,
+    series: { deletedAt: expect.any(String), endBeforeOccurrenceKey: null, frequency: 'NONE' } });
+  expect(response.body.tombstones.map((item: { id: string }) => item.id).sort()).toEqual(original.map(item => item.id).sort());
+  const persisted = rows().filter(item => item.recurrenceSeriesId === series.id);
+  expect(persisted).toHaveLength(5);
+  expect(persisted.every(item => item.deletedAt === response.body.series.deletedAt)).toBe(true);
+  expect(rows().find(item => item.id === unrelated.id)?.deletedAt).toBeNull();
+  expect(snapshot().reminders).toEqual(before.reminders);
+  expect(snapshot().subtasks).toEqual(before.subtasks);
+  expect(snapshot().history).toEqual(expect.arrayContaining(before.history));
+  expect(snapshot().history.filter(item => item.action === 'DELETE').map(item => item.taskId).sort()).toEqual(original.map(item => item.id).sort());
+  const after = snapshot();
+  const retry = await request(app).post(path).send(input);
+  expect(retry.status).toBe(200);
+  expect(retry.body).toMatchObject({ alreadyApplied: true, deletedCount: 0 });
+  expect(snapshot()).toEqual(after);
+  vi.setSystemTime(new Date('2027-06-01T12:00:00Z'));
+  expect((await generate(series.id)).body.created).toEqual([]);
+  expect(snapshot()).toEqual(after);
+});

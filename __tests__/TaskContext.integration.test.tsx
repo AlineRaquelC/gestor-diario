@@ -760,24 +760,28 @@ it('issue 58: GET atrasado após ativação não desfaz criação concorrente', 
 });
 
 
-async function prepareDeleteScope(frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' = 'DAILY', scope: 'future' | 'all' = 'future') {
+async function prepareDeleteScope(frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' = 'DAILY', scope: 'future' | 'all' = 'future', fiveSlots = false) {
   const series = { ...dailySummary, id: 'series-61', clientId: 'client-61', firstOccurrenceKey: '2026-11-10', createdAt: dailySummary.updatedAt,
     frequency, endBeforeOccurrenceKey: null, deletedAt: null,
     template: { title: 'QA isolated', description: null, projectId: 'remote', priority: 'MEDIUM' as const, time: null, startOffsetDays: 0, subtasks: [], reminders: [] } };
   const keys = frequency === 'MONTHLY' ? ['2026-11-10', '2026-12-10', '2027-01-10'] : frequency === 'WEEKLY' ? ['2026-11-10', '2026-11-17', '2026-11-24'] : ['2026-11-10', '2026-11-11', '2026-11-12'];
+  if (fiveSlots) {
+    keys.push(...(frequency === 'MONTHLY' ? ['2027-02-10', '2027-03-10'] : frequency === 'WEEKLY' ? ['2026-12-01', '2026-12-08'] : ['2026-11-13', '2026-11-14']));
+  }
+  const selectedIndex = fiveSlots ? 2 : 1;
   const api = keys.map((key, index) => ({
-    id: index === 1 ? saved.id : `61-${index}`, title: saved.title, description: null, projectId: 'remote', priority: 'MEDIUM' as const, status: 'PENDING' as const,
+    id: index === selectedIndex ? saved.id : `61-${index}`, title: saved.title, description: null, projectId: 'remote', priority: 'MEDIUM' as const, status: 'PENDING' as const,
     done: false, progress: 0, favorite: false, startDate: key, dueDate: key, time: null, createdAt: dailySummary.updatedAt,
     updatedAt: dailySummary.updatedAt, deletedAt: null, undoUntil: null, reminders: [], recurrenceSeriesId: series.id, occurrenceKey: key, recurrence: series,
   }));
   const mapped = api.map(item => fromApiTaskForTest(item));
   await act(async () => renderer.unmount());
   storage.set('@taskflow:tasks', JSON.stringify([...mapped, { ...saved, id: 'unrelated' }])); await mount();
-  const changed = { ...series, endBeforeOccurrenceKey: scope === 'future' ? api[1].occurrenceKey : null,
+  const changed = { ...series, endBeforeOccurrenceKey: scope === 'future' ? api[selectedIndex].occurrenceKey : null,
     deletedAt: scope === 'all' ? '2026-11-10T15:00:00Z' : null, frequency: scope === 'all' ? 'NONE' as const : frequency,
     updatedAt: '2026-11-10T15:00:00Z' };
-  const result = { series: changed, scope, fromOccurrenceKey: scope === 'future' ? api[1].occurrenceKey : null, deletedCount: scope === 'future' ? 2 : 3,
-    alreadyApplied: false, tombstones: api.filter((_, index) => scope === 'all' || index >= 1).map(item => ({ ...item, deletedAt: '2026-11-10T15:00:00Z', updatedAt: '2026-11-10T15:00:00Z', recurrence: changed })) };
+  const result = { series: changed, scope, fromOccurrenceKey: scope === 'future' ? api[selectedIndex].occurrenceKey : null, deletedCount: scope === 'future' ? api.length - selectedIndex : api.length,
+    alreadyApplied: false, tombstones: api.filter((_, index) => scope === 'all' || index >= selectedIndex).map(item => ({ ...item, deletedAt: '2026-11-10T15:00:00Z', updatedAt: '2026-11-10T15:00:00Z', recurrence: changed })) };
   jest.mocked(getRecurrenceSeries).mockResolvedValue(series);
   jest.mocked(deleteRecurrenceOccurrences).mockResolvedValue(result);
   return { mapped, result };
@@ -861,4 +865,25 @@ it('issue 61: falha ao finalizar journal retorna pendência sem perder exclusão
   await act(async () => {expect(await context.deleteRecurringTask(saved.id, 'future')).toMatchObject({ cacheSaved: true, pending: true });});
   expect(context.tasks.map(item => item.id)).toEqual(['61-0', 'unrelated']);
   expect(JSON.parse(storage.get(RECURRENCE_DELETIONS_KEY)!)).toHaveLength(1);
+});
+
+
+it.each(['DAILY', 'WEEKLY', 'MONTHLY'] as const)('issue 61 regressão intermediária %s: D3/all remove os cinco IDs do Context/cache e cancela anteriores', async frequency => {
+  const { mapped, result } = await prepareDeleteScope(frequency, 'all', true);
+  expect(mapped).toHaveLength(5);
+  expect(mapped[2].id).toBe(saved.id);
+  const suppressed = jest.spyOn(reminderScheduler, 'suspendMany');
+  await act(async () => {expect(await context.deleteRecurringTask(mapped[2].id, 'all')).toMatchObject({ cacheSaved: true, pending: false });});
+  expect(deleteRecurrenceOccurrences).toHaveBeenCalledWith(result.series.id, expect.objectContaining({
+    scope: 'all', taskId: mapped[2].id, occurrenceKey: mapped[2].occurrenceKey,
+  }));
+  expect(context.tasks.map(item => item.id)).toEqual(['unrelated']);
+  expect(JSON.parse(storage.get('@taskflow:tasks')!)).toEqual(context.tasks);
+  // Both provisional suppression and confirmed cancellation include D1/D2 and preserve other series.
+  expect(suppressed).toHaveBeenCalledTimes(2);
+  for (const [removed] of suppressed.mock.calls) {
+    expect(removed.map(item => item.id).sort()).toEqual(mapped.map(item => item.id).sort());
+  }
+  expect(JSON.parse(storage.get(RECURRENCE_DELETIONS_KEY)!)).toEqual([]);
+  suppressed.mockRestore();
 });
