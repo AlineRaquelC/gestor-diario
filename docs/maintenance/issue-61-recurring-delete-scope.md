@@ -680,3 +680,72 @@ sem início da Sprint 3.
 
 - 17 validadores CI aprovados; Android assembleDebug/assembleRelease aprovados.
 - git diff --check aprovado. Estes gates não substituem o aceite Android manual.
+
+## 15. Aceite final e limpeza QA61 — 13/11/2026
+
+Este registro sucede as pendências das seções anteriores. Aceite manual
+confirmado pela usuária: **Somente esta ocorrência aprovado; Esta e as próximas
+aprovado; Toda a série aprovado; reteste isolado de scope=all aprovado**.
+Nenhuma falha funcional confirmada no comportamento final. A observação anterior
+foi causada por séries QA diferentes, visualmente semelhantes, não por falha de all.
+
+| Frequência | single | future | all | Evidência |
+| --- | --- | --- | --- | --- |
+| DAILY | aprovado | aprovado | aprovado, inclusive reteste isolado | Manual confirmado pela usuária e regressões |
+| WEEKLY | aprovado | aprovado | aprovado | Automatizada; sem alegar execução manual |
+| MONTHLY | aprovado | aprovado | aprovado | Automatizada; sem alegar execução manual |
+
+Migration **0005_recurring_delete_scope** aprovada: `endBeforeOccurrenceKey`
+limita nominalmente future; `deletedAt` na RecurrenceSeries encerra all.
+Single mantém Undo individual; future/all não oferecem Undo. Reminders são
+reconciliados seletivamente, preservando histórico, tombstones e dados alheios.
+
+### Inventário, backup e execução canônica
+
+Backup anterior à limpeza em
+`/tmp/gestor-diario-demo-backup/issue-61-final-cleanup/`: banco consistente
+`backend-before.db`, `inventory-before.json` com IDs, occurrenceKeys, timestamps,
+Tasks/tombstones, séries e History; `android-before.tar` com AsyncStorage e
+registros nativos. Backup posterior, respostas HTTP e capturas XML ficam no
+mesmo diretório. Artefatos locais não são versionados.
+
+Identificação cruzada por recurrenceSeriesId, IDs/chaves, timestamps e títulos;
+96 Tasks vinculadas, todas já tombstonadas antes desta execução, 197 eventos
+History e zero task_reminders persistidos nessas Tasks:
+
+| recurrenceSeriesId | Título | Criação UTC | Slots / Tasks | Estado anterior |
+| --- | --- | --- | --- | --- |
+| 74e3df90-80a5-45f5-8774-04bfdf619bad | QA61Daily | 2026-11-12T12:42:21.050Z | 12/11–13/12/2026 / 32 | DAILY, corte 13/11, zero ativas |
+| 8cd7cb3b-0268-4064-bc43-d5ad9158c8a2 | QA61 Daily All | 2026-11-12T12:48:27.617Z | 12/11–13/12/2026 / 32 | NONE, deletedAt 12:50:28.738Z em 12/11 |
+| ba99c3ed-89cf-4558-9595-922d5e044794 | QA61 ALL Teste Final | 2026-11-12T13:18:06.965Z | 12/11–13/12/2026 / 32 | NONE, deletedAt 13:18:45.077Z em 12/11 |
+
+Após backup, POST canônico `/recurrence-series/:id/deletions` com scope all,
+Task/chave persistidas e expectedUpdatedAt encerrou a primeira série: HTTP 200,
+deletedCount 0 (nenhuma Task ativa restante). Agora as três têm NONE e deletedAt.
+Nenhuma série QA61 pode materializar novas Tasks. Sem purge físico, sem nova
+massa, sem exclusão de History ou alteração de outras séries.
+
+### Cache, reminders, lifecycle e materialização de controle
+
+Pixel_7 / emulator-5554: abertura normal, refresh, background → foreground e
+force-stop seguido de abertura completa executados. Reconciliação pelos fluxos
+existentes do app, sem apagar AsyncStorage. Home e calendário sem QA61 nas
+capturas; cache final com **16 Tasks, zero QA61**, igual ao total ativo canônico.
+Journal de reminders vazio (`entries: {}`, `suspended: []`), registro nativo
+`task_reminders.xml` vazio e nenhum alarm do app no dumpsys alarm inspecionado.
+Nenhum cancelAll global necessário ou executado.
+
+POST de materialização individual nas três séries após encerramento retornou
+`created: []` em todas: **zero novas QA61**. Preservadas as 16 Tasks ativas,
+os 96 tombstones QA61 e History. Nenhuma limpeza geral pré-Sprint 3 executada.
+
+### Gates e encerramento autorizado
+
+Totais anteriores à investigação: **733 Mobile / 38 suítes; 476 Backend / 17
+suítes**. Após as seis regressões da seção 14, os totais finais são **736 Mobile /
+38 suítes e 479 Backend / 17 suítes**; não reduzir a contagem registrada.
+17 validadores CI, migration, Android debug/release e diff check aprovados nos
+gates registrados. CI do head funcional 8b0bd50: run 43225063280, success.
+O commit documental final requer nova CI antes do merge, seguida de CI real em
+dev após merge. Planning Poker 8. #43 permanece OPEN e intocada; Sprint 3 não
+iniciada. Limpeza geral pré-Sprint 3 permanece separada.
