@@ -396,3 +396,151 @@ it.each(['DAILY', 'WEEKLY', 'MONTHLY'])('issue 58: ativação %s e geração rep
   expect(rows()).toHaveLength(before.tasks.length);
   expect(new Set(rows().map(item => `${item.recurrenceSeriesId}:${item.occurrenceKey}`)).size).toBe(before.tasks.length);
 });
+
+it.each(['single', 'future', 'all'] as const)('issue 61 DAILY: excluir %s preserva identidade e bloqueia regeneração', async scope => {
+  const { series } = await create(); await generate(series.id);
+  const originals = rows().filter(item => item.recurrenceSeriesId === series.id).sort((a, b) => a.occurrenceKey!.localeCompare(b.occurrenceKey!));
+  const selected = originals[1];
+  if (scope === 'single') {
+    expect((await request(app).delete(`/tasks/${selected.id}`)).status).toBe(200);
+  } else {
+    const current = (await request(app).get(`/recurrence-series/${series.id}`)).body;
+    const result = await request(app).post(`/recurrence-series/${series.id}/deletions`).send({ scope, taskId: selected.id, occurrenceKey: selected.occurrenceKey, expectedUpdatedAt: current.updatedAt });
+    expect(result.status).toBe(200);
+  }
+  await generate(series.id);
+  const active = rows().filter(item => item.recurrenceSeriesId === series.id && !item.deletedAt).sort((a, b) => a.occurrenceKey!.localeCompare(b.occurrenceKey!));
+  expect(active.map(item => item.id)).toEqual(originals.filter(item => scope === 'single' ? item.id !== selected.id : scope === 'future' ? item.occurrenceKey! < selected.occurrenceKey! : false).map(item => item.id));
+  expect(rows()).toHaveLength(originals.length);
+});
+
+it.each(['DAILY', 'WEEKLY', 'MONTHLY'] as const)('issue 61: matriz %s single/future/all e retry não duplicam History', async frequency => {
+  for (const scope of ['single', 'future', 'all'] as const) {
+    const { series } = await create({ ...draft, frequency, clientId: `61-${frequency}-${scope}` });
+    await generate(series.id);
+    const original = rows().filter(item => item.recurrenceSeriesId === series.id).sort((a, b) => a.occurrenceKey!.localeCompare(b.occurrenceKey!));
+    const selected = original[1]; expect(selected).toBeDefined();
+    const current = (await request(app).get(`/recurrence-series/${series.id}`)).body;
+    const input = { scope, taskId: selected.id, occurrenceKey: selected.occurrenceKey, expectedUpdatedAt: current.updatedAt };
+    if (scope === 'single') {
+      expect((await request(app).delete(`/tasks/${selected.id}`)).status).toBe(200);
+      const before = snapshot();
+      expect((await request(app).delete(`/tasks/${selected.id}`)).status).toBe(404);
+      expect(snapshot()).toEqual(before);
+    } else {
+      const first = await request(app).post(`/recurrence-series/${series.id}/deletions`).send(input);
+      expect(first.status).toBe(200);
+      expect(first.body.series).toMatchObject(scope === 'all' ? { frequency: 'NONE', deletedAt: expect.any(String) } : { frequency, endBeforeOccurrenceKey: selected.occurrenceKey });
+      const before = snapshot();
+      const repeated = await request(app).post(`/recurrence-series/${series.id}/deletions`).send(input);
+      expect(repeated.status).toBe(200); expect(repeated.body).toMatchObject({ alreadyApplied: true, deletedCount: 0 });
+      expect(snapshot()).toEqual(before);
+      expect((await request(app).post(`/tasks/${selected.id}/restore`)).status).toBe(409);
+    }
+    vi.setSystemTime(new Date('2027-02-01T12:00:00Z'));
+    await generate(series.id);
+    const active = rows().filter(item => item.recurrenceSeriesId === series.id && !item.deletedAt);
+    if (scope === 'single') {expect(rows().filter(item => item.id === selected.id)).toHaveLength(1); expect(active.some(item => item.id === selected.id)).toBe(false);}
+    if (scope === 'future') {expect(active.every(item => item.occurrenceKey! < selected.occurrenceKey!)).toBe(true); expect(active.map(item => item.id)).toContain(original[0].id);}
+    if (scope === 'all') {expect(active).toEqual([]);}
+    vi.setSystemTime(new Date('2026-10-29T13:20:00Z'));
+  }
+});
+
+it.each(['future', 'all'] as const)('issue 61: rollback %s inclui série, Tasks e History', async scope => {
+  const { series } = await create(); await generate(series.id);
+  const selected = rows()[1]; const current = (await request(app).get(`/recurrence-series/${series.id}`)).body;
+  const before = snapshot();
+  connection.sqlite.exec("CREATE TRIGGER fail_delete_scope BEFORE INSERT ON task_history WHEN NEW.action = 'DELETE' BEGIN SELECT RAISE(ABORT, 'test'); END");
+  const result = await request(app).post(`/recurrence-series/${series.id}/deletions`).send({ scope, taskId: selected.id, occurrenceKey: selected.occurrenceKey, expectedUpdatedAt: current.updatedAt });
+  expect(result.status).toBe(500); expect(snapshot()).toEqual(before);
+});
+
+it('issue 61: valida identidade, scope, corte e revisão antes de apagar', async () => {
+  const { series, firstOccurrence } = await create();
+  const input = { scope: 'future', taskId: firstOccurrence.id, occurrenceKey: firstOccurrence.occurrenceKey, expectedUpdatedAt: series.updatedAt };
+  const path = `/recurrence-series/${series.id}/deletions`, before = snapshot();
+  for (const patch of [{ scope: 'invalid' }, { occurrenceKey: '2026-02-30' }, { from: '2026-10-29' }]) {
+    expect((await request(app).post(path).send({ ...input, ...patch })).status).toBe(400);
+  }
+  expect((await request(app).post(path).send({ ...input, occurrenceKey: '2026-10-30' })).status).toBe(409);
+  expect((await request(app).post(path).send({ ...input, expectedUpdatedAt: '2020-01-01T00:00:00.000Z' })).status).toBe(409);
+  const other = await create({ ...draft, clientId: 'other-series' });
+  expect((await request(app).post(path).send({ ...input, taskId: other.firstOccurrence.id })).status).toBe(409);
+  expect(rows().filter(item => item.deletedAt)).toHaveLength(0); expect(snapshot().history).toEqual(expect.arrayContaining(before.history));
+});
+
+it('issue 61: materialização concorrente, corte antecipado e exclusão total não ressuscitam slots', async () => {
+  const { series } = await create(); await generate(series.id);
+  const all = rows().sort((a, b) => a.occurrenceKey!.localeCompare(b.occurrenceKey!));
+  const current = (await request(app).get(`/recurrence-series/${series.id}`)).body;
+  const input = { scope: 'future', taskId: all[3].id, occurrenceKey: all[3].occurrenceKey, expectedUpdatedAt: current.updatedAt };
+  const concurrent = await Promise.all([generate(series.id), request(app).post(`/recurrence-series/${series.id}/deletions`).send(input)]);
+  expect(concurrent[1].status).toBe(200);
+  expect((await request(app).get('/tasks')).body.filter((item: { recurrenceSeriesId: string }) => item.recurrenceSeriesId === series.id)).toHaveLength(3);
+  expect((await edit(series.id, all[0].id, { frequency: 'WEEKLY' })).status).toBe(200);
+  await generate(series.id);
+  expect(rows().filter(item => item.recurrenceSeriesId === series.id && !item.deletedAt)).toHaveLength(3);
+  expect((await request(app).post(`/tasks/${all[3].id}/restore`)).status).toBe(409);
+  await request(app).delete(`/tasks/${all[0].id}`);
+  expect((await request(app).post(`/tasks/${all[0].id}/restore`)).status).toBe(200);
+  const newer = (await request(app).get(`/recurrence-series/${series.id}`)).body;
+  const result = await request(app).post(`/recurrence-series/${series.id}/deletions`).send({ ...input, scope: 'all', expectedUpdatedAt: newer.updatedAt });
+  expect(result.status).toBe(200);
+  expect((await edit(series.id, all[0].id, { frequency: 'DAILY' })).status).toBe(409);
+  vi.setSystemTime(new Date('2027-01-01T12:00:00Z')); await generate(series.id);
+  expect(rows().filter(item => !item.deletedAt)).toHaveLength(0);
+});
+
+it('issue 61: corte usa occurrenceKey, preserva datas movidas anteriores e pode antecipar', async () => {
+  const { series } = await create(); await generate(series.id);
+  const items = rows().sort((a, b) => a.occurrenceKey!.localeCompare(b.occurrenceKey!));
+  expect((await request(app).patch(`/tasks/${items[0].id}`).send({ dueDate: '2026-12-10' })).status).toBe(200);
+  const current = (await request(app).get(`/recurrence-series/${series.id}`)).body;
+  const path = `/recurrence-series/${series.id}/deletions`;
+  expect((await request(app).post(path).send({ scope: 'future', taskId: items[3].id, occurrenceKey: items[3].occurrenceKey, expectedUpdatedAt: current.updatedAt })).status).toBe(200);
+  const next = (await request(app).get(`/recurrence-series/${series.id}`)).body;
+  expect((await request(app).post(path).send({ scope: 'future', taskId: items[2].id, occurrenceKey: items[2].occurrenceKey, expectedUpdatedAt: next.updatedAt })).status).toBe(200);
+  expect((await request(app).get(`/tasks/${items[0].id}`)).body).toMatchObject({ dueDate: '2026-12-10', occurrenceKey: items[0].occurrenceKey });
+  expect(rows().filter(item => !item.deletedAt)).toHaveLength(2);
+  expect((await request(app).patch(`/recurrence-series/${series.id}`).send({ taskId: items[0].id, expectedUpdatedAt: next.updatedAt, endBeforeOccurrenceKey: null })).status).toBe(400);
+});
+
+it.each(['DAILY', 'WEEKLY', 'MONTHLY'] as const)('issue 61 regressão intermediária %s: D3/all exclui D1–D5 sem corte e retry não gera efeitos', async frequency => {
+  const { series } = await create({ ...draft, frequency });
+  const first = rows()[0];
+  const keys = frequency === 'DAILY'
+    ? ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']
+    : frequency === 'WEEKLY'
+      ? ['2026-10-29', '2026-11-05', '2026-11-12', '2026-11-19', '2026-11-26']
+      : ['2026-10-29', '2026-11-29', '2026-12-29', '2027-01-29', '2027-02-28'];
+  // Isolated persisted snapshots: exactly five slots, including months beyond the materialization window.
+  keys.slice(1).forEach((key, index) => connection.db.insert(tasks).values({ ...first,
+    id: `D${index + 2}`, occurrenceKey: key, startDate: key, dueDate: key }).run());
+  const original = rows();
+  const { firstOccurrence: unrelated } = await create({ ...draft, clientId: 'unrelated-series' });
+  const before = snapshot();
+  const input = { scope: 'all', taskId: 'D3', occurrenceKey: keys[2], expectedUpdatedAt: series.updatedAt };
+  const path = `/recurrence-series/${series.id}/deletions`;
+  const response = await request(app).post(path).send(input);
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({ deletedCount: 5, fromOccurrenceKey: null, alreadyApplied: false,
+    series: { deletedAt: expect.any(String), endBeforeOccurrenceKey: null, frequency: 'NONE' } });
+  expect(response.body.tombstones.map((item: { id: string }) => item.id).sort()).toEqual(original.map(item => item.id).sort());
+  const persisted = rows().filter(item => item.recurrenceSeriesId === series.id);
+  expect(persisted).toHaveLength(5);
+  expect(persisted.every(item => item.deletedAt === response.body.series.deletedAt)).toBe(true);
+  expect(rows().find(item => item.id === unrelated.id)?.deletedAt).toBeNull();
+  expect(snapshot().reminders).toEqual(before.reminders);
+  expect(snapshot().subtasks).toEqual(before.subtasks);
+  expect(snapshot().history).toEqual(expect.arrayContaining(before.history));
+  expect(snapshot().history.filter(item => item.action === 'DELETE').map(item => item.taskId).sort()).toEqual(original.map(item => item.id).sort());
+  const after = snapshot();
+  const retry = await request(app).post(path).send(input);
+  expect(retry.status).toBe(200);
+  expect(retry.body).toMatchObject({ alreadyApplied: true, deletedCount: 0 });
+  expect(snapshot()).toEqual(after);
+  vi.setSystemTime(new Date('2027-06-01T12:00:00Z'));
+  expect((await generate(series.id)).body.created).toEqual([]);
+  expect(snapshot()).toEqual(after);
+});

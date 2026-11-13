@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { RecurrenceSeriesService } from '../services/recurrence-series.js';
-import { createRecurrenceSchema, activateRecurrenceSchema, updateRecurrenceSchema, materializeSchema } from '../schemas/recurrence-series.js';
+import { createRecurrenceSchema, activateRecurrenceSchema, updateRecurrenceSchema, materializeSchema, deleteRecurrenceSchema } from '../schemas/recurrence-series.js';
 
 export function createRecurrenceSeriesRouter(service: RecurrenceSeriesService) {
   const router = Router();
@@ -12,6 +12,9 @@ export function createRecurrenceSeriesRouter(service: RecurrenceSeriesService) {
   });
   router.post('/from-task/:taskId', (req, res) => {
     res.status(201).json(service.activate(req.params.taskId, activateRecurrenceSchema.parse(req.body)));
+  });
+  router.post('/:id/deletions', (req, res) => {
+    res.json(service.deleteOccurrences(req.params.id, deleteRecurrenceSchema.parse(req.body)));
   });
   router.get('/:id', (req, res) => {res.json(service.findById(req.params.id));});
   router.patch('/:id', (req, res) => {res.json(service.update(req.params.id, updateRecurrenceSchema.parse(req.body)));});

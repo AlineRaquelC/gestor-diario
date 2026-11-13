@@ -66,6 +66,10 @@ export class TasksService {
       const task = this.repository.findIncludingDeleted(id);
       if (!task) throw new TaskNotFoundError();
       if (!task.deletedAt) throw new TaskConflictError();
+      if (task.recurrenceSeriesId) {
+        const series = this.repository.findSeries(task.recurrenceSeriesId);
+        if (!series || series.deletedAt || (series.endBeforeOccurrenceKey && task.occurrenceKey! >= series.endBeforeOccurrenceKey)) {throw new TaskConflictError();}
+      }
       if (!this.projects.findById(task.projectId)) throw new ProjectError('PROJECT_NOT_FOUND');
       const timestamp = new Date(Math.max(Date.now(), Date.parse(task.updatedAt) + 1)).toISOString();
       this.repository.setDeletedAt(id, null, timestamp);

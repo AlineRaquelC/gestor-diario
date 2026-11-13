@@ -1,0 +1,3 @@
+ALTER TABLE `recurrence_series` ADD `end_before_occurrence_key` text CONSTRAINT `recurrence_end_before_valid` CHECK (end_before_occurrence_key IS NULL OR (end_before_occurrence_key GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND substr(end_before_occurrence_key,1,4) >= '1900' AND date(end_before_occurrence_key,'+0 days') IS NOT NULL AND date(end_before_occurrence_key,'+0 days') = end_before_occurrence_key));
+--> statement-breakpoint
+ALTER TABLE `recurrence_series` ADD `deleted_at` text CONSTRAINT `recurrence_deleted_at_valid` CHECK (deleted_at IS NULL OR (strftime('%Y-%m-%dT%H:%M:%fZ',deleted_at) IS NOT NULL AND strftime('%Y-%m-%dT%H:%M:%fZ',deleted_at) = deleted_at));
