@@ -2,6 +2,11 @@
 
 **17/11/2026 · G2 = GO COM RESTRIÇÕES para a solução candidata no AVD testado.**
 Sprint 3 **EM ANDAMENTO, 16/11/2026 → 27/11/2026**.
+**Atualização funcional:** implementação autorizada na branch
+`feature/66-structured-qr-task`; detalhes e validações na seção 10.
+**Android manual da usuária PENDENTE; #66 OPEN; sem merge.**
+As seções 1–9 preservam o registro histórico do refinamento/G2 anterior à
+implementação. O resultado e as restrições do gate não foram alterados.
 Este registro é refinamento técnico; não entrega nem autoriza automaticamente
 a implementação funcional da #66.
 
@@ -404,3 +409,221 @@ de execução. Nenhuma Task criada no gate. Na futura implementação, toda Task
 QA66 deve ser removida antes do merge, com IDs registrados e verificação de
 Home/calendário/API sem resíduo; preservar dados anteriores e history.
 Home zerada é referência informada, não inferida do spike isolado.
+
+## 10. Implementação funcional — 17/11/2026
+
+Implementação explicitamente autorizada após integração do G2 pelo PR #71.
+Base dev limpa/atualizada em `ddf4fb78a51c8abd2a3cadd0a5d1063ed195376e`.
+Somente #66; #65/G1, #67, #68 e #43 não alteradas.
+Planning Poker mantido em **8 pontos**. Não é declaração de Done.
+
+### Dependências efetivas e arquitetura
+
+Em android/app/build.gradle, versões fixas:
+
+- androidx.camera:camera-camera2:1.5.3;
+- androidx.camera:camera-lifecycle:1.5.3;
+- androidx.camera:camera-view:1.5.3;
+- com.google.zxing:core:3.5.4;
+- JUnit4.13.2 somente para testes JVM.
+
+Sem mudança de pacote npm, backend, endpoint ou migration. Avisos Apache-2.0 e
+BSD/libyuv incluídos em assets/qr-third-party-notices.txt dentro do APK.
+Não houve troca para CameraX1.6.x.
+
+NativeQrScanner é um TurboModule com spec TypeScript/Codegen:
+startScan(sessionId): Promise<string> e cancel(sessionId): Promise<void>.
+String vazia representa cancelamento normal, não QR válido.
+QrScannerActivity é não exportada, usa PreviewView/CameraX ImageAnalysis e
+worker único com KEEP_ONLY_LATEST. Preferência pela traseira; frontal disponível
+como fallback quando não houver traseira.
+QrFrameDecoder habilita **somente QR_CODE**, copia luminância respeitando
+rowStride/pixelStride/crop/posição do ByteBuffer e fecha ImageProxy em finally.
+Não envia frames ao JS.
+
+ScanSessionStore entrega um terminal por ID. Registro nativo associa Activity
+por referência fraca; cancel, geração antiga, Activity duplicada e dispose não
+podem entregar resultado à sessão nova. O controller JS invalida o ID antes
+do cancel nativo; a UI também invalida a geração ao sair da rota/desmontar.
+
+O teste real revelou que resolver a Promise durante finish da Activity do
+scanner podia perder o diálogo de confirmação. A entrega foi corrigida para
+aguardar onHostResume da Activity React, mantendo lock até o terminal entregue;
+destroy/cancel descarta resultado pendente. O cenário foi repetido no AVD.
+
+### CAMERA, lifecycle e falhas
+
+Manifest declara CAMERA e câmera/autofocus como features opcionais.
+Nenhuma solicitação ao iniciar app ou NewTaskScreen. Somente a ação “Escanear
+QR Code” verifica novamente a permissão e solicita quando necessário.
+Negação mantém manual; bloqueio não repete prompts em loop e oferece
+Configurações somente por ação explícita. Concessão nas Configurações é
+revalidada; revogação é checada antes de abrir e novamente na Activity.
+
+Perda de foco, onPause, rotação/recriação e onDestroy encerram a captura,
+clearAnalyzer/unbind e invalidam sessão. Não retoma automaticamente no
+foreground. A pausa da ReactActivity causada pelo próprio scanner não é
+confundida com navegação para outra rota; a Activity scanner controla o
+background, enquanto blur/unmount da rota cancela pelo JS.
+Provider ausente, câmera inexistente/ocupada, bind/analyzer com falha e permissão
+revogada retornam mensagem compreensível; cancelamento retorna normalmente.
+Novo start é recusado se o host não estiver retomado.
+
+### Payload V1 efetivo
+
+Schema formal no tipo StructuredQrV1, whitelist QR_V1_FIELDS, constantes de limite
+e validação runtime em [structuredQr.ts](../../src/domain/structuredQr.ts).
+
+```json
+{
+  "version": 1,
+  "title": "Comprar material",
+  "description": "Buscar na loja",
+  "startDate": "2026-11-20",
+  "dueDate": "2026-11-20",
+  "priority": "medium"
+}
+```
+
+| Campo/regra | Política implementada |
+|---|---|
+| Payload | máximo2048 bytes UTF-8; vazio/excesso rejeitado antes de parse profundo |
+| JSON | objeto raiz; não array/null/texto comum; sintaxe JSON válida |
+| Chaves | whitelist exata; desconhecidas/internas/de autoridade rejeitadas |
+| Duplicatas | scanner léxico de strings/profundidade detecta chaves raiz repetidas, inclusive escapadas; sem regex sobre JSON |
+| version | obrigatório, número exatamente1; ausente/futuro rejeitado |
+| title | obrigatório, string com trim, 1–120 unidades UTF-16; inválido rejeita leitura |
+| description | opcional string, até1000 unidades UTF-16; trim; tipo/excesso rejeita leitura |
+| startDate/dueDate | opcionais YYYY-MM-DD, data gregoriana real, sem horário/fuso; inválida/passada omitida com warning |
+| Ordem das datas | se ambas vierem invertidas, omitir ambas e avisar; não corrigir silenciosamente |
+| priority | opcional low/medium/high; desconhecida omitida com warning, preservando prioridade atual |
+| Project | não permitido no QR; preservado/selecionado pelo ID canônico do formulário |
+
+Os limites de título/descrição são limites adicionais da importação QR, sem
+alterar o requisito ou as validações canônicas existentes. O título continua
+obrigatório ao salvar. Datas civis são convertidas localmente, sem parse UTC
+ou soma de24h. Se a combinação com datas já presentes no formulário ficar
+inválida, preservar as datas atuais e mostrar aviso, sem ajustar prazo/início.
+
+Esta decisão refina a proposta original: datas/prioridade inválidas permitem
+**draft parcial com warnings**, conforme autorização da implementação;
+versão/estrutura/título/descrição inválidos e campos extras rejeitam a leitura.
+Todos os campos válidos continuam sujeitos à revisão e validação canônica.
+
+### ExternalTaskDraft e NewTaskScreen
+
+[ExternalTaskDraft](../../src/models/externalTaskDraft.ts) contém somente
+título/descrição/datas/prioridade opcionais e warnings; sem source no banco,
+rawPayload, Project ou qualquer autoridade interna.
+Parser puro não importa API/storage/addTask.
+
+[TaskQrImport](../../src/components/TaskQrImport.tsx) acrescenta botão e feedback
+ao formulário existente. Após leitura válida, exige **“Usar dados”** antes
+de substituir campos correspondentes, inclusive os já preenchidos. Cancelar
+essa confirmação preserva a edição anterior. Campos ausentes/omitidos preservam
+valores atuais. Projeto, horário, status, recorrência, lembretes e subtarefas
+não são importados nem alterados pelo QR.
+
+Depois de aplicar, a pessoa pode editar/apagar/corrigir ou sair pelo Cancelar.
+**Só o botão canônico “Criar tarefa” de NewTaskScreen chama addTask**, mantendo
+Context → serviço HTTP → API → SQLite existentes.
+Ler QR ou confirmar uso do rascunho nunca cria Task.
+O botão de criação fica indisponível enquanto a leitura/confirmação está pendente.
+
+### Privacidade e acessibilidade
+
+Sem upload, arquivo de foto/frame, galeria, QR bruto em storage/backend ou log
+de payload. Apenas texto temporário cruza a ponte e é transformado em draft;
+conteúdo ativo permanece texto inerte, sem URL/deep link/HTML/JavaScript executado.
+Avisos de erro não incluem o payload bruto.
+
+Botão RN com accessibilityLabel/Role/Hint/State; feedback textual com live region;
+scanner com instrução textual, título acessível e botão nativo Cancelar de pelo
+menos48dp. API de heading usa ViewCompat para respeitar minSdk24.
+Criação manual disponível sem câmera; mensagens não dependem apenas de cor.
+
+### Verificações automatizadas
+
+| Verificação | Resultado |
+|---|---|
+| Mobile test:ci-scripts | 17 validadores aprovados |
+| Mobile test:ci | 821 testes / 42 suítes aprovados |
+| Mobile typecheck:ci | 11 diagnósticos conhecidos; nenhuma regressão |
+| Mobile lint:ci | 3 erros/7 warnings conhecidos; sem novos diagnósticos |
+| JVM nativo | 5 testes / 2 classes aprovados: QR real UTF-8, plano com stride/crop/padding, orientação, rejeição de linear/blank e terminal único concorrente |
+| Backend typecheck, test e build | aprovados; 479 testes / 17 suítes; sem mudança de backend |
+| assembleDebug/assembleRelease | aprovados com dependências reais, Codegen/New Architecture/Hermes, x86_64 e arm64-v8a empacotados |
+| git diff --check / links locais | verificados antes do commit |
+
+ESLint ignora somente android/**/build/**, pois os novos testes JVM geram
+relatórios HTML com JS que não é código de produto. Nenhum baseline ampliado.
+O teste de URL hostil contém supressão localizada e explicada de no-script-url
+somente na fixture textual, nunca em execução de conteúdo.
+
+Cobertura nova: V1/opcionais, JSON/texto/vazio/versões, UTF-8 e limites,
+campos internos/desconhecidos/duplicados, datas/prioridades/warnings; sessão
+concorrente, cancel e resultado tardio; UI sem prompt ao abrir, negação,
+Configurações explícitas, confirmação/edição, preservação de Project, retry,
+blur e chamada canônica única após botão de criação.
+
+### Android automatizável e massa QA
+
+Validação automatizada do app real no Pixel_7/API36/x86_64; **não equivale à
+aprovação manual da usuária**. AVD existente iniciado sem wipe de dados.
+Fixtures conhecidas de QR ficam apenas no host/cena virtual em /tmp/qr66-qa.
+Não são arquivos no armazenamento do app e não entram no APK.
+
+Nenhuma Task QA66 foi criada; o roteiro automatizado parou antes do botão
+“Criar tarefa”. O rascunho transitório foi descartado ao sair da tela.
+Consultas GET da API antes e depois: **zero Tasks, nenhuma QA66**.
+
+| Cenário automatizado no app real | Resultado observado |
+|---|---|
+| Abrir app/Nova Tarefa | Nenhum prompt CAMERA ao abrir; ação QR visível |
+| Negar CAMERA | Mensagem compreensível e formulário manual preservado |
+| Conceder e ler fixture | Preview CameraX, decode local e diálogo “Usar dados do QR Code?” após retorno |
+| Aplicar e editar | Título QA66 QR, descrição e prazo20/11 preenchidos; título editado para QA66 edited; nenhum Save |
+| Cancelar nova importação | Campos editados preservados, sem sobrescrita |
+| Versão99 | Mensagem “Versão de QR Code não suportada”, sem aplicar draft |
+| Background/foreground | Câmera liberada; formulário retomado com campos preservados e sem reabrir scanner |
+| Cancelar scanner | Retorno normal ao formulário, sem erro de cancelamento |
+| Limpeza | Rascunho descartado, Home zerada, GET/tasks vazio e Active Camera Clients=[] |
+
+A troca de textura na cena virtual pode manter um primeiro frame da imagem
+anterior; a prova da versão inválida foi feita após renovar os frames com a
+preview ativa e reenquadrar a fixture. Não foi tratada string mockada como decode.
+Texturas e pose da câmera virtual foram restauradas. O AVD ficou preparado
+com APK debug e Metro existente, na Home sem QA. **Android manual PENDENTE.**
+
+Limitações preservadas: arm64 compilado/empacotado, sem aparelho físico;
+API24 sem AVD disponível (apenas Pixel_7/API36 configurado), sem smoke executado.
+O release mantém a política existente de cleartext=false e API de desenvolvimento
+HTTP10.0.2.2:3000; a Home reportou erro de conexão nesse modo. Não foi alterada
+a política de rede/backend para ampliar escopo. No debug, com cleartext=true
+já existente, a Home consultou a API e mostrou “Nenhuma tarefa cadastrada”.
+Leitura/preenchimento local
+não dependem de rede; persistência real/Home/calendário ainda exigem validação
+manual no ambiente de desenvolvimento/API alcançável, sem declarar aprovação.
+
+### Roteiro Android manual da usuária — todos PENDENTES
+
+| Passo | Verificação |
+|---|---|
+| T01 | Abrir Nova Tarefa; nenhum prompt CAMERA ao abrir |
+| T02 | Tocar Escanear QR Code |
+| T03 | Conceder CAMERA no contexto do uso |
+| T04 | Ler QR V1 válido conhecido; nenhuma criação automática |
+| T05 | Confirmar uso dos dados e conferir campos/Project |
+| T06 | Editar campo importado e conferir valores finais |
+| T07 | Tocar Criar tarefa uma única vez, com API alcançável |
+| T08 | Confirmar persistência, Home/calendário e reentrada |
+| T09 | Ler QR inválido, versão futura, dados inválidos e campos extras |
+| T10 | Cancelar scanner/confirmacão; preservar campos anteriores |
+| T11 | Negar/bloquear/revogar CAMERA; manual continua disponível |
+| T12 | Background/foreground/foco/rotação/reentrada, sem reabrir captura ou duplicar |
+
+**Antes do merge futuro:** remover qualquer Task/reminder QA66 criada pela
+validação manual, registrar IDs, conferir Home/calendário/API sem resíduos,
+preservar Tasks reais e history; nenhum arquivo QR técnico persistido no app.
+Não marcar esta matriz como aprovada por causa de Jest/JVM/automação ADB.
+Sem merge automático ou fechamento da #66 nesta execução.

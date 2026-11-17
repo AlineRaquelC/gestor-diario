@@ -7,7 +7,7 @@
 - **Estado em 17/11/2026: EM ANDAMENTO**, conforme correção informada pela usuária.
 - **Core originalmente proposto:** 21 pontos; estimativas preliminares.
 - Nenhum milestone criado nesta formalização; #65–#68 estão sem milestone.
-- Nenhuma feature implementada por esta atualização documental.
+- Nenhuma feature implementada pela formalização documental do PR #70.
 
 Este é o registro vigente da Sprint. A [proposta de 13/11](sprint-3-proposal.md)
 permanece como histórico do planejamento, sem substituir ou alterar requisitos.
@@ -32,7 +32,7 @@ Estados OPEN conferidos no GitHub em 17/11/2026.
 | Item | Issue | Origem / limite | Pontos preliminares | Estado atual |
 |---|---|---|---:|---|
 | C1 — voz | [#65 — Criação assistida de tarefas por voz](https://github.com/AlineRaquelC/gestor-diario/issues/65) | PBI-25; RF28, REQ141/142; sem RF75 | 8 | OPEN — funcionalmente bloqueada por G1 NO-GO |
-| C2 — QR | [#66 — Criar tarefa a partir de QR Code estruturado](https://github.com/AlineRaquelC/gestor-diario/issues/66) | PBI-25; REQ145, RF30 parcial | 8 | OPEN — G2 GO COM RESTRIÇÕES; implementação não iniciada |
+| C2 — QR | [#66 — Criar tarefa a partir de QR Code estruturado](https://github.com/AlineRaquelC/gestor-diario/issues/66) | PBI-25; REQ145, RF30 parcial | 8 | OPEN — implementação funcional em feature/66-structured-qr-task; G2 GO COM RESTRIÇÕES; Android manual PENDENTE |
 | C3 — atalho Android | [#67 — Atalho Android para criação de nova tarefa](https://github.com/AlineRaquelC/gestor-diario/issues/67) | PBI-27; RF73; sem widgets | 3 | OPEN — G3 pendente |
 | C4 — documentação/rastreabilidade | [#68 — Atualizar evidências, rastreabilidade e README](https://github.com/AlineRaquelC/gestor-diario/issues/68) | Enabler documental; sem novo requisito oficial | 2 | OPEN — consolidação final depende dos resultados C1–C3 |
 | **Total originalmente proposto** | **4 Issues** | **3 funcionais + 1 documental** | **21** | **Reavaliação rápida necessária após os gates** |
@@ -132,3 +132,7 @@ validações autorizadas.
   #66 candidata tecnicamente viável para implementação prioritária após revisão
   e autorização. Sem implementação funcional, substituição automática da #65 ou
   mudança dos 21 pontos originais; reavaliação do core continua necessária.
+- 17/11: implementação funcional da #66 autorizada e preparada em branch própria,
+  conforme [registro técnico, seção10](sprint-3-issue-66.md#10-implementação-funcional--17112026).
+  Testes automatizados/builds executados; validação Android manual e merge
+  pendentes. #65 não substituída; #67/#68 e #43 não alteradas.
