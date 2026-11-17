@@ -34,6 +34,9 @@ import { validateReminderChange } from '../domain/reminders';
 import { calendarDate } from '../services/taskService';
 import { taskSavedFeedback } from '../models/reminderPresentation';
 import TaskProjectSelector from '../components/TaskProjectSelector';
+import TaskQrImport from '../components/TaskQrImport';
+import type { ExternalTaskDraft } from '../models/externalTaskDraft';
+import { qrDraftDates } from '../domain/structuredQr';
 
 const PRIORITIES = [
   {
@@ -139,9 +142,21 @@ export default function NewTaskScreen() {
   const [recurrenceZone, setRecurrenceZone] = useState<string | null>(null);
   const recurrenceRequest = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [qrBusy, setQrBusy] = useState(false);
+  const [qrWarning, setQrWarning] = useState('');
   const submitting = useRef(false);
 
-  const canSubmit = title.trim().length > 0 && project.trim().length > 0;
+  const canSubmit = title.trim().length > 0 && project.trim().length > 0 && !qrBusy;
+
+  function applyQrDraft(draft: ExternalTaskDraft) {
+    if (draft.title !== undefined) { setTitle(draft.title); }
+    if (draft.description !== undefined) { setDescription(draft.description); }
+    if (draft.priority !== undefined) { setPriority(draft.priority); }
+    const dates = qrDraftDates(draft, startDate, dueDate);
+    setStartDate(dates.start);
+    setDueDate(dates.due);
+    setQrWarning(dates.warning ?? '');
+  }
 
   function formatDateBR(date: Date) {
     return date.toLocaleDateString('pt-BR');
@@ -171,7 +186,7 @@ export default function NewTaskScreen() {
   }
 
   async function handleSubmit() {
-    if (submitting.current) {
+    if (submitting.current || qrBusy) {
       return;
     }
     if (!title.trim()) {
@@ -346,6 +361,8 @@ export default function NewTaskScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <TaskQrImport disabled={saving} onDraft={applyQrDraft} onBusyChange={setQrBusy} />
+          {qrWarning ? <Text accessibilityLiveRegion="polite" style={styles.subLabel}>{qrWarning}</Text> : null}
           {/* TÍTULO */}
           <FormGroup label="Título" required>
             <TextInput
