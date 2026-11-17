@@ -32,7 +32,7 @@ Estados OPEN conferidos no GitHub em 17/11/2026.
 | Item | Issue | Origem / limite | Pontos preliminares | Estado atual |
 |---|---|---|---:|---|
 | C1 — voz | [#65 — Criação assistida de tarefas por voz](https://github.com/AlineRaquelC/gestor-diario/issues/65) | PBI-25; RF28, REQ141/142; sem RF75 | 8 | OPEN — funcionalmente bloqueada por G1 NO-GO |
-| C2 — QR | [#66 — Criar tarefa a partir de QR Code estruturado](https://github.com/AlineRaquelC/gestor-diario/issues/66) | PBI-25; REQ145, RF30 parcial | 8 | OPEN — G2 pendente |
+| C2 — QR | [#66 — Criar tarefa a partir de QR Code estruturado](https://github.com/AlineRaquelC/gestor-diario/issues/66) | PBI-25; REQ145, RF30 parcial | 8 | OPEN — G2 GO COM RESTRIÇÕES; implementação não iniciada |
 | C3 — atalho Android | [#67 — Atalho Android para criação de nova tarefa](https://github.com/AlineRaquelC/gestor-diario/issues/67) | PBI-27; RF73; sem widgets | 3 | OPEN — G3 pendente |
 | C4 — documentação/rastreabilidade | [#68 — Atualizar evidências, rastreabilidade e README](https://github.com/AlineRaquelC/gestor-diario/issues/68) | Enabler documental; sem novo requisito oficial | 2 | OPEN — consolidação final depende dos resultados C1–C3 |
 | **Total originalmente proposto** | **4 Issues** | **3 funcionais + 1 documental** | **21** | **Reavaliação rápida necessária após os gates** |
@@ -48,7 +48,7 @@ apoiada nas evidências dos gates, preservando a DoD.
 | Gate | Estado em 17/11 | Evidência / condição para avançar |
 |---|---|---|
 | G1 — voz / #65 | **NO-GO** | [Refinamento da #65](sprint-3-issue-65.md), integrado pelo [PR #69](https://github.com/AlineRaquelC/gestor-diario/pull/69); critérios de reabertura preservados |
-| G2 — QR / #66 | Pendente; não executado nesta formalização | Biblioteca/licença, API36/min24, RN/New Architecture, preview/decode Android, parser seguro e builds |
+| G2 — QR / #66 | **GO COM RESTRIÇÕES**, 17/11 | [Refinamento da #66](sprint-3-issue-66.md): CameraX/ZXing, câmera/decode/payload exato, TurboModule/Hermes, offline e builds; execução restrita ao AVD/API36/x86_64; parser/formulário ainda propostos |
 | G3 — atalho / #67 | Pendente; não executado nesta formalização | ShortcutManager/launcher, API24/25/26+, React Navigation, singleTask, cold/warm start e hidratação |
 | Consolidação / #68 | Pendente | Resultados reais, rastreabilidade, limites e números finais de testes/CI; sem afirmar conclusão antes da validação |
 
@@ -116,8 +116,10 @@ Projects e demais entidades. Confirmar Home/calendário/API sem resíduos da mas
 técnica, sem usar exclusão indiscriminada para aparentar limpeza.
 
 Home zerada é a referência informada de entrada; não foi revalidada no dispositivo
-por esta correção. Nenhuma Task, captura Android, gate ou feature foi executada
-nesta formalização. A regra de QA vale para futuras validações autorizadas.
+por esta correção. Na formalização integrada pelo PR #70 não houve Task,
+captura Android, gate ou feature executados. O G2 posterior está registrado
+no refinamento da #66 e não criou Task. A regra de QA vale para futuras
+validações autorizadas.
 
 ## Histórico documental
 
@@ -126,3 +128,7 @@ nesta formalização. A regra de QA vale para futuras validações autorizadas.
 - 17/11: Issues #65–#68 formalizadas; refinamento/G1 da #65 integrado pelo PR #69.
 - 17/11: correção do estado para EM ANDAMENTO, período 16–27/11; preservados
   G1 NO-GO, Issues abertas e core preliminar sujeito a reavaliação.
+- 17/11: [G2 da #66](sprint-3-issue-66.md) GO COM RESTRIÇÕES em spike removível;
+  #66 candidata tecnicamente viável para implementação prioritária após revisão
+  e autorização. Sem implementação funcional, substituição automática da #65 ou
+  mudança dos 21 pontos originais; reavaliação do core continua necessária.
