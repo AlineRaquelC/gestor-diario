@@ -4,7 +4,17 @@
 Arquitetura mínima proposta abaixo; viabilidade de captura pela API comprovada,
 mas transcrição pt-BR pelo microfone do host e integração da nova ponte RN ainda
 não comprovadas. Não substituir essas evidências por texto digitado ou mocks.
-Sprint 3 não iniciada. Este documento não autoriza implementação.
+**Estado da Sprint corrigido em 17/11/2026:** Sprint 3 **EM ANDAMENTO**,
+de **16/11/2026 a 27/11/2026**, conforme informação da usuária.
+Ver [registro vigente da Sprint 3](sprint-3.md). O início da Sprint não remove
+o bloqueio funcional da #65 nem altera o resultado G1 = NO-GO.
+Este documento não autoriza implementação.
+
+#65 permanece OPEN no backlog da Sprint, com 8 pontos preliminares e T01–T08
+bloqueados pelo G1. #66 (8), #67 (3) e #68 (2) permanecem OPEN.
+O core originalmente proposto de 21 pontos precisa ser reavaliado rapidamente
+após os gates técnicos; nenhuma substituição automática da #65.
+#43 permanece OPEN, fora do core da Sprint 3.
 
 ## 1. Base, escopo e requisitos
 
@@ -400,6 +410,8 @@ feature no spike. Só executar após evidências de G1 aceitas e autorização e
 | T07 — Android manual | matriz de fala real, erro, rede, lifecycle e release | evidências identificadas como AVD/físico |
 | T08 — limpeza QA/documentação | remover massa, registrar limites e testes reais | diff check, links, Home/calendário sem resíduos |
 
-Não iniciar Sprint 3, criar milestone/Issues técnicas ou executar stretch por
-causa deste refinamento. #43 permanece pendência da Entrega 2. PR somente
-documental para dev, sem merge automático e sem palavras de fechamento da #65.
+A Sprint 3 já está em andamento; este refinamento não autoriza implementar a
+#65 enquanto o G1 permanecer NO-GO, criar milestone/Issues técnicas ou executar
+stretch. #43 permanece pendência da Entrega 2, fora do core.
+Refinamento integrado pelo PR #69; esta correção de estado é somente documental,
+sem fechamento da #65 ou alteração das evidências e conclusões do gate.

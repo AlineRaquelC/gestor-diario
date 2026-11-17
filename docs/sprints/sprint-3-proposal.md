@@ -1,4 +1,19 @@
-# Sprint 3 — proposta de recorte para revisão
+# Sprint 3 — histórico da proposta de recorte
+
+## Estado atualizado em 17/11/2026
+
+**Sprint 3 EM ANDAMENTO: 16/11/2026 → 27/11/2026**, conforme correção
+informada pela usuária. O registro vigente está em [Sprint 3](sprint-3.md).
+Este arquivo preserva o planejamento de 13/11; suas referências a ausência de
+datas, Issues, formalização e início descrevem aquela etapa histórica.
+
+Issues atualmente planejadas: #65 (voz, 8 pontos, OPEN, G1 NO-GO/bloqueada),
+#66 (QR, 8, OPEN), #67 (atalho Android, 3, OPEN) e #68 (documentação, 2, OPEN).
+O core originalmente proposto de **21 pontos exige reavaliação rápida após os
+gates técnicos**, pois a Sprint já começou. #65 permanece no backlog da Sprint
+e não é substituída automaticamente. #43 permanece OPEN, fora do core.
+
+## Proposta original de 13/11/2026
 
 **13/11/2026 · PROPOSTA, não Sprint iniciada.** Não define datas, milestone,
 compromisso definitivo, Issues funcionais ou autorização de implementação.
@@ -362,6 +377,10 @@ menções históricas a Tasks legadas versus estado zerado, preservando evidênc
 
 ## 8. Core proposto, capacidade e Goal
 
+**Histórico de 13/11:** a tabela abaixo contém os candidatos originais.
+As Issues #65–#68 já foram criadas; período, estado atual e impacto do G1 estão
+no [registro vigente](sprint-3.md). As estimativas continuam preliminares.
+
 **Sprint Goal proposto:** “Criar tarefas no Android por voz, QR estruturado e
 atalho do sistema, com revisão antes de salvar e preservação do fluxo canônico.”
 Não promete automação por contexto físico que este recorte não entrega.
@@ -487,10 +506,18 @@ calendário, comunicações/rede específica/reboot configurável, PBI-28/29/30 
 contextos PBI-31–35 fora das obrigações de qualidade do recorte; PBIs 12–24
 remanescentes e #43. OCR e exportação de calendário são apenas stretch possíveis.
 
-Próxima decisão humana: revisar Goal, 21 pontos, escopo/limites de voz/QR e
+**Decisão pendente registrada em 13/11, preservada como histórico:** revisar Goal, 21 pontos, escopo/limites de voz/QR e
 hardware disponível, prazo e capacidade. Só depois formalizar sprint-3.md,
 Issues/milestone e início em instrução própria. Este PR não faz isso, não tem
 Closes #43 e não autoriza merge automático.
+
+**Atualização de 17/11:** Issues #65–#68 formalizadas, G1 da #65 registrado
+como NO-GO no [refinamento](sprint-3-issue-65.md) integrado pelo PR #69;
+Sprint já em andamento desde 16/11, com término em 27/11.
+O período conhecido substitui a premissa histórica de prazo desconhecido.
+Reavaliar rapidamente Goal/capacidade e os 21 pontos após os gates, sem
+substituir #65 automaticamente, criar milestone ou iniciar implementação
+por esta correção documental.
 
 ## 13. Verificação desta proposta documental
 
