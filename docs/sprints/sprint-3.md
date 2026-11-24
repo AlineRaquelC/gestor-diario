@@ -15,55 +15,58 @@ As afirmações recentes de “Sprint 3 não iniciada” foram corrigidas: o in�
 informado é 16/11, embora as Issues e os gates tenham sido registrados depois.
 Início da Sprint não significa aceite dos gates ou conclusão das funcionalidades.
 
-## Sprint Goal atual/proposto
+## Sprint Goal original
 
 “Criar tarefas no Android por voz, QR estruturado e atalho do sistema, com
 revisão antes de salvar e preservação do fluxo canônico.”
 
-Goal herdado da proposta e **sujeito a revisão rápida após os gates técnicos**.
-O G1 NO-GO da voz coloca esse objetivo em risco; não declarar o Goal atendido
-ou prometer entrega integral dos 21 pontos. A Sprint não equivale à Entrega 3
-completa, nem declara PBIs integralmente atendidos por recortes.
+O G1 NO-GO compromete o atendimento integral do Goal pela indisponibilidade
+da voz. A avaliação final do Goal fica para o fechamento da Sprint na #68.
+A Sprint cobre recortes da Entrega 3 e de seus PBIs.
 
 ## Backlog da Sprint e Planning Poker
 
-Estados OPEN conferidos no GitHub em 17/11/2026.
+Estado do incremento em 24/11/2026.
 
 | Item | Issue | Origem / limite | Pontos preliminares | Estado atual |
 |---|---|---|---:|---|
-| C1 — voz | [#65 — Criação assistida de tarefas por voz](https://github.com/AlineRaquelC/gestor-diario/issues/65) | PBI-25; RF28, REQ141/142; sem RF75 | 8 | OPEN — funcionalmente bloqueada por G1 NO-GO |
-| C2 — QR | [#66 — Criar tarefa a partir de QR Code estruturado](https://github.com/AlineRaquelC/gestor-diario/issues/66) | PBI-25; REQ145, RF30 parcial | 8 | OPEN — implementação funcional em feature/66-structured-qr-task; G2 GO COM RESTRIÇÕES; Android manual PENDENTE |
+| C1 — voz | [#65 — Criação assistida de tarefas por voz](https://github.com/AlineRaquelC/gestor-diario/issues/65) | PBI-25; RF28, REQ141/142; sem RF75 | 8 | OPEN — 8 pontos bloqueados / replanejados por Gate G1 NO-GO |
+| C2 — QR | [#66 — Criar tarefa a partir de QR Code estruturado](https://github.com/AlineRaquelC/gestor-diario/issues/66) | PBI-25; REQ145, RF30 parcial | 8 | Concluída no incremento, G2 GO e [PR #72](https://github.com/AlineRaquelC/gestor-diario/pull/72) integrado em `dev` |
 | C3 — atalho Android | [#67 — Atalho Android para criação de nova tarefa](https://github.com/AlineRaquelC/gestor-diario/issues/67) | PBI-27; RF73; sem widgets | 3 | OPEN — G3 pendente |
 | C4 — documentação/rastreabilidade | [#68 — Atualizar evidências, rastreabilidade e README](https://github.com/AlineRaquelC/gestor-diario/issues/68) | Enabler documental; sem novo requisito oficial | 2 | OPEN — consolidação final depende dos resultados C1–C3 |
-| **Total originalmente proposto** | **4 Issues** | **3 funcionais + 1 documental** | **21** | **Reavaliação rápida necessária após os gates** |
+| **Total originalmente proposto** | **4 Issues** | **3 funcionais + 1 documental** | **21** | **Referência original preservada** |
 
-**#65 permanece no backlog da Sprint neste momento**, com 8 pontos preliminares,
-porém funcionalmente bloqueada. Não a remover, substituir ou iniciar
-automaticamente. O início da Sprint não converte estimativas em entrega garantida.
-Qualquer ajuste de Goal, escopo, pontos ou seleção requer decisão explícita
-apoiada nas evidências dos gates, preservando a DoD.
+## Decisão de replanejamento em 24/11/2026
 
-## Gates e impacto no plano
+A #65 permanece aberta no backlog com seus 8 pontos bloqueados pelo G1
+NO-GO. Esses pontos ficam fora da expectativa de entrega desta Sprint.
+Nenhum stretch substitui automaticamente a voz. A Sprint prossegue com
+a #67 e depois com a #68. O forecast é de **13 pontos** se ambas forem
+concluídas, incluindo os 8 pontos já entregues da #66, frente aos **21 pontos
+originalmente propostos**.
 
-| Gate | Estado em 17/11 | Evidência / condição para avançar |
-|---|---|---|
-| G1 — voz / #65 | **NO-GO** | [Refinamento da #65](sprint-3-issue-65.md), integrado pelo [PR #69](https://github.com/AlineRaquelC/gestor-diario/pull/69); critérios de reabertura preservados |
-| G2 — QR / #66 | **GO COM RESTRIÇÕES**, 17/11 | [Refinamento da #66](sprint-3-issue-66.md): CameraX/ZXing, câmera/decode/payload exato, TurboModule/Hermes, offline e builds; execução restrita ao AVD/API36/x86_64; parser/formulário ainda propostos |
-| G3 — atalho / #67 | Pendente; não executado nesta formalização | ShortcutManager/launcher, API24/25/26+, React Navigation, singleTask, cold/warm start e hidratação |
-| Consolidação / #68 | Pendente | Resultados reais, rastreabilidade, limites e números finais de testes/CI; sem afirmar conclusão antes da validação |
+O [G1 reexecutado](sprint-3-issue-65.md#10-reexecução-do-g1-em-24112026)
+manteve NO-GO pela falta de transcrição final de fala real em pt-BR. As
+tarefas T01–T08 seguem bloqueadas. Uma última revalidação isolada com fala
+real poderá ocorrer se houver acesso a um Android físico antes do fechamento.
+Ela fica fora do compromisso atual e pode ocorrer sem interromper a #67.
+A #65 só reabre tecnicamente com evidência suficiente para G1 GO ou GO COM
+RESTRIÇÕES. A implementação funcional depende de autorização separada.
 
-O G1 comprovou disponibilidade do SpeechRecognizer, início do pipeline e estados
-de RECORD_AUDIO. Não comprovou frase pt-BR final pelo microfone real do host;
-on-device pt-BR retornou LANGUAGE_UNAVAILABLE, offline pt-BR não foi comprovado.
-A ponte RN/TurboModule/Codegen com voz ainda não foi validada; provedor,
-privacidade e eventual transmissão exigem decisão explícita.
-**O resultado do G1 permanece inalterado. T01–T08 da #65 continuam bloqueados.**
-Não baixar modelo automaticamente, simular voz por texto ou trocar de provedor
-para contornar o gate.
+Na #66, a usuária aprovou anteriormente o teste manual em Android físico.
+A validação complementar em emulador confirmou o release sem Metro,
+a persistência pela API e o mesmo registro após reabrir o app. A massa de
+QA foi removida, com Home limpa e zero tarefas de QA ativas.
+A consolidação final das evidências fica para a #68.
 
-Como a Sprint já começou, reavaliar rapidamente o core de 21 pontos e o Goal
-após os gates, considerando o prazo de 27/11 e capacidade real. Não compensar
-o bloqueio automaticamente com outra Issue ou stretch.
+**Próximo gate autorizado: G3 — Issue #67 — Atalho Android para criação de nova tarefa.**
+
+Após integrar este replanejamento, o G3 deverá avaliar ShortcutManager,
+minSdk 24 e o comportamento em API 24, 25 e 26+, além da escolha entre
+atalho dinâmico e fixado. Deve verificar MainActivity com `singleTask`,
+React Navigation, cold start, warm start, hidratação de Projects e estado,
+prevenção de tela ou Task duplicada e launcher sem suporte.
+O G3 permanece pendente.
 
 ## Fora do core
 
@@ -79,7 +82,7 @@ o bloqueio automaticamente com outra Issue ou stretch.
 | Risco | Tratamento |
 |---|---|
 | G1 impede a voz prevista no Goal | Manter #65 bloqueada, registrar evidências e decidir reabertura/replanejamento explicitamente |
-| Prazo já em curso com G2/G3 pendentes | Reavaliar rapidamente seleção/capacidade após os gates; sem assumir velocidade ou entrega integral |
+| Prazo já em curso com G3 pendente | Reavaliar rapidamente seleção/capacidade após os gates; sem assumir velocidade ou entrega integral |
 | Dependências nativas incompatíveis | Provar versões/licenças e builds RN/New Architecture em refinamento autorizado |
 | Captura/transmissão e permissões | Informação antes de capturar, consentimento contextual e fallback manual |
 | Callback/intent duplica criação | Sessão única, revisão e confirmação; fluxo addTask canônico |
@@ -115,11 +118,8 @@ seriesId/occurrenceKeys; preservar registros anteriores, history/tombstones,
 Projects e demais entidades. Confirmar Home/calendário/API sem resíduos da massa
 técnica, sem usar exclusão indiscriminada para aparentar limpeza.
 
-Home zerada é a referência informada de entrada; não foi revalidada no dispositivo
-por esta correção. Na formalização integrada pelo PR #70 não houve Task,
-captura Android, gate ou feature executados. O G2 posterior está registrado
-no refinamento da #66 e não criou Task. A regra de QA vale para futuras
-validações autorizadas.
+Em 24/11, a Home foi conferida no emulador e a API retornou zero tarefas
+ativas. A atualização documental não criou Tasks nem massa de QA.
 
 ## Histórico documental
 
@@ -136,3 +136,5 @@ validações autorizadas.
   conforme [registro técnico, seção10](sprint-3-issue-66.md#10-implementação-funcional--17112026).
   Testes automatizados/builds executados; validação Android manual e merge
   pendentes. #65 não substituída; #67/#68 e #43 não alteradas.
+- 24/11: #66 integrada em `dev` pelo PR #72 com G2 GO. G1 reexecutado e
+  mantido em NO-GO, com replanejamento registrado acima.
