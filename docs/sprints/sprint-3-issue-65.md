@@ -415,3 +415,30 @@ A Sprint 3 já está em andamento; este refinamento não autoriza implementar a
 stretch. #43 permanece pendência da Entrega 2, fora do core.
 Refinamento integrado pelo PR #69; esta correção de estado é somente documental,
 sem fechamento da #65 ou alteração das evidências e conclusões do gate.
+
+## 10. Reexecução do G1 em 24/11/2026
+
+**G1 = NO-GO.** A [Issue #65](https://github.com/AlineRaquelC/gestor-diario/issues/65)
+permanece aberta, com 8 pontos bloqueados e replanejados conforme o
+[registro vigente da Sprint](sprint-3.md#decisão-de-replanejamento-em-24112026).
+A evidência de 17/11 permanece registrada acima.
+
+No AVD Pixel_7/API 36, o reconhecedor padrão e o serviço on-device estavam
+acessíveis. O provedor padrão era GoogleTTSRecognitionService e o serviço
+on-device era AiAiSpeechRecognitionService. A consulta listou `pt-BR` entre
+os modelos baixáveis, com apenas `en-US` instalado e nenhum download pendente.
+Nenhum modelo foi baixado. O diagnóstico padrão com rede ativa chegou a
+`ready`, `beginning` e RMS positivo com o microfone do host desativado.
+Sem rede, o diagnóstico on-device retornou `LANGUAGE_UNAVAILABLE` (13).
+
+O bloqueio central é a falta de um resultado final textual utilizável em
+pt-BR a partir de fala real. Por isso, a implementação funcional continua
+bloqueada e a prova da ponte RN/TurboModule/Codegen fica adiada até haver
+uma transcrição válida. Texto digitado, mocks, simulação e serviço pago
+continuam fora das alternativas autorizadas.
+
+A Sprint segue para o G3, sem novas tentativas no mesmo AVD. Caso haja acesso
+a um Android físico antes do fechamento, cabe uma última revalidação isolada
+com fala real pt-BR, sem interromper a #67 e fora do compromisso da Sprint.
+A #65 só volta à avaliação para implementação se o G1 reunir evidência
+suficiente para GO ou GO COM RESTRIÇÕES, com autorização separada para iniciar.
