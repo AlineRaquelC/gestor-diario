@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import {
   NavigationContainer,
+  useNavigationContainerRef,
 } from '@react-navigation/native';
 
 import {
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
 
+import { useNewTaskShortcut } from './useNewTaskShortcut';
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import NewTaskScreen from '../screens/NewTaskScreen';
@@ -60,8 +62,12 @@ const Stack =
   createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
+  const navigation = useNavigationContainerRef<RootStackParamList>();
+  const [ready, setReady] = useState(false);
+  useNewTaskShortcut(navigation, ready);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigation} onReady={() => setReady(true)}>
 
       <Stack.Navigator
         initialRouteName="Login"
