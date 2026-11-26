@@ -86,3 +86,125 @@ Tasks QA e Projects QA ficaram em zero e a cópia temporária foi descartada.
 3. Cobrir publicação, ausência/remoção, intents repetidos e navegação com testes. Gerar debug e release e repetir o roteiro manual em dispositivo Android físico antes do merge funcional.
 
 A #65 segue bloqueada pelo G1. A #68 continua responsável pela consolidação final.
+
+## Implementação funcional — 26/11/2026
+
+PBI-27 · RF73 · [Issue #67](https://github.com/AlineRaquelC/gestor-diario/issues/67) · 3 pontos.
+Branch `feature/67-android-task-shortcut`, a partir de `dev` em `5d3a69c`.
+
+### Arquitetura e critérios de aceite
+
+- Kotlin publica um atalho dinâmico “Nova tarefa” (`new-task`) a partir da API
+  25, consultando antes os atalhos já habilitados, a capacidade e o limite de
+  publicação. Serviço ausente, falha ou limite deixam o fluxo manual disponível.
+- O launcher envia `ACTION_VIEW` e `gestordiario://shortcut/new-task` a
+  `MainActivity`, com `CLEAR_TOP | SINGLE_TOP`. A Activity permanece
+  `singleTask` e o esquema permanece sem filtro público. A validação é literal.
+  A Activity encaminha ao RN uma URL interna com um contador por processo, sem
+  extras ou dados de Task/Project. Na recriação, o Bundle só recupera o mesmo
+  ID do processo atual. A restauração de fragments usa a factory do
+  react-native-screens já distribuído com o app.
+- O listener de Linking, a consulta inicial e a consulta na retomada retêm o
+  último acionamento. A navegação espera `onReady`, `projects.hydrated` e
+  `!tasks.loading`. Um único número em memória registra até onde os acionamentos
+  foram consumidos. O Login visual permite a pilha Home → NovaTarefa para essa
+  entrada específica. Em warm, o navegador preserva a rota de origem e usa
+  `popTo` para a instância já existente abaixo do topo.
+- Erro de leitura dos Contexts exibe um alerta e mantém a rota atual. Uma lista
+  válida vazia abre o fluxo existente de seleção/criação manual de Project. O
+  atalho não grava dados. Só “Criar tarefa” executa o `addTask` canônico.
+- Revisão e validação manual em Android físico estão pendentes. A Issue
+  permanece aberta e a validação física é obrigatória antes do merge.
+
+### Testes e builds
+
+| Verificação | Resultado |
+|---|---|
+| Validadores dos scripts CI | 17 aprovados |
+| Mobile Jest | 828 testes em 43 suítes |
+| Backend | Migrações em SQLite temporário, typecheck, 479 testes em 17 suítes e build aprovados |
+| JVM Android | 10 testes em 3 suítes, incluindo 5 do atalho |
+| Lint Mobile | 10 diagnósticos conhecidos de 13 no baseline, sem regressão |
+| Typecheck Mobile | 11 diagnósticos conhecidos de 11 no baseline, sem regressão |
+| Gradle / diff | `assembleDebug`, `assembleRelease`, `:app:testDebugUnitTest` e `git diff --check` aprovados |
+
+RN 0.87.1, New Architecture, Hermes e Codegen existente no grafo do Gradle.
+O APK informa minSdk 24 e contém arm64-v8a, armeabi-v7a, x86 e x86_64.
+O release usa a assinatura de desenvolvimento vigente. O APK foi inspecionado
+com `aapt` e `apksigner`, instalado no AVD e executado com bundle embutido.
+
+- Variante `release`, 71.417.168 bytes, sem Metro.
+- Caminho local absoluto `/home/aline/Área de trabalho/DispositivosMoveis/GerenciadorTarefas/android/app/build/outputs/apk/release/app-release.apk`.
+- SHA-256 `d44573682636491b5db8d720824ce8e12df223f8ba2ebe3b428c925f543ae1f4`.
+
+### Roteiro em Android físico — pendente
+
+1. Instale o APK release de teste. Em USB com depuração habilitada, use
+   `adb install -r /caminho/do/app-release.apk`. Abra o app uma vez para publicar
+   o atalho. Pressione o ícone e procure “Nova tarefa”.
+2. Encerre o app pela tela de recentes e toque no atalho. Quando disponível,
+   use `adb shell am stop-app com.gerenciadortarefas` em segundo plano e
+   confirme que `adb shell pidof com.gerenciadortarefas` não retorna PID.
+   Confirme o Project no formulário e cancele para voltar à Home.
+3. Abra o calendário, vá para o launcher e acione o atalho. Digite um título
+   de rascunho. Acione novamente e confira que o título permanece. Cancele
+   uma vez, volte ao calendário e acione de novo para obter um formulário limpo.
+4. Confirme que nenhuma tarefa surgiu até aqui. Preencha uma única Task
+   `QA67 Físico`, sem recorrência nem lembrete, usando um Project já vinculado
+   à API. Compare os Projects ativos antes e depois do teste.
+   Toque em “Criar tarefa” uma vez. Reabra o app e confira o mesmo registro no
+   app e na API.
+5. Anote `id` e `clientId` da Task na API. Exclua pelo app, aguarde expirar
+   a opção Desfazer e confira Home, calendário, lembretes e `GET /tasks`.
+   Preserve os projetos existentes e o histórico da exclusão.
+
+A configuração versionada continua em `http://10.0.2.2:3000` para o emulador.
+Para o aparelho na mesma rede local do computador, aplique o [procedimento
+existente](../arquitetura/integracao-criacao-tarefas.md#execução-android) em uma
+cópia de trabalho para QA. Use o IP privado do computador em
+`src/services/api.ts` e no domínio permitido de
+`android/app/src/release/res/xml/release_network_security_config.xml`.
+Inicie a API local com `npm run dev` em `backend/` na porta 3000 e permita
+acesso somente a partir da rede de teste. Gere `./gradlew assembleRelease`
+nessa cópia e instale esse APK. Mantenha os ajustes locais de IP fora da branch.
+
+### Android real no emulador
+
+Pixel_7, Android 16/API 36, x86_64, Pixel Launcher, package
+`com.gerenciadortarefas`. ADB automatizou gestos e capturou a UI e o estado
+Android. Os acionamentos de Nova tarefa foram feitos por toque no menu real
+do launcher.
+
+| Teste | Resultado | Evidência |
+|---|---|---|
+| T01 — publicação | PASS | Menu do ícone exibiu “Nova tarefa”. ShortcutService confirmou `new-task` dinâmico. |
+| T02 — cold start | PASS | Processo encerrado com `am stop-app`. O toque abriu NovaTarefa após hidratação e Cancelar voltou à Home. |
+| T03 — warm Home | PASS | Abriu o formulário com a mesma Activity e Cancelar voltou à Home. |
+| T04 — warm Calendário | PASS | O formulário abriu sobre o Calendário e Cancelar retornou à rota de origem. |
+| T05 — rascunho | PASS | O título digitado permaneceu após voltar pelo atalho. |
+| T06 — formulário abaixo de outra rota | PASS | APK debug com lista vazia simulada em uma chave de cache. Pelo app, NovaTarefa → CriarProjeto → toque no launcher → mesmo rascunho em NovaTarefa. Um Cancelar voltou à Home. Cache original restaurado byte a byte. |
+| T07 — repetição | PASS | Toques consecutivos mantiveram o mesmo rascunho. Um único Cancelar saiu do formulário. |
+| T08 — cancelar e reentrar | PASS | Novo acionamento após cancelar abriu um formulário limpo. |
+| T09 — hidratação | PASS | Release abriu com Geral selecionado e a API acessível. Jest verificou a espera individual por navegação, Projects e Tasks. |
+| T10 — falha de hidratação | PASS | Com Wi-Fi e dados temporariamente desligados, a carga de Tasks falhou e o alerta apareceu sobre o Login visual. A rede foi restaurada. Jest também cobriu erro de leitura de Projects. |
+| T11 — recriação | PASS | Mudança de idioma por app gerou relançamento, destroy e create no mesmo PID. O Login voltou sem replay. Um novo toque abriu o formulário. Idioma original restaurado. |
+| T12 — indisponibilidade | PASS | Remoção do único atalho pelo ShortcutService no AVD. Abertura pelo ícone e formulário pelo botão + funcionaram. A reabertura republicou o atalho. |
+| T13 — nenhuma criação automática | PASS | GET /tasks vazio após abrir, repetir e cancelar, antes de confirmar. |
+| T14 — confirmação e persistência | PASS | Uma confirmação pela UI produziu um registro. O mesmo ID reapareceu na API e no app após encerrar e reabrir o processo. |
+| T15 — regressão manual e QR | PASS | No release, o botão + abriu o formulário. CameraX leu um QR V1 na cena virtual. “Usar dados” preencheu o título QA67 QR e Cancelar voltou à Home com a API vazia. Pose, texturas e permissão originais restauradas. |
+
+API 24/25, launcher incompatível e ABIs físicas permanecem sem execução.
+Guarda mínima e indisponibilidade do serviço têm cobertura JVM. A API 36
+x86_64 é a única executada no AVD. O teste QR na cena virtual
+mede o caminho de frames CameraX, sem avaliar a óptica de hardware físico.
+
+### Limpeza QA
+
+A única Task persistida nesta execução foi `QA67 Atalho`,
+`id=268203a7-97be-4cbb-b0a4-4ae1d4accb24`, `clientId=null`.
+A exclusão pelo app removeu o registro da lista ativa e manteve o tombstone.
+O AVD voltou à Home com “Nenhuma tarefa cadastrada”. Calendário e alarmes
+ficaram sem resíduos da massa QA67. `GET /tasks` voltou a `[]` e
+`GET /projects` permaneceu idêntico à leitura inicial. Zero Tasks QA67 ativas
+e zero Projects criados para QA. O registro físico futuro deve repetir a
+limpeza antes do merge.
