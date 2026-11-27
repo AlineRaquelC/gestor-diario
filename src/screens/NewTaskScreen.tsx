@@ -35,6 +35,9 @@ import { calendarDate } from '../services/taskService';
 import { taskSavedFeedback } from '../models/reminderPresentation';
 import TaskProjectSelector from '../components/TaskProjectSelector';
 import TaskQrImport from '../components/TaskQrImport';
+import TaskVoiceImport from '../components/TaskVoiceImport';
+import type { VoiceDraft } from '../domain/taskVoice';
+import { civilDateKey, civilDateToLocal } from '../domain/localCivilDate';
 import type { ExternalTaskDraft } from '../models/externalTaskDraft';
 import { qrDraftDates } from '../domain/structuredQr';
 
@@ -143,10 +146,23 @@ export default function NewTaskScreen() {
   const recurrenceRequest = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [qrBusy, setQrBusy] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const [qrWarning, setQrWarning] = useState('');
   const submitting = useRef(false);
 
-  const canSubmit = title.trim().length > 0 && project.trim().length > 0 && !qrBusy;
+  const canSubmit = title.trim().length > 0 && project.trim().length > 0 && !qrBusy && !voiceBusy;
+
+  function applyVoiceDraft(draft: VoiceDraft) {
+    setTitle(draft.title);
+    if (draft.priority) {setPriority(draft.priority);}
+    if (draft.dueDate) {
+      if (draft.dueDate < civilDateKey(startDate)) {
+        return 'Prazo anterior à data de início. O prazo do formulário foi preservado.';
+      }
+      setDueDate(civilDateToLocal(draft.dueDate));
+    }
+    return undefined;
+  }
 
   function applyQrDraft(draft: ExternalTaskDraft) {
     if (draft.title !== undefined) { setTitle(draft.title); }
@@ -186,7 +202,7 @@ export default function NewTaskScreen() {
   }
 
   async function handleSubmit() {
-    if (submitting.current || qrBusy) {
+    if (submitting.current || qrBusy || voiceBusy) {
       return;
     }
     if (!title.trim()) {
@@ -361,7 +377,8 @@ export default function NewTaskScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TaskQrImport disabled={saving} onDraft={applyQrDraft} onBusyChange={setQrBusy} />
+          <TaskVoiceImport disabled={saving || qrBusy} onDraft={applyVoiceDraft} onBusyChange={setVoiceBusy} />
+          <TaskQrImport disabled={saving || voiceBusy} onDraft={applyQrDraft} onBusyChange={setQrBusy} />
           {qrWarning ? <Text accessibilityLiveRegion="polite" style={styles.subLabel}>{qrWarning}</Text> : null}
           {/* TÍTULO */}
           <FormGroup label="Título" required>

@@ -1,5 +1,9 @@
 # Issue #65 — refinamento de voz e Gate G1
 
+**27/11/2026 · G1 = GO COM RESTRIÇÕES** no Moto G23. A decisão atual e a
+implementação funcional estão nas seções 12 e 13. Os registros de NO-GO
+abaixo descrevem os testes anteriores.
+
 **17/11/2026 · G1 = NO-GO para implementação funcional no ambiente testado.**
 Arquitetura mínima proposta abaixo; viabilidade de captura pela API comprovada,
 mas transcrição pt-BR pelo microfone do host e integração da nova ponte RN ainda
@@ -442,3 +446,149 @@ a um Android físico antes do fechamento, cabe uma última revalidação isolada
 com fala real pt-BR, sem interromper a #67 e fora do compromisso da Sprint.
 A #65 só volta à avaliação para implementação se o G1 reunir evidência
 suficiente para GO ou GO COM RESTRIÇÕES, com autorização separada para iniciar.
+
+## 11. Recuperação do G1 no Moto G23 em 27/11/2026
+
+Spike local `spike/65-voice-physical-g1`, criado a partir da `dev` sincronizada
+em `7099f905faf1b9833678f53cbb539eeafca11a7a`. Alvo físico `0082429976`,
+Moto G23, Android 14/API 34, arm64-v8a. A sondagem instalada separadamente
+confirmou disponibilidade de SpeechRecognizer, SpeechRecognizer on-device
+e Activity para RecognizerIntent. O serviço padrão configurado é
+GoogleTTSRecognitionService. O Android também lista AiAiSpeechRecognitionService
+e resolve o intent para GoogleTTSActivity. A consulta on-device informou
+`installed=[pt-BR]`, nenhuma instalação pendente e nenhuma língua online nessa
+consulta. O APK de diagnóstico não recebeu RECORD_AUDIO. Nenhum modelo foi
+baixado.
+
+O release de prova usa o pacote isolado `com.gerenciadortarefas.voiceg1`,
+React Native/Hermes e um TurboModule Codegen para o SpeechRecognizer on-device.
+A solicitação usa `LANGUAGE_MODEL_FREE_FORM` e `pt-BR`. O app pede
+RECORD_AUDIO somente ao iniciar a captura e entrega só o resultado final a um
+campo editável em memória. Possui cancelamento, timeout, descarte de callbacks
+de sessão encerrada e contagem de resultados finais. Nenhum buffer de áudio é
+armazenado. O spike não possui formulário de tarefa, integração com API,
+gravador, parser ou acesso aos dados do Gestor Diário.
+
+A redação oficial foi conferida em [requisitos oficiais](../requisitos/requisitos-oficiais.md).
+RF28 exige voz pelo microfone e reconhecimento do sistema; REQ141 exige
+interpretação em linguagem natural e confirmação antes de salvar; REQ142 exige
+correção textual da transcrição antes da criação. A tela de prova valida a ponte
+e a edição; a interpretação determinística e a confirmação canônica pertencem
+à implementação funcional posterior a uma decisão do Gate.
+
+A captura humana ainda está pendente. Presença de modelo, resolução da Activity
+e build não comprovam transcrição, passagem do resultado pela ponte ou
+funcionamento offline. Testar primeiro a API on-device. Considerar
+RecognizerIntent como fallback apenas após tentativas limitadas e autorização
+para o possível processamento remoto. Nenhuma Task ou Project de QA foi criado.
+
+### Preparação verificada
+
+O release arm64-v8a foi instalado e abriu em cold start no Moto G23.
+A interface React Native exibiu “Pronto para testar” com o TurboModule
+disponível e zero resultados finais. O APK não carrega permissão INTERNET
+e inclui o bundle Hermes. Isso comprova o carregamento do spike sem Metro;
+a promessa com transcrição humana ainda precisa ser exercitada. O APK
+nativo de diagnóstico foi removido e o Gestor Diário permaneceu instalado.
+A consulta de Tasks após a preparação retornou uma lista vazia.
+
+O Gradle aprovou `:app:assembleRelease` e `:app:testDebugUnitTest` (10
+testes JVM existentes). Os guardas de CI locais, lint, TypeScript e Jest
+(828 testes em 43 suítes) passaram sem ampliação de baselines.
+`git diff --check` passou. O spike permaneceu local, sem PR, push ou merge.
+
+## 12. Decisão final do Gate G1 — GO COM RESTRIÇÕES
+
+A responsável pelo projeto testou o release isolado no Moto G23, Android 14,
+API 34, arm64-v8a. Os cenários abaixo são resultados manuais informados pela
+responsável. Os registros de preparação e as verificações técnicas do Codex
+estão na seção 11.
+
+| Cenário manual do spike | Resultado informado |
+|---|---|
+| Transcrever “Comprar pão amanhã” em pt-BR | PASS |
+| Entregar o resultado pela ponte nativa ao React Native | PASS |
+| Transcrever “Entregar trabalho da faculdade na segunda-feira, prioridade alta” | PASS |
+| Editar a transcrição de prioridade alta para média | PASS |
+| Nova captura com “Estudar engenharia de software amanhã” | PASS |
+| Capturas consecutivas sem reinicialização | PASS, sem duplicação no teste posterior |
+| Cancelar | PASS, transcrição anterior e contador preservados |
+| Captura sem fala | PASS, exibiu “Nenhuma transcrição reconhecida” |
+| “Comprar pão amanhã” com Wi-Fi e dados móveis desativados | PASS, offline no Moto G23 |
+
+Houve diferença entre contadores em duas evidências fotográficas iniciais,
+sem causa confirmada. O teste consecutivo posterior passou. Nenhuma contagem,
+transcrição literal de retorno, imagem ou log foi reconstruído.
+
+O aparelho físico com modelo pt-BR instalado superou a ausência de transcrição
+pt-BR real que bloqueava os NO-GO anteriores. O release com bundle Hermes e
+a abertura em cold start sem Metro foram verificados diretamente pelo Codex.
+A responsável confirmou o resultado real no campo editável do React Native.
+O GO se limita a Android API 31+ com serviço on-device e modelo pt-BR
+disponíveis. A comprovação offline cobre o Moto G23 testado. A solução usa
+somente o reconhecedor on-device e mantém o formulário manual disponível
+em caso de incompatibilidade, modelo ausente ou permissão negada.
+
+## 13. Implementação funcional — Issue #65
+
+A feature parte de `dev` em `7099f905`. O spike está preservado localmente
+em `f29744b`. A feature reutiliza o contrato Codegen e a sessão Android
+on-device validados, com nomes de produção. A interface do spike fica na
+branch de prova. Não há dependência nova, envio de áudio ao backend ou
+gravação de arquivo de áudio.
+
+- **RF28:** ação **Criar por voz** em Nova Tarefa. Verificação do serviço
+  antes da permissão. O TurboModule inicia somente SpeechRecognizer
+  on-device com `pt-BR`, aceita apenas o resultado final e encerra a captura
+  por conclusão, erro, cancelamento, tempo limite ou saída do app.
+- **REQ142:** a transcrição fica em memória no formulário, com original
+  visível após edição. **Interpretar e preencher** usa o texto editado.
+  Cancelamento e erros preservam a transcrição anterior e os campos.
+- **REQ141:** interpretação determinística local. O usuário aplica o texto
+  explicitamente, revisa título, prazo e prioridade e confirma por
+  **Criar tarefa**. A gravação fica no `addTask` canônico. Projeto,
+  início, horário, lembretes, recorrência e subtarefas conservam o valor
+  do formulário. Prazo anterior ao início é sinalizado e preserva o
+  prazo anterior. A prova física da feature segue pendente.
+
+### Gramática de prazo e prioridade
+
+Reconhece qualificadores no fim da frase, em qualquer ordem com relação à
+prioridade. Datas relativas usam o dia civil local e uma referência injetada
+nos testes. Dia da semana significa a próxima ocorrência estritamente
+futura, inclusive sete dias quando a referência cai no mesmo dia da semana.
+As datas brasileiras aceitas são `d/M` e `d/M/yyyy`, com preenchimento
+opcional de zeros. Sem ano, usa o ano corrente. Datas passadas ou inválidas,
+alternativas e qualificadores repetidos preservam a frase como título
+revisável e exibem um aviso. A prioridade reconhece **baixa**, **média** e
+**alta**. Datas, horários ou comandos fora da gramática ficam para revisão
+manual. O limite da interpretação é de 500 caracteres.
+
+### Validação física da feature — aguardando execução
+
+| Cenário | Estado pré-validação |
+|---|---|
+| Frase simples e frase com prazo/prioridade | NOT TESTABLE nesta etapa. Depende de voz humana no release da feature. |
+| Conferir formulário preenchido, editar a transcrição e reaplicar | NOT TESTABLE nesta etapa. Aguardando teste físico. |
+| Corrigir campos manualmente, cancelar sem persistência | NOT TESTABLE nesta etapa. Aguardando teste físico. |
+| Criar uma única tarefa e confirmar na Home, Calendário, API e após reabertura | NOT TESTABLE nesta etapa. Aguardando teste físico. |
+| Reconhecer e interpretar offline | NOT TESTABLE nesta etapa. Aguardando teste físico da feature. Voltar à LAN antes de salvar. |
+| Testar silêncio, cancelamento, negação de permissão e fallback manual | NOT TESTABLE nesta etapa. Aguardando teste físico. |
+| Regressão do fluxo manual, QR V1 e atalho Android | NOT TESTABLE nesta etapa. Aguardando teste físico. |
+
+Usar o prefixo `QA65` em qualquer título persistido, sem recorrência ou
+lembrete. Após a conferência, excluir os registros criados pelo teste apenas
+pelo app. Verificar Home, Calendário, API, alarmes e notificações. Preservar
+histórico, tombstones e Projects existentes. O reconhecimento e o parser
+podem ser avaliados com a rede desligada. A persistência segue o comportamento
+do app e deve ser testada com a API local alcançável.
+
+### Verificação automatizada da feature
+
+Passaram 17 testes dos validadores, lint e TypeScript sem regressão,
+856 testes Mobile em 45 suítes (28 casos novos de voz), 10 testes JVM
+existentes, `assembleDebug`, `assembleRelease` e `git diff --check`.
+No Backend passaram migrações em SQLite temporário, typecheck, 479 testes
+em 17 suítes e build. Os testes de interface simulam a resposta da ponte
+para verificar a revisão e a persistência canônica; a transcrição real
+da feature é uma etapa separada.
