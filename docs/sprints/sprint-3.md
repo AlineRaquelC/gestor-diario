@@ -1,15 +1,15 @@
 # Sprint 3 — Gestor Diário
 
-## Período e estado vigente
+## Encerramento em 27/11/2026
 
-- Período planejado de 16/11/2026 a 27/11/2026.
-- Em 27/11, as três funcionalidades do core estão concluídas, validadas e
-  integradas em `dev`. São **19 de 21 pontos concluídos**.
-- A #68 reúne os 2 pontos restantes. A projeção é **21 pontos após aprovação
-  documental e integração da #68**. A Sprint segue em consolidação.
-- A [proposta de 13/11](sprint-3-proposal.md) e a formalização pelo
+- Período de 16/11/2026 a 27/11/2026.
+- **21/21 pontos concluídos**, equivalentes a **100% do escopo planejado**.
+- As quatro Issues do core foram concluídas e integradas em `dev`.
+- A Sprint 3 cobre recortes da Entrega 3. Os PBIs 25 e 27 permanecem
+  parcialmente entregues e os demais requisitos seguem com seus próprios escopos.
+- A [proposta de 13/11](sprint-3-proposal.md) e o
   [PR #70](https://github.com/AlineRaquelC/gestor-diario/pull/70) registram o
-  planejamento. A Sprint 3 é um recorte da Entrega 3.
+  planejamento original.
 
 ## Sprint Goal original
 
@@ -19,7 +19,7 @@ revisão antes de salvar e preservação do fluxo canônico.”
 **Goal atendido no recorte validado.** O release Android demonstrou voz e QR
 com rascunho revisável, e atalho do launcher para o mesmo formulário. A
 persistência usa o fluxo canônico mediante confirmação explícita. A recuperação
-do G1 viabilizou a voz nesse recorte. O encerramento formal depende da #68.
+do G1 viabilizou a voz nesse recorte.
 
 ## Backlog da Sprint e Planning Poker
 
@@ -28,8 +28,8 @@ do G1 viabilizou a voz nesse recorte. O encerramento formal depende da #68.
 | C1 — Voz | [#65](https://github.com/AlineRaquelC/gestor-diario/issues/65) / [PR #76](https://github.com/AlineRaquelC/gestor-diario/pull/76) | 8 | Concluída, integrada em `dev` |
 | C2 — QR | [#66](https://github.com/AlineRaquelC/gestor-diario/issues/66) / [PR #72](https://github.com/AlineRaquelC/gestor-diario/pull/72) | 8 | Concluída, integrada em `dev` |
 | C3 — Atalho Android | [#67](https://github.com/AlineRaquelC/gestor-diario/issues/67) / [PR #75](https://github.com/AlineRaquelC/gestor-diario/pull/75) | 3 | Concluída, integrada em `dev` |
-| C4 — Consolidação documental | [#68](https://github.com/AlineRaquelC/gestor-diario/issues/68) | 2 | Em consolidação, aguardando aprovação documental e integração |
-| **Core original** | **4 itens** | **21** | **19 concluídos, 2 pendentes** |
+| C4 — Consolidação documental | [#68](https://github.com/AlineRaquelC/gestor-diario/issues/68) / [PR #77](https://github.com/AlineRaquelC/gestor-diario/pull/77) | 2 | Concluída, integrada em `dev` |
+| **Core original** | **4 Issues concluídas** | **21/21** | **100% do escopo planejado** |
 
 ## Decisão de replanejamento em 24/11/2026
 
@@ -100,6 +100,7 @@ com seus escopos próprios.
 | #65 | [#93](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46031039563), Mobile e Backend aprovados | [#94](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46035538365), Mobile e Backend aprovados |
 | #66 | [#83](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45409848429), Mobile e Backend aprovados | [#84](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45411296298), Mobile e Backend aprovados |
 | #67 | [#90](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45995952319), Mobile e Backend aprovados | [#91](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45996408875), Mobile e Backend aprovados |
+| #68 | [#95](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46038957997), Mobile e Backend aprovados | [#96](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46047471592), Mobile e Backend aprovados |
 
 O incremento funcional em `dev` (`c1298e73`) e a verificação local da
 #68 registram 17 testes dos validadores, 856 Mobile em 45 suítes, 479
@@ -165,7 +166,7 @@ Para cada recorte:
 
 Encerrar a Sprint exige Goal atendido ou formalmente revisado, itens concluídos
 ou replanejados, incremento integrado/validado e documentação/demonstração
-coerentes com a DoD. A aprovação e a integração da #68 ainda estão pendentes.
+coerentes com a DoD. A #68 foi aprovada, integrada em `dev` e verificada no CI pós-merge. A revisão final do incremento e a promoção para `main` ficam para a etapa seguinte.
 
 ## Regra de limpeza QA
 
@@ -201,5 +202,5 @@ A consolidação usou consultas somente leitura no ambiente de QA.
   mantido em NO-GO, com replanejamento registrado acima.
 - 27/11: #67, #65 e a prova complementar da #66 concluídas no Moto G23.
   #65 e #67 integradas em `dev`. #66 encerrada após a validação complementar.
-- 27/11: #68 em consolidação com 19 pontos concluídos e os 2 documentais
-  pendentes de aprovação e integração.
+- 27/11: #68 aprovada e integrada pelo PR #77. Sprint encerrada com as
+  quatro Issues concluídas e 21/21 pontos do core planejado.

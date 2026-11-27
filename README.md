@@ -8,10 +8,10 @@ Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido 
 - **Sprint 2 core:** #39–#42 concluídas, integradas em `dev` e promovidas para
   `main` pelo [PR #55](https://github.com/AlineRaquelC/gestor-diario/pull/55) —
   **4/4 Issues, 37/37 pontos, 100%** ([fechamento e evidências](docs/sprints/sprint-2.md)).
-- **Sprint 3:** 19 de 21 pontos integrados em `dev`. Voz (#65),
-  QR estruturado (#66) e atalho Android (#67) estão concluídos. Os 2 pontos
-  da #68 estão em consolidação e dependem de aprovação documental e
-  integração. [Registro e rastreabilidade da Sprint 3](docs/sprints/sprint-3.md)
+- **Sprint 3:** encerrada em 27/11/2026 com **21/21 pontos**, 100% do
+  escopo planejado. Voz (#65), QR estruturado (#66), atalho Android (#67)
+  e consolidação documental (#68) foram concluídos e integrados em `dev`.
+  [Fechamento e rastreabilidade da Sprint 3](docs/sprints/sprint-3.md)
 - **#43:** perfis locais, pendência da Entrega 2. Permanece aberta, com gate
   NO-GO e fora do core da Sprint 3. [Issue #43](https://github.com/AlineRaquelC/gestor-diario/issues/43)
 
