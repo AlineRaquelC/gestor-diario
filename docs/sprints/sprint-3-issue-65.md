@@ -592,3 +592,60 @@ No Backend passaram migrações em SQLite temporário, typecheck, 479 testes
 em 17 suítes e build. Os testes de interface simulam a resposta da ponte
 para verificar a revisão e a persistência canônica; a transcrição real
 da feature é uma etapa separada.
+
+## 14. Validação física final — 27/11/2026
+
+A responsável pelo projeto executou a validação da implementação definitiva no
+Moto G23, Android 14/API 34, com release Hermes. Os resultados desta tabela
+foram informados pela responsável.
+
+| Cenário manual | Resultado |
+|---|---|
+| “Comprar pão amanhã” | PASS. Título interpretado corretamente e prazo em 28/11/2026. |
+| “Entregar trabalho da faculdade na segunda-feira, prioridade alta” | PASS. Título interpretado corretamente, prazo em 30/11/2026 e prioridade alta. |
+| Edição da transcrição e nova interpretação | PASS. Troca de segunda-feira por amanhã e de alta por média aplicada corretamente. |
+| Correção no formulário canônico | PASS. Título, descrição, prazo e prioridade editáveis. |
+| Cancelar captura | PASS. Rascunho preservado. |
+| Cancelar formulário | PASS. Sem criação involuntária. |
+| Criar explicitamente `QA65 Estudar engenharia de software` | PASS. Uma tarefa na Home e no Calendário, persistente após reabertura. |
+| Offline: “Comprar material escolar depois de amanhã, prioridade baixa” | PASS. Reconhecimento e interpretação em pt-BR, prazo em 29/11/2026 e prioridade baixa. |
+| Ausência de fala e permissão negada | PASS. Erros tratados e criação manual disponível. |
+| Regressões manual, QR Code e atalho Android | PASS. Criação manual aprovada na repetição via USB. |
+| Exclusão de tarefas QA e reabertura | PASS. Home e Calendário limpos, sem reaparecimento. |
+
+RF28, REQ141 e REQ142 foram atendidos no recorte implementado. A prova física
+cobre este Moto G23 com serviço on-device e modelo pt-BR instalado. Vale a
+restrição de compatibilidade do G1. O cenário offline exercitou voz e parser.
+A persistência foi validada com comunicação disponível com a API.
+
+### Comunicação durante a validação
+
+Após o teste offline, o Moto G23 retornou `No route to host` na conexão Wi-Fi
+com o notebook, cujo IP permaneceu `192.168.18.169`. O backend seguiu ativo,
+a API respondeu a partir do notebook e o SQLite passou no `quick_check`.
+A primeira tentativa manual não gerou registro na API ou no banco. A origem
+exata da falha Wi-Fi não foi determinada.
+
+O Codex confirmou HTTP 200 diretamente pelo aparelho via ADB reverse e
+confirmou o acesso no próprio Gestor Diário com a busca remota. O APK
+temporário usou `127.0.0.1:3000` e política de HTTP limitada a loopback,
+somente na cópia de QA. A responsável repetiu com sucesso a criação manual
+e concluiu as regressões nesse ambiente. As configurações versionadas
+e o APK anterior foram preservados.
+
+### Verificações diretas do Codex e limpeza
+
+O Codex confirmou a tarefa de voz ativa na API e no SQLite durante o teste.
+O título armazenado foi `QA65  estudar engenharia de software` e o ID foi
+`d753d194-db10-4235-b71f-d7ee893a97b9`. Após a limpeza informada, a API
+retornou zero Tasks ativas e a lista de Projects permaneceu idêntica à
+referência. Uma consulta somente leitura confirmou os tombstones e o histórico
+da tarefa de voz e de `QA65 Regressão manual`
+(`240f7285-8912-4b26-a156-6017323b9147`). Home e Calendário estavam vazios e
+o aparelho retornou zero alarmes ou notificações do app.
+
+O APK USB temporário tinha SHA-256
+`097562847e6f087e3cdfb8d5cdc2e915524e0846382944382b5359445145cdb9`.
+O Codex restaurou o APK anterior por atualização, sem limpar dados, removeu
+o pacote de spike e retirou o encaminhamento USB. Os resultados automatizados
+estão registrados separadamente na seção 13.

@@ -627,3 +627,31 @@ validação manual, registrar IDs, conferir Home/calendário/API sem resíduos,
 preservar Tasks reais e history; nenhum arquivo QR técnico persistido no app.
 Não marcar esta matriz como aprovada por causa de Jest/JVM/automação ADB.
 Sem merge automático ou fechamento da #66 nesta execução.
+
+## Validação física complementar — 27/11/2026
+
+A responsável pelo projeto usou o QR válido original da #66 no Moto G23,
+Android 14/API 34. Confirmou manualmente o acesso ao leitor, a rotação física
+do aparelho durante o uso, a leitura e o preenchimento correto, a reentrada,
+a nova leitura sem duplicação de telas ou tarefas e o cancelamento sem
+persistência involuntária. Todos esses cenários passaram.
+
+O manifesto versionado do scanner não fixa `screenOrientation`, e o código
+do scanner não solicita uma orientação específica. A orientação da interface
+depende do sistema. A responsável confirmou a rotação física e o comportamento
+observado do fluxo. O teste não instrumentou mudança de configuração ou
+recriação da Activity.
+
+O [PR funcional #72](https://github.com/AlineRaquelC/gestor-diario/pull/72)
+já está integrado em `dev` por `cc9c2f53`. A aprovação física anterior,
+a validação complementar acima, os testes de parser, câmera, edição,
+revisão e persistência canônica e os resultados de CI do PR e pós-merge
+cobrem os critérios de aceite e a Definition of Done aplicáveis.
+O Codex confirmou, na limpeza final, Home e Calendário sem resíduos,
+zero Tasks ativas QA66, lista de Projects preservada, zero alarmes ou
+notificações do app e tombstones anteriores de QA66 preservados.
+
+**REQ145 atendido no escopo de QR estruturado V1.** **RF30 permanece parcial.**
+Barcode linear, associação persistente a item/local e automações externas
+continuam fora do recorte. A câmera real foi exercitada nesse Moto G23,
+com cobertura de emulador e testes automatizados registrados separadamente.
