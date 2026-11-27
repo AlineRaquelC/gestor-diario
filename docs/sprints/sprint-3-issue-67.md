@@ -208,3 +208,39 @@ ficaram sem resíduos da massa QA67. `GET /tasks` voltou a `[]` e
 `GET /projects` permaneceu idêntico à leitura inicial. Zero Tasks QA67 ativas
 e zero Projects criados para QA. O registro físico futuro deve repetir a
 limpeza antes do merge.
+
+## Validação física final — 27/11/2026
+
+A responsável pelo projeto aprovou manualmente o RF73 no Motorola Moto G23,
+Android 14/API 34, arm64-v8a, com o launcher Motorola. O Codex preparou e
+instalou o release com bundle Hermes, abriu o app sem depender do Metro e
+verificou a API pela LAN. A instalação e as verificações técnicas do Codex
+são complementares ao teste manual. O APK de QA foi gerado a partir de
+`3d23dc481cde584bf95c1bb4e681a65375b8d16f`, com IP local e vínculo do projeto
+inicial Geral ao registro existente na API somente na cópia isolada.
+
+| Cenário executado pela responsável | Resultado informado |
+|---|---|
+| Pressionar o ícone do Gestor Diário | PASS. O launcher exibiu “Nova tarefa”. |
+| Cold start pelo atalho | PASS. Abriu diretamente o formulário. |
+| Cancelar no fluxo cold | PASS. Voltou à Home sem criar tarefa. |
+| Warm start e cancelamento | PASS. Abriu com o app em execução e voltou ao Calendário. |
+| Acionamentos repetidos | PASS. Preservaram o rascunho, sem duplicar tela ou Task. |
+| Criação explícita e persistência | PASS. Uma tarefa de QA apareceu na Home e no Calendário e persistiu após reabertura. |
+| Exclusão e reabertura | PASS. Home limpa, calendário sem a tarefa e sem reaparecimento. |
+
+A responsável identificou a tarefa como `QA67 Físico`. O registro observado
+no SQLite teve o título `QA67 Fisico`, ID
+`b2019b9a-4bea-4212-a4dd-47a485b063b1` e `clientId=null`. O Codex conferiu
+`GET /tasks` vazio, `GET /projects` idêntico à referência anterior ao teste
+e zero alarmes ou notificações ativas do pacote no aparelho. Uma consulta
+somente leitura confirmou os tombstones de `QA67 Fisico` e `QA67 Atalho`
+e seus registros de histórico. Nenhum Project temporário foi criado.
+
+**RF73 atendido no recorte da #67.** Continuam válidas as restrições do G3:
+a publicação dinâmica exige API 25+ e depende do launcher. API 24 preserva
+o fluxo manual por guarda de versão. API 24/25 e launcher incompatível
+seguem sem teste em execução, com cobertura JVM da guarda e da falha do
+serviço. O teste físico se limita ao Moto G23/API 34, e a cobertura no Pixel
+Launcher/API 36 está registrada separadamente. A possibilidade de fixação
+depende do launcher.
