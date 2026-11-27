@@ -15,9 +15,11 @@ Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido 
 - **#43:** perfis locais, pendência da Entrega 2. Permanece aberta, com gate
   NO-GO e fora do core da Sprint 3. [Issue #43](https://github.com/AlineRaquelC/gestor-diario/issues/43)
 
-`main` contém a base estável promovida no fechamento do core da Sprint 2.
-`dev` contém o incremento da Sprint 3 e as correções de manutenção posteriores
-àquele fechamento. Os recortes selecionados da Entrega 2 e da Entrega 3
+A Sprint 3 e as correções de manutenção posteriores à Sprint 2 foram
+promovidas para `main` pelo [PR #79](https://github.com/AlineRaquelC/gestor-diario/pull/79).
+Mobile e Backend passaram no [CI #99 da promoção](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46062449661)
+e no [CI #100 pós-merge](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46078953284).
+`dev` segue como branch de integração. Os recortes selecionados da Entrega 2 e da Entrega 3
 cobrem parte de cada entrega.
 
 ## Funcionalidades atuais

@@ -166,7 +166,22 @@ Para cada recorte:
 
 Encerrar a Sprint exige Goal atendido ou formalmente revisado, itens concluídos
 ou replanejados, incremento integrado/validado e documentação/demonstração
-coerentes com a DoD. A #68 foi aprovada, integrada em `dev` e verificada no CI pós-merge. A revisão final do incremento e a promoção para `main` ficam para a etapa seguinte.
+coerentes com a DoD. A #68 foi aprovada, integrada em `dev` e verificada
+no CI pós-merge. A revisão final e a promoção para `main` estão registradas
+abaixo.
+
+## Promoção para main
+
+O [PR #79](https://github.com/AlineRaquelC/gestor-diario/pull/79) promoveu o
+incremento aprovado de `dev` em `1b5a91b5639fa286757dd3cb4f7aefe11695c13a`
+para `main` no merge `a6e80883da93211c7cb4f8df621abfde4aef7b6e`.
+A árvore do merge corresponde ao conteúdo funcional auditado de `dev`.
+
+Mobile e Backend passaram no [CI #99 do PR](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46062449661)
+e no [CI #100 pós-merge em main](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46078953284).
+A auditoria da promoção confirmou 17 testes dos validadores, 856 testes
+Mobile em 45 suítes, 479 Backend em 17 suítes e 10 JVM em 3 suítes.
+A promoção preservou o escopo validado da Sprint e as limitações registradas.
 
 ## Regra de limpeza QA
 
@@ -204,3 +219,4 @@ A consolidação usou consultas somente leitura no ambiente de QA.
   #65 e #67 integradas em `dev`. #66 encerrada após a validação complementar.
 - 27/11: #68 aprovada e integrada pelo PR #77. Sprint encerrada com as
   quatro Issues concluídas e 21/21 pontos do core planejado.
+- 27/11: incremento da Sprint 3 promovido para `main` pelo PR #79, com CI pós-merge aprovado.
