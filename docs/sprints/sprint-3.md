@@ -2,41 +2,38 @@
 
 ## Período e estado vigente
 
-- **Início:** 16/11/2026.
-- **Término:** 27/11/2026.
-- **Estado em 17/11/2026: EM ANDAMENTO**, conforme correção informada pela usuária.
-- **Core originalmente proposto:** 21 pontos; estimativas preliminares.
-- Nenhum milestone criado nesta formalização; #65–#68 estão sem milestone.
-- Nenhuma feature implementada pela formalização documental do PR #70.
-
-Este é o registro vigente da Sprint. A [proposta de 13/11](sprint-3-proposal.md)
-permanece como histórico do planejamento, sem substituir ou alterar requisitos.
-As afirmações recentes de “Sprint 3 não iniciada” foram corrigidas: o início
-informado é 16/11, embora as Issues e os gates tenham sido registrados depois.
-Início da Sprint não significa aceite dos gates ou conclusão das funcionalidades.
+- Período planejado de 16/11/2026 a 27/11/2026.
+- Em 27/11, as três funcionalidades do core estão concluídas, validadas e
+  integradas em `dev`. São **19 de 21 pontos concluídos**.
+- A #68 reúne os 2 pontos restantes. A projeção é **21 pontos após aprovação
+  documental e integração da #68**. A Sprint segue em consolidação.
+- A [proposta de 13/11](sprint-3-proposal.md) e a formalização pelo
+  [PR #70](https://github.com/AlineRaquelC/gestor-diario/pull/70) registram o
+  planejamento. A Sprint 3 é um recorte da Entrega 3.
 
 ## Sprint Goal original
 
 “Criar tarefas no Android por voz, QR estruturado e atalho do sistema, com
 revisão antes de salvar e preservação do fluxo canônico.”
 
-O G1 NO-GO compromete o atendimento integral do Goal pela indisponibilidade
-da voz. A avaliação final do Goal fica para o fechamento da Sprint na #68.
-A Sprint cobre recortes da Entrega 3 e de seus PBIs.
+**Goal atendido no recorte validado.** O release Android demonstrou voz e QR
+com rascunho revisável, e atalho do launcher para o mesmo formulário. A
+persistência usa o fluxo canônico mediante confirmação explícita. A recuperação
+do G1 viabilizou a voz nesse recorte. O encerramento formal depende da #68.
 
 ## Backlog da Sprint e Planning Poker
 
-Estado do incremento em 24/11/2026.
-
-| Item | Issue | Origem / limite | Pontos preliminares | Estado atual |
-|---|---|---|---:|---|
-| C1 — voz | [#65 — Criação assistida de tarefas por voz](https://github.com/AlineRaquelC/gestor-diario/issues/65) | PBI-25; RF28, REQ141/142; sem RF75 | 8 | OPEN — 8 pontos bloqueados / replanejados por Gate G1 NO-GO |
-| C2 — QR | [#66 — Criar tarefa a partir de QR Code estruturado](https://github.com/AlineRaquelC/gestor-diario/issues/66) | PBI-25; REQ145, RF30 parcial | 8 | Concluída no incremento, G2 GO e [PR #72](https://github.com/AlineRaquelC/gestor-diario/pull/72) integrado em `dev` |
-| C3 — atalho Android | [#67 — Atalho Android para criação de nova tarefa](https://github.com/AlineRaquelC/gestor-diario/issues/67) | PBI-27; RF73; sem widgets | 3 | OPEN — G3 pendente |
-| C4 — documentação/rastreabilidade | [#68 — Atualizar evidências, rastreabilidade e README](https://github.com/AlineRaquelC/gestor-diario/issues/68) | Enabler documental; sem novo requisito oficial | 2 | OPEN — consolidação final depende dos resultados C1–C3 |
-| **Total originalmente proposto** | **4 Issues** | **3 funcionais + 1 documental** | **21** | **Referência original preservada** |
+| Item | Issue / PR funcional | Pontos | Estado em 27/11 |
+|---|---|---:|---|
+| C1 — Voz | [#65](https://github.com/AlineRaquelC/gestor-diario/issues/65) / [PR #76](https://github.com/AlineRaquelC/gestor-diario/pull/76) | 8 | Concluída, integrada em `dev` |
+| C2 — QR | [#66](https://github.com/AlineRaquelC/gestor-diario/issues/66) / [PR #72](https://github.com/AlineRaquelC/gestor-diario/pull/72) | 8 | Concluída, integrada em `dev` |
+| C3 — Atalho Android | [#67](https://github.com/AlineRaquelC/gestor-diario/issues/67) / [PR #75](https://github.com/AlineRaquelC/gestor-diario/pull/75) | 3 | Concluída, integrada em `dev` |
+| C4 — Consolidação documental | [#68](https://github.com/AlineRaquelC/gestor-diario/issues/68) | 2 | Em consolidação, aguardando aprovação documental e integração |
+| **Core original** | **4 itens** | **21** | **19 concluídos, 2 pendentes** |
 
 ## Decisão de replanejamento em 24/11/2026
+
+Registro histórico da decisão de 24/11, anterior à recuperação do G1.
 
 A #65 permanece aberta no backlog com seus 8 pontos bloqueados pelo G1
 NO-GO. Esses pontos ficam fora da expectativa de entrega desta Sprint.
@@ -68,6 +65,66 @@ React Navigation, cold start, warm start, hidratação de Projects e estado,
 prevenção de tela ou Task duplicada e launcher sem suporte.
 O G3 permanece pendente.
 
+## Recuperação do Gate G1 em 27/11/2026
+
+O Moto G23 (Android 14/API 34, arm64-v8a) tinha o modelo pt-BR instalado.
+A responsável pelo projeto confirmou fala real, resultado editável via
+React Native e funcionamento offline no release do spike. O **G1 passou
+de NO-GO a GO COM RESTRIÇÕES**. Depois, a implementação definitiva foi
+validada fisicamente no mesmo aparelho e integrada pelo PR #76. O histórico
+do AVD e as duas provas físicas estão no [registro da #65](sprint-3-issue-65.md).
+
+## Rastreabilidade de requisitos
+
+| Item e PBI | Requisito oficial e estado | Testes e evidências |
+|---|---|---|
+| C1 / PBI-25 | [RF28](../requisitos/requisitos-oficiais.md#rf28--página-5), criação por voz via microfone e reconhecimento do sistema. [REQ141](../requisitos/requisitos-oficiais.md#req141--página-18), linguagem natural com confirmação antes de salvar. [REQ142](../requisitos/requisitos-oficiais.md#req142--página-18), correção textual antes de criar. Atendidos no recorte. | [Parser](../../__tests__/taskVoice.test.ts), [formulário e ponte](../../__tests__/NewTaskVoice.integration.test.tsx), [manual físico](sprint-3-issue-65.md#14-validação-física-final--27112026). |
+| C2 / PBI-25 | [REQ145](../requisitos/requisitos-oficiais.md#req145--página-18) atendido para criação a partir de QR estruturado V1. [RF30](../requisitos/requisitos-oficiais.md#rf30--página-5) parcial. Leitura de barcode linear e associação persistente a item ou local continuam fora do recorte. | [Parser](../../__tests__/structuredQr.test.ts), [fluxo QR](../../__tests__/NewTaskQr.integration.test.tsx), [decoder JVM](../../android/app/src/test/java/com/gerenciadortarefas/qr/QrFrameDecoderTest.kt), [manual físico](sprint-3-issue-66.md#validação-física-complementar--27112026). |
+| C3 / PBI-27 | [RF73](../requisitos/requisitos-oficiais.md#rf73--página-10) atendido no recorte de atalho dinâmico **Nova tarefa** no launcher Android. | [Navegação](../../__tests__/NewTaskShortcut.integration.test.tsx), [guarda e entrega JVM](../../android/app/src/test/java/com/gerenciadortarefas/NewTaskShortcutTest.kt), [manual físico](sprint-3-issue-67.md#validação-física-final--27112026). |
+| C4 / #68 | Enabler de documentação e rastreabilidade, sem novo requisito oficial. | README, este registro, links e execução do CI documental. |
+
+PBI-25 e PBI-27 ficam parcialmente entregues. As outras capacidades
+listadas no [backlog da Entrega 3](../backlog/backlog-produto.md) seguem
+com seus escopos próprios.
+
+## Evidências e CI
+
+| Item | Gate e evidência em emulador | Evidência física |
+|---|---|---|
+| #65 | G1 NO-GO em 17 e 24/11 no Pixel_7/API 36, sem transcrição pt-BR válida de fala real. G1 GO COM RESTRIÇÕES em 27/11 no Moto G23. | Spike e release definitivo com reconhecimento local, ponte RN, edição, cancelamento, interpretação e regressões. A responsável validou reconhecimento/interpretação offline e persistência com a API alcançável. |
+| #66 | G2 GO COM RESTRIÇÕES no spike do AVD, com CameraX/ZXing e QR em cena virtual. G2 GO para integração do recorte validado. | A responsável aprovou leitura, edição, confirmação e, na prova complementar do Moto G23, rotação física, reentrada e cancelamento sem duplicação. Recriação da Activity ficou sem comprovação. |
+| #67 | G3 GO COM RESTRIÇÕES, com Pixel Launcher em AVD API 36/x86_64, cold/warm start, reentrada e teste de duplicação. | A responsável aprovou o atalho no launcher Motorola em API 34, a preservação do rascunho e a criação explícita com persistência. |
+
+| Issue | CI do PR | CI pós-merge em dev |
+|---|---|---|
+| #65 | [#93](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46031039563), Mobile e Backend aprovados | [#94](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46035538365), Mobile e Backend aprovados |
+| #66 | [#83](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45409848429), Mobile e Backend aprovados | [#84](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45411296298), Mobile e Backend aprovados |
+| #67 | [#90](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45995952319), Mobile e Backend aprovados | [#91](https://github.com/AlineRaquelC/gestor-diario/actions/runs/45996408875), Mobile e Backend aprovados |
+
+O incremento funcional em `dev` (`c1298e73`) e a verificação local da
+#68 registram 17 testes dos validadores, 856 Mobile em 45 suítes, 479
+Backend em 17 suítes e 10 JVM em 3 suítes. Lint e TypeScript passaram
+sem ampliar baselines. Backend passou em migração SQLite isolada,
+typecheck, testes e build. Os builds Android debug e release passaram
+nas validações funcionais. O workflow GitHub Actions executa Mobile e
+Backend. A prova JVM e os APKs foram verificados separadamente.
+
+### Limitações de compatibilidade e conectividade
+
+- Voz on-device exige API 31+, serviço compatível e modelo pt-BR.
+  Reconhecimento offline comprovado no Moto G23. A API precisa estar
+  alcançável para persistir ou sincronizar remotamente.
+- O atalho dinâmico exige API 25+ e launcher compatível. API 24/25 e
+  launchers incompatíveis seguem sem validação em execução.
+- O QR V1 foi testado em câmera física e em cena virtual, em registros
+  separados. O cenário de rotação não comprova recriação da Activity.
+- Após o teste offline da #65, o Wi-Fi retornou `No route to host`.
+  O backend permaneceu ativo, o SQLite estava íntegro e a causa exata
+  ficou inconclusiva. USB com ADB reverse e release isolado em
+  `127.0.0.1:3000` retornou HTTP 200 e permitiu concluir as regressões.
+  O APK anterior foi restaurado e o encaminhamento removido. A
+  configuração versionada do emulador foi preservada.
+
 ## Fora do core
 
 - [#43 — Base de perfis locais](https://github.com/AlineRaquelC/gestor-diario/issues/43)
@@ -81,8 +138,8 @@ O G3 permanece pendente.
 
 | Risco | Tratamento |
 |---|---|
-| G1 impede a voz prevista no Goal | Manter #65 bloqueada, registrar evidências e decidir reabertura/replanejamento explicitamente |
-| Prazo já em curso com G3 pendente | Reavaliar rapidamente seleção/capacidade após os gates; sem assumir velocidade ou entrega integral |
+| Serviço ou modelo indisponível para voz | Verificar disponibilidade e preservar o formulário manual. A demonstração offline requer modelo pt-BR instalado. |
+| Comunicação LAN intermitente | Usar a configuração isolada por USB quando a LAN estiver indisponível. |
 | Dependências nativas incompatíveis | Provar versões/licenças e builds RN/New Architecture em refinamento autorizado |
 | Captura/transmissão e permissões | Informação antes de capturar, consentimento contextual e fallback manual |
 | Callback/intent duplica criação | Sessão única, revisão e confirmação; fluxo addTask canônico |
@@ -108,7 +165,7 @@ Para cada recorte:
 
 Encerrar a Sprint exige Goal atendido ou formalmente revisado, itens concluídos
 ou replanejados, incremento integrado/validado e documentação/demonstração
-coerentes com a DoD. Esta formalização não encerra Sprint ou Issues.
+coerentes com a DoD. A aprovação e a integração da #68 ainda estão pendentes.
 
 ## Regra de limpeza QA
 
@@ -119,7 +176,11 @@ Projects e demais entidades. Confirmar Home/calendário/API sem resíduos da mas
 técnica, sem usar exclusão indiscriminada para aparentar limpeza.
 
 Em 24/11, a Home foi conferida no emulador e a API retornou zero tarefas
-ativas. A atualização documental não criou Tasks nem massa de QA.
+ativas. No fechamento técnico de C1–C3, Home e Calendário foram conferidos
+no Moto G23, sem resíduos, alarmes ou notificações de QA. A #68 confirmou
+novamente API sem tarefas ativas, Projects iguais à referência e SQLite
+íntegro, com 7 tombstones e 18 eventos de histórico QA65–QA67 preservados.
+A consolidação usou consultas somente leitura no ambiente de QA.
 
 ## Histórico documental
 
@@ -138,3 +199,7 @@ ativas. A atualização documental não criou Tasks nem massa de QA.
   pendentes. #65 não substituída; #67/#68 e #43 não alteradas.
 - 24/11: #66 integrada em `dev` pelo PR #72 com G2 GO. G1 reexecutado e
   mantido em NO-GO, com replanejamento registrado acima.
+- 27/11: #67, #65 e a prova complementar da #66 concluídas no Moto G23.
+  #65 e #67 integradas em `dev`. #66 encerrada após a validação complementar.
+- 27/11: #68 em consolidação com 19 pontos concluídos e os 2 documentais
+  pendentes de aprovação e integração.

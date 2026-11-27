@@ -107,9 +107,9 @@ Os demais PBIs da Entrega 2 conservam seu estado planejado. Referências técnic
 | **PBI-22** | Operações em lote, arquivamento e campos personalizados | RF66, RF67, RF68, RF69, RF70, REQ109, REQ110 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-23** | Prazos úteis, feriados, atrasos e revisão semanal | REQ086–REQ092, REQ113 | Front / Backend / Banco | Média | 2 | Planejado |
 | **PBI-24** | Anexos, links, áudio, compartilhamento e impressão | RF52–RF57, REQ102–REQ106, REQ127–REQ132 | Front / Backend / Banco / Android | Média | 2 | Planejado |
-| **PBI-25** | Comandos de voz, câmera, OCR, QR Code e NFC | RF28, RF29, RF30, RF75, REQ141–REQ146 | Front / Hardware / Android | Baixa | 3 | Planejado |
+| **PBI-25** | Comandos de voz, câmera, OCR, QR Code e NFC | RF28, RF29, RF30, RF75, REQ141–REQ146 | Front / Hardware / Android | Baixa | 3 | Parcial — voz (#65) e QR estruturado V1 (#66) integrados em `dev`; RF30 parcial |
 | **PBI-26** | GPS, mapa, geofencing e lembretes por localização | RF31, RF32, RF62, RF76, REQ093, REQ133, REQ147–REQ150 | Front / Hardware / Backend / Banco | Baixa | 3 | Planejado |
-| **PBI-27** | Integrações Android, calendário, rede e eventos do sistema | RF73, RF74, REQ094–REQ100, REQ107, REQ108, REQ129–REQ132, REQ151–REQ158 | Front / Android / Hardware / Backend | Baixa | 3 | Planejado |
+| **PBI-27** | Integrações Android, calendário, rede e eventos do sistema | RF73, RF74, REQ094–REQ100, REQ107, REQ108, REQ129–REQ132, REQ151–REQ158 | Front / Android / Hardware / Backend | Baixa | 3 | Parcial — atalho dinâmico Android (#67 / RF73) integrado em `dev` |
 | **PBI-28** | Automação por contexto de uso e conectividade | REQ134–REQ140 | Front / Backend / Android | Baixa | 3 | Planejado |
 | **PBI-29** | Sensores ambientais, movimento e saúde | REQ159–REQ174 | Hardware / Android / Backend | Baixa | 3 | Planejado |
 | **PBI-30** | Biometria e acesso contextual a tarefas sensíveis | REQ175–REQ180 | Hardware / Segurança / Android | Baixa | 3 | Planejado |
