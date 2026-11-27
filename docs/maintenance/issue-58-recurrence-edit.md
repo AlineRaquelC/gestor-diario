@@ -1,0 +1,439 @@
+# Issue #58 — refinamento técnico da ativação por edição
+
+**10/11/2026 — manutenção pós-Sprint 2; somente auditoria e plano.**
+Issue [#58](https://github.com/AlineRaquelC/gestor-diario/issues/58)
+confirmada **OPEN**, com labels bug, frontend, backend e test. Base `dev`
+atualizada por `git pull`, árvore limpa, commit
+`cad7d9b33d70650e5d1847ce56970a853fc62dfd`.
+Branch documental: `docs/refine-58-recurrence-edit`; PR para `dev`, sem merge
+automático. A data deste registro é a data solicitada para o refinamento.
+
+Fontes: Issue #58, [registro da #40](../sprints/sprint-2-issue-40.md),
+[Sprint 2](../sprints/sprint-2.md) e código referenciado abaixo.
+Os registros da Sprint 2 permanecem históricos; esta manutenção não a reabre.
+Não implementa correção, migration ou branch funcional; não altera Pixel 7,
+dados do app, #43 ou Sprint 3. Não cria massa de teste.
+
+## Diagnóstico confirmado por inspeção
+
+Há uma lacuna de orquestração em
+[`TaskContext`](../../src/context/TaskContext.tsx): `activateTaskRecurrence`
+usa `mutateRule`, que publica e persiste somente a Task vinculada e o resumo
+da série. Não chama `materializeRecurrences` nem `getTasks`.
+
+A tela chama a operação correta; não se limita a alterar texto local.
+No backend, `activate` cria a série e vincula a Task original atomicamente,
+mas não gera as próximas ocorrências. Isso é coerente com o contrato separado
+de materialização. O problema é a ausência da sequência posterior no Context.
+O sintoma observado na apresentação é explicado por esse caminho; não houve
+reprodução no dispositivo nesta execução nem inspeção do banco do Pixel 7.
+
+## Comparação dos fluxos reais
+
+| Etapa | A: nova Task recorrente | B: Task existente sem série → recorrente |
+| --- | --- | --- |
+| Tela | `NewTaskScreen` envia `recurrenceInput` e requestId para `addTask` | `EditTaskScreen` identifica `recurrenceChanged`; sem seriesId chama `activateTaskRecurrence` |
+| Serviço/endpoint | `taskService.createTask`: `POST /recurrence-series` | `recurrenceService.activateRecurrence`: `POST /recurrence-series/from-task/:taskId` |
+| Backend | `create`: série + primeira Task nova em transação | `activate`: série + vínculo na mesma Task; preserva ID, estado, filhos, reminders e histórico anterior; acrescenta evento UPDATED |
+| Resposta HTTP | `{ series, firstOccurrence }`, sem lote futuro | `{ series, firstOccurrence }`, sem lote futuro |
+| Primeira publicação | `addTask`: atualiza tasksRef/setTasks, revision e persiste primeira Task confirmada | `mutateRule`: atualiza tasksRef/setTasks, revision e persiste Task confirmada via persistConfirmed |
+| Materialização | `POST /recurrence-series/materialize`, via `materializeRecurrences` | Ausente |
+| Download | `GET /tasks`, via `getTasks` | Ausente |
+| Snapshot final | `mergeReadTasks`, persistTasks, tasksRef/setTasks | Apenas snapshot anterior com Task original vinculada |
+| Reminders | Reconciliação com snapshot final após persistência; escopo autoritativo condicionado aos guards | persistConfirmed considera apenas a Task original e mudança no fingerprint; não conhece futuras |
+| Calendário | Recebe Tasks futuras do Context | Recebe só a Task original, apesar da regra confirmada |
+
+Fontes: [NewTaskScreen](../../src/screens/NewTaskScreen.tsx),
+[EditTaskScreen](../../src/screens/EditTaskScreen.tsx),
+[taskService](../../src/services/taskService.ts),
+[recurrenceService](../../src/services/recurrenceService.ts),
+[rotas](../../backend/src/routes/recurrence-series.ts) e
+[serviço backend](../../backend/src/services/recurrence-series.ts).
+Task sem recorrência é criada por `POST /tasks`; alterações comuns usam
+`PATCH /tasks/:id`, cujo payload não transporta regra nem vínculo de série.
+Se houver alterações comuns e de regra, a tela tenta os dois comandos e trata
+sucesso parcial. Preservar esse comportamento sem ampliar escopo nesta Issue.
+
+### activateTaskRecurrence e edição
+
+O [editor](../../src/components/TaskRecurrenceEditor.tsx) cria draft com
+`originalFrequency: NONE`, `seriesId: null`, requestId estável e fuso dos
+reminders existentes ou do dispositivo quando a Task nunca teve série.
+Ao salvar DAILY, WEEKLY ou MONTHLY, a tela usa ativação. O journal
+`@taskflow:recurrence-requests:v1` é persistido antes do POST, preservando
+clientId para retry de resposta incerta.
+
+Backend `activate` verifica clientId antes de criar, deriva template da Task
+canônica, cria RecurrenceSeries com `materializedThrough = dueDate`, vincula
+`recurrenceSeriesId` e `occurrenceKey = dueDate` e retorna a Task canônica.
+Não cria cópia da Task original. A função do Context devolve hoje somente
+`{ series, cacheSaved }`; não expõe falha de atualização das ocorrências.
+
+Se já existe seriesId com frequência NONE, a tela usa
+`changeRecurrenceRule` → `PATCH /recurrence-series/:id`, com revisão otimista
+`expectedUpdatedAt`. Esse fluxo também não materializa imediatamente.
+Cobrir a reativação NONE → frequência no plano genérico, sem criar outra série
+e sem retroagir `materializedThrough`: regras editadas afetam apenas slots
+ainda não materializados. DAILY → WEEKLY, WEEKLY → MONTHLY e → NONE devem
+preservar as Tasks existentes, inclusive datas editadas e exclusões.
+
+## Cache, Context, detalhes e calendário
+
+`persistTasks` serializa escritas em `@taskflow:tasks`; existe também efeito de
+persistência ao mudar `tasks`. `mergeReadTasks` concilia por ID remoto, preserva
+dados locais/filhos e não substitui Task mais recente por GET antigo.
+`mutationRevision`, `updating`, `dataGuard.activeTasks` e `dataGuard.syncing`
+coordenam mutações e leituras. O snapshot atual não contém futuras Tasks porque
+elas nem foram materializadas por esse caminho; não há evidência de descarte
+de um lote já criado como causa primária.
+
+[TaskDetailsScreen](../../src/screens/TaskDetailsScreen.tsx) lê a Task do Context
+e mostra `recurrenceLabel(task.recurrence.frequency)`. O resumo da série já
+veio confirmado da API, por isso exibe “Diariamente”. Regra persistida não
+significa que existam Tasks futuras materializadas.
+
+[CalendarScreen](../../src/screens/CalendarScreen.tsx) calcula contagens e listas
+com `taskCountsByDay(tasks)` e `tasksForDay(tasks, selected)`, do Context.
+Não consulta séries nem expande ocorrências virtuais. Usa resumos carregados
+apenas para aviso de cobertura. Navegar no calendário não materializa.
+
+Startup e foreground já executam materialização → GET → merge → persistência
+→ publicação → scheduler, sob guards. Sync manual também materializa antes do
+download, incluindo tombstones. Esses caminhos permitem recuperação posterior
+online; foreground pode ser adiado por operação/undo em andamento e pode falhar.
+Não prometer recuperação imediata offline nem geração ao simples navegar.
+
+## Frequências, identidade e reminders
+
+A lacuna afeta igualmente **NONE → DAILY/WEEKLY/MONTHLY**, tanto a primeira
+ativação sem recurrenceSeriesId quanto a reativação de série NONE já vinculada.
+Usar uma correção genérica, sem três patches por frequência.
+
+O [domínio](../../backend/src/domain/recurrence/index.ts) limita a geração a
+hoje → hoje + 31 dias inclusive, no fuso da série, após a cobertura confirmada.
+DAILY é civil; WEEKLY usa a fase da âncora; MONTHLY limita o dia ao fim do mês,
+sem drift. Testar datas com slot futuro dentro da janela; zero slots elegíveis
+é resultado válido, por exemplo âncora além do horizonte.
+
+Idempotência já é garantida por transação `immediate`, clientId único da série,
+busca de slot incluindo tombstones e constraint
+`UNIQUE(recurrenceSeriesId, occurrenceKey)` em
+[tasks](../../backend/src/database/schema/tasks.ts). O
+[repository](../../backend/src/repositories/tasks.ts) usa onConflictDoNothing;
+não recria filhos/History quando não inseriu uma nova Task. Não alterar schema,
+chaves, cobertura ou política de exclusão para resolver a orquestração.
+
+Ativação preserva reminders e IDs da Task original, exige o mesmo fuso e copia
+somente offsets para o template. Materialização cria reminders próprios por
+nova Task. O [scheduler](../../src/services/reminderScheduler.ts) usa identidade
+`task-reminder:<taskId>:<reminderId>` e reconcilia Tasks confirmadas, sem gerar
+ocorrências. Repetir materialização não deve recriar reminders nem alarmes.
+Reconciliar snapshot final depois de persistido; não reconciliar de modo
+autoritativo uma lista parcial, obsoleta ou com cache falho. Não alterar política
+de lembretes vencidos, precisão de alarmes ou permissões nesta correção.
+
+## Plano mínimo de correção futura
+
+1. Extrair do caminho recorrente de `addTask` um helper interno ao Context para
+   atualizar a janela e publicar Tasks confirmadas. Reutilizar na criação e
+   na ativação; aplicar também à reativação de série NONE com frequência ativa.
+   Manter `mutateRule` como mutação de regra: não gerar ao desativar para NONE.
+2. Após confirmação da ativação, manter Task/série em memória e persistir o
+   snapshot inicial antes da etapa recuperável. Incrementar revision e manter
+   lock/guard durante a operação. Não reenviar ativação já confirmada.
+3. Executar uma materialização controlada e depois `getTasks`; conciliar com
+   `tasksRef.current` via `mergeReadTasks`, filtrando deletedIds/tombstones.
+   Persistir snapshot, atualizar tasksRef/setTasks e reconciliar reminders.
+   Em cache falho, conservar o snapshot remoto em memória e informar pendência,
+   sem iniciar novos alarmes dependentes desse cache.
+4. Verificar revision/guards antes e depois dos awaits, especialmente escrita
+   do cache. Não publicar GET obsoleto nem sobrescrever mutações concorrentes;
+   se revisão mudou durante escrita, restaurar cache do snapshot atual como
+   no lifecycle existente. Scheduler autoritativo somente com snapshot completo
+   e sem mutação concorrente. O helper deve respeitar a própria operação ativa,
+   sem bloquear a si mesmo pelo contador activeTasks.
+5. Retornar estado explícito de materialização/refresh pendente, cache e
+   scheduling, e a revisão mais recente da série confirmada pelo snapshot
+   quando disponível. Materialização avança updatedAt da série: não deixar o
+   draft com revisão antiga para uma edição seguinte.
+6. `EditTaskScreen` apenas consome resultado e mostra aviso: “Recorrência salva;
+   atualização das ocorrências pendente. Tente atualizar quando houver conexão.”
+   Não copiar HTTP, merge/cache ou scheduler para a tela. Reutilizar/adaptar
+   feedback existente da criação quando adequado.
+
+Falha na materialização ou GET após série confirmada é sucesso parcial:
+preservar série e Task, reportar pendência, recuperar em próximo startup,
+foreground ou sync manual. Não desfazer série nem repetir POST para aparentar
+atomicidade entre comandos separados. Falha antes da confirmação da ativação
+mantém retry pelo mesmo requestId. Falha de cache é distinta de falha HTTP.
+O serviço coalesce materializações simultâneas: testar ativação enquanto uma
+materialização anterior está em voo para não tratar lote iniciado antes da
+nova série como cobertura suficiente. Se necessário, aguardar esse lote e
+executar uma passagem posterior à confirmação, sem retries ilimitados.
+
+Camadas previstas: `src/context/TaskContext.tsx` (helper/contrato),
+`src/screens/EditTaskScreen.tsx` (feedback), possivelmente
+`src/models/reminderPresentation.ts` (mensagem compartilhada) e
+`src/services/recurrenceService.ts` (somente se teste comprovar necessidade no
+coalescing). NewTask reutiliza a operação existente. Backend, calendário,
+schema e Android nativo não precisam de alteração funcional pela causa atual.
+
+## Testes planejados e regressão
+
+| Camada | Cobertura necessária |
+| --- | --- |
+| TaskContext.integration | Parametrizar NONE/sem seriesId → DAILY/WEEKLY/MONTHLY; confirmar sequência ativar → persistir → materializar → GET → merge/cache/publicação → scheduler; futuras no Context e helpers do calendário |
+| TaskContext.integration | Reativar série NONE mantendo seriesId; cache igual ao snapshot; remount/restart e foreground repetidos; mesma identidade e quantidade; revisão da série atualizada |
+| TaskContext.integration | Falha de materialização, GET e cache após ativação confirmada; não repetir POST, não rollback, pendência explícita, recuperação posterior; revision/guards contra GET antigo e exclusão concorrente; materialização já em voo |
+| EditTaskScreen.integration | Operação correta nas três frequências; feedback de atualização pendente e cache/scheduler; retry da confirmação incerta com mesmo requestId; manter tratamento separado de alteração comum e regra |
+| Backend recurrence-api | Ativação + materialização repetida nas três frequências, sem nova série/Task original; UNIQUE, filhos/History/reminders estáveis, tombstone não renasce; usar SQLite temporário isolado |
+| Scheduler e calendário | Snapshot confirmado publicado alimenta listas/contagens reais; nenhuma expansão virtual; reminders da origem preservados, novos IDs próprios e nenhum agendamento duplicado após refresh/foreground |
+| Regressão | Criação já recorrente e criação NONE; DAILY → WEEKLY, WEEKLY → MONTHLY, recorrência → NONE; preservar Tasks materializadas e cobertura; exclusão/undo/tombstones e reminders |
+
+Lacuna atual: Context testa criação DAILY com materialização, persistência,
+calendário e falhas parciais; edição testa chamada/retry de ativação com Context
+mockado. Backend testa ativação preservando Task e gera futuras em chamada
+explícita separada. Isso não verifica a orquestração real após edição.
+Testes existentes de mudança de regra esperam nenhuma materialização imediata;
+preservar essa expectativa nas trocas de frequência já ativas e na desativação,
+acrescentando cobertura específica para reativação NONE.
+
+Na implementação futura: testes direcionados acima, depois gates vigentes
+`test:ci-scripts`, `lint:ci`, `typecheck:ci`, `test:ci`, backend
+typecheck/test/build e `git diff --check`; CI Mobile/Backend verdes, sem ampliar
+baselines. Nenhum teste funcional novo ou correção foi executado neste
+refinamento documental; validação local deste PR é documental.
+
+## Validação Android futura e limpeza obrigatória
+
+Para cada DAILY, WEEKLY e MONTHLY, criar Task técnica sem recorrência, salvar,
+editar para frequência, salvar, conferir label nos detalhes e ocorrências reais
+nos próximos slots elegíveis do calendário dentro da janela. Usar horário
+futuro quando houver reminders. Conferir mesma Task original, série/chave e
+reminders; fechar/reabrir app; background → foreground; refresh/sync repetidos;
+conferir quantidade/identidades e ausência de alarmes duplicados. Incluir falha
+de conexão após ativação, aviso de pendência e recuperação online.
+Executar também as transições/regressões da tabela. Registrar evidência por
+frequência; não declarar Android aprovado com base apenas em testes Jest.
+
+**Antes do merge da correção**, toda Task criada exclusivamente para teste
+automatizado/manual, reprodução, Android ou QA da #58 deve ser removida pelo
+fluxo canônico seguro. Usar ambiente isolado nos automatizados. Nas séries
+técnicas, desativar geração e excluir as ocorrências técnicas pelo fluxo
+canônico; verificar tombstones, ausência de regeneração, Home sem massa técnica
+e nenhum reminder técnico agendado após cancelamento/reconciliação. Registrar
+essa verificação no PR antes de liberá-lo para merge. Não apagar dados úteis,
+não fazer SQL/AsyncStorage direto para limpeza e não confundir excluir uma
+ocorrência com desativar série. Nenhuma limpeza geral foi feita nesta execução.
+A Home zerada para Sprint 3 é trabalho separado após a correção.
+
+## Planning Poker e encaminhamento
+
+**Sugestão: 5 pontos**, sem alterar estimativa/Issue automaticamente. A causa
+é pequena e não exige migration, mas o helper compartilhado, sucesso parcial,
+revisão/guards/cache, coalescing, reativação NONE e testes Android nas três
+frequências/reminders elevam o risco além de uma troca local de chamada.
+3 pontos caberiam em uma simples sequência já encapsulada e coberta, condição
+que o código atual não atende. Pontos não equivalem a dias.
+
+Próxima execução funcional, somente quando autorizada: branch
+`fix/58-recurrence-edit-materialization` a partir de `dev`, PR para `dev`,
+CI verde, Android e limpeza técnica comprovados antes do merge. Este PR
+documental referencia #58 sem fechá-la, não inicia implementação nem Sprint 3.
+
+## Implementação — 10/11/2026
+
+O refinamento acima registra a base aprovada antes da implementação. Nesta etapa,
+na branch `fix/58-recurrence-edit-materialization`, a inspeção confirmou novamente
+que `mutateRule` persistia a origem vinculada sem materializar/baixar futuras.
+
+Antes da correção, um teste de integração do Context reproduziu a falha em
+DAILY, WEEKLY e MONTHLY: esperava `future-58`, mas recebia apenas `server-uuid`.
+Resultado vermelho: **3 falhas / 58 aprovações** na suíte do Context, depois de
+completar o mock com o mapper real `fromApiTask`.
+
+### Alteração aplicada
+
+- `TaskContext.refreshRecurrenceWindow` extrai a sequência antes exclusiva de
+  `addTask`: persiste origem confirmada, materializa, faz GET /tasks, concilia
+  via mergeReadTasks, persiste/publica snapshot e reconcilia reminders.
+- `addTask` reutiliza o helper. `mutateRule` o usa na ativação sem série e na
+  reativação NONE → frequência ativa de série existente. Mudanças entre regras
+  já ativas e desativação para NONE mantêm o comportamento anterior.
+- Revision/guards são checados antes e depois da escrita do snapshot; leituras
+  superadas não publicam dados antigos nem iniciam scheduling autoritativo.
+  A revisão mais recente da série no Context é devolvida ao draft da edição.
+- `materializeRecurrences(true)` aguarda eventual lote iniciado antes da mutação
+  e solicita nova passagem controlada; chamadas comuns mantêm coalescing e a
+  mesma Promise compartilhada. Não há geração por render/navegação.
+- `EditTaskScreen` apenas apresenta aviso quando a regra foi salva, mas
+  materialização/GET ficaram pendentes. Cache falho mantém o snapshot confirmado
+  em memória e scheduling pendente; série confirmada não sofre rollback.
+
+Não houve alteração funcional no backend, calendário, scheduler nativo ou schema;
+nenhuma migration. Os testes backend novos exercitam os contratos existentes.
+Nenhuma baseline foi ampliada. Planning Poker permanece **5**.
+
+### Cobertura e limites
+
+Testes novos cobrem NONE → DAILY/WEEKLY/MONTHLY com Context/cache/calendário,
+restart e foreground repetido; reativação NONE; criação nas três frequências;
+falha de materialização, GET e cache com recuperação no restart; criação
+concorrente com GET atrasado; feedback de sucesso parcial na tela; materialização
+anterior em voo. Scheduler real com bridge simulada confirma dois reminders
+próprios e nenhuma chamada de agendamento adicional em restart/foreground.
+
+Backend em SQLite `:memory:` valida nas três frequências ativação + geração
+repetida, mesmos IDs/reminders e tombstone sem renascimento. Regressões de troca
+de frequência, desativação e Tasks materializadas permanecem na suíte completa.
+Mocks de rede não substituem aceite Android nem provam entrega real de alarmes.
+
+### Preparação Android inicial — registro anterior ao aceite final
+
+Pixel_7 iniciado, `emulator-5554`; build `assembleDebug` aprovado
+(**BUILD SUCCESSFUL**, 205 tarefas). APK atualizado por `adb install -r`, com
+sucesso, sem limpar dados. API `/health` = `ok`, Metro `/status` =
+`packager-status:running`; reverses 3000 e 8081 configurados. O app não foi aberto
+por esta execução e nenhuma Task foi criada no dispositivo. Backend existente
+foi iniciado sem executar migration.
+
+Roteiro preparado nesta etapa inicial; o aceite posterior está registrado abaixo:
+
+1. DAILY: criar Task técnica sem recorrência, salvar, editar para Diariamente,
+   salvar; conferir regra nos detalhes e próximas Tasks reais no calendário.
+2. WEEKLY: repetir e conferir o próximo mesmo dia da semana dentro da janela.
+3. MONTHLY: repetir e conferir o próximo mês dentro da janela hoje + 31 dias.
+4. Fechar/reabrir e alternar background → foreground; conferir mesmas Tasks e
+   ausência de duplicações. Repetir refresh/sync e conferir reminders próprios,
+   sem alarmes duplicados. Usar horário futuro quando houver lembrete.
+5. Conferir sucesso parcial e recuperação online, além das regressões já
+   listadas no refinamento.
+6. **Antes do merge**, desativar as séries técnicas e remover todas as suas Tasks
+   pelo fluxo canônico; conferir Home, ausência de ocorrências de QA regeneradas
+   e cancelamento de reminders técnicos. Registrar evidência no PR.
+
+Nenhuma massa persistente de QA foi criada nesta execução: testes mobile usam
+storage em memória e backend usa SQLite em memória. A limpeza acima continua
+obrigatória para a futura validação manual. Não executar limpeza geral da Home,
+que permanece etapa separada da Sprint 3. #43 não foi alterada. PR da correção
+permanece sem merge até validação e limpeza, e #58 não é fechada manualmente.
+
+### Evidência final automatizada
+
+- Mobile: **712 testes / 37 suítes**, todos aprovados; **16 validadores CI**.
+- Lint: **3 erros / 7 warnings conhecidos**, 10 diagnósticos / baseline 13,
+  nenhuma regressão. TypeScript: **11 conhecidos / baseline 11**, sem ampliação.
+- Backend: typecheck e build aprovados; **459 testes / 17 suítes** aprovados.
+- `git diff --check` aprovado; Android debug compilado e instalado com sucesso.
+- Lint precisou execução fora do sandbox por EPERM ao iniciar Node; Supertest
+  precisou sockets locais permitidos. A execução final nesse ambiente passou.
+- #58 confirmada OPEN antes da publicação; #43 permanece OPEN, sem mudança de
+  updatedAt (`2026-10-29T13:22:03Z`). CI remoto do novo PR deve ser conferido
+  posteriormente; sucesso local não é aprovação manual Android.
+
+
+## Aceite final Android e limpeza — 10/11/2026
+
+**Validação manual aprovada pela usuária; limpeza concluída.** Este registro
+substitui as pendências de Android e limpeza descritas no histórico acima.
+Planning Poker **5**, manutenção pós-Sprint 2, PR
+[#60](https://github.com/AlineRaquelC/gestor-diario/pull/60) para `dev`.
+
+### Cenários aprovados
+
+1. Task sem recorrência → editar para DAILY.
+2. Próximas ocorrências DAILY aparecem no calendário.
+3. Task sem recorrência → editar para WEEKLY.
+4. Próximas ocorrências WEEKLY aparecem no calendário.
+5. Task sem recorrência → editar para MONTHLY.
+6. Próximas ocorrências MONTHLY aparecem no calendário.
+7. Detalhes e calendário refletem a mesma regra.
+8. Restart/reabertura preservam série, ocorrências e comportamento.
+9. Background → foreground sem duplicação.
+10. Materialização posterior sem duplicação observada.
+11. Massa técnica QA58 removida com segurança.
+12. Home e calendário sem resíduos da massa após limpeza.
+
+A causa e a correção permanecem as aprovadas: ao ativar uma série por edição,
+o backend confirmava regra/vínculo, mas o Context não executava materialização,
+GET atualizado, merge, persistência e publicação integral do snapshot. Detalhes
+mostravam a regra correta sem as próximas Tasks no calendário. O helper
+`refreshRecurrenceWindow` compartilha a orquestração necessária entre criação,
+ativação e reativação NONE. DAILY/WEEKLY/MONTHLY usam a mesma solução, sem
+migration ou alteração funcional desnecessária no calendário/backend/scheduler.
+
+### Limpeza QA58 concluída
+
+Inventário cruzou IDs, datas de criação, History, cache e journal confirmado;
+a seleção não usou apenas título. As séries abaixo foram desativadas para NONE
+antes dos DELETEs canônicos:
+
+| Série técnica | seriesId | Ativas removidas | Tombstones finais |
+| --- | --- | --- | --- |
+| QA58 Dayly | `4f629a72-86b2-4103-a5ab-9b3d4dbc84c1` | 31 | 32 |
+| QA58Weekly | `d46d2530-8e9e-4faa-8c85-cfbabe70731b` | 3 | 5 |
+| QA58Monthly | `418fa5cf-ebef-4e9c-a2d8-a87edd2ee687` | 1 | 2 |
+
+35 ocorrências removidas; quatro tombstones anteriores preservados, total 39.
+Materialização de controle não criou novas QA58. Tasks ativas totais: **83 → 48**.
+As três séries não tinham reminders. Cache reconciliado pela sincronização
+suportada, zero uploads; nenhum reminder QA58 no journal/alarms e os 32 reminders
+nativos da massa de apresentação foram preservados nessa limpeza. As 32 datas
+QA58 entre 10/11 e 11/12 foram verificadas sem QA58 no calendário. Nenhuma massa
+QA58 residual ativa na Home/cache após reabertura e foreground.
+
+### Limpeza complementar da apresentação concluída
+
+Série `aa5c3d0a-be1b-40bf-bb60-2fa2be938423`, título armazenado
+“Preparar aoresentacao da sprint2”, projeto Apresentacao, 12:00. Auditoria
+identificou **33 Tasks e uma única série DAILY**, uma por dia de 09/11 a 11/12,
+sem colisão de série/occurrenceKey e sem registros correspondentes sem série.
+Task original criada em 09/11 e ativada nesse dia; outras 32 materializadas em
+10/11 às 09:05, antes da massa QA58. Não eram duplicações indevidas.
+
+Ausência no calendário não se reproduziu: ocorrências de 09/11, 10/11 e 11/12
+apareciam nas respectivas datas antes da limpeza; backend/cache/chaves eram
+consistentes. Home reúne vários dias e calendário lista o dia selecionado.
+Nenhum novo bug de calendário comprovado; o PR não foi ampliado.
+
+Origem/conteúdo exclusivamente de apresentação confirmados e backup concluído
+antes de alterar. Série desativada para NONE, 33 DELETEs canônicos, 33 tombstones
+preservados com Notes/History e reminders históricos associados. Materialização
+antes/depois da exclusão não criou novas ocorrências. **Tasks ativas: 48 → 15**.
+**32 reminders técnicos ainda agendados foram cancelados pelo scheduler**; o da
+Task original já havia vencido. Nenhum reminder alheio foi cancelado.
+
+App reaberto, sincronização manual concluída com zero uploads, background →
+foreground verificado. Nenhum resíduo dessa massa na Home/calendário/cache.
+Outras Tasks/séries foram comparadas integralmente com os snapshots iniciais e
+permaneceram idênticas; Projects, SavedFilters e ProductivityGoals preservados.
+Nenhuma limpeza geral pré-Sprint 3 foi executada. Nenhuma Task/série fora das
+duas massas explicitamente aprovadas foi alterada.
+
+Backups locais específicos, não versionados:
+`/tmp/gestor-diario-demo-backup/issue-58-final-cleanup/` e
+`/tmp/gestor-diario-demo-backup/presentation-task-audit/`.
+Contêm inventários por ID/chave, cache, reminders, History/Notes, operações,
+snapshots e relatórios. Este documento registra os resultados permanentes;
+os arquivos em `/tmp` são evidência local de retenção temporária.
+
+### Descoberta fora do escopo: exclusão de série
+
+Excluir pela interface uma Task recorrente remove somente aquela ocorrência,
+como previsto no fluxo atual. A melhoria desejada é oferecer escolha entre
+“somente esta ocorrência”, “esta e as próximas” e “toda a série”. Registrar como
+**descoberta pós-validação a tratar em Issue separada**; não é correção da #58,
+não foi implementada aqui e nenhuma nova Issue foi aberta nesta etapa.
+Não alterar arquitetura, histórico ou política de exclusão nesta finalização.
+
+### Gates de encerramento
+
+- **712 testes Mobile / 37 suítes**, **459 Backend / 17 suítes** e **16 validadores
+  CI** aprovados na implementação e registrados no PR.
+- Lint sem ampliação: 10 diagnósticos conhecidos / baseline 13 (3 erros e
+  7 warnings); TypeScript 11 conhecidos / baseline 11, sem ampliação.
+- Backend typecheck/build, `git diff --check` e Android `assembleDebug` aprovados.
+- Android manual e limpeza aprovados conforme registro acima; não substituem
+  a exigência de CI no novo head documental e no merge em `dev`.
+- Nesta finalização, somente documentação é alterada. #43 permanece fora do
+  escopo e Sprint 3 não foi iniciada. Exclusão de série não implementada.

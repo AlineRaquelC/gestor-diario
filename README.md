@@ -1,20 +1,24 @@
 # Gestor Diário
 
-Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido em React Native e integrado progressivamente a uma API Node.js com persistência SQLite.
+Aplicativo acadêmico Android para organizar e acompanhar tarefas, desenvolvido em React Native e integrado a uma API Node.js com persistência SQLite.
 
-## Status atual — 08/11/2026
+## Status atual — 27/11/2026
 
 - **Sprint 1:** 15/15 Issues concluídas, 100% ([fechamento](docs/sprints/sprint-1.md)).
 - **Sprint 2 core:** #39–#42 concluídas, integradas em `dev` e promovidas para
   `main` pelo [PR #55](https://github.com/AlineRaquelC/gestor-diario/pull/55) —
   **4/4 Issues, 37/37 pontos, 100%** ([fechamento e evidências](docs/sprints/sprint-2.md)).
-- **Stretch #43:** gate técnico NO-GO, não implementada e OPEN. Seus 13 pontos
-  ficam fora do core entregue; adiada por segurança/integridade.
+- **Sprint 3:** encerrada em 27/11/2026 com **21/21 pontos**, 100% do
+  escopo planejado. Voz (#65), QR estruturado (#66), atalho Android (#67)
+  e consolidação documental (#68) foram concluídos e integrados em `dev`.
+  [Fechamento e rastreabilidade da Sprint 3](docs/sprints/sprint-3.md)
+- **#43:** perfis locais, pendência da Entrega 2. Permanece aberta, com gate
+  NO-GO e fora do core da Sprint 3. [Issue #43](https://github.com/AlineRaquelC/gestor-diario/issues/43)
 
-A Sprint 2 concluiu o core selecionado da Entrega 2, não a Entrega 2 inteira.
-O core concluído foi promovido de `dev` para `main` pelo PR #55 em 08/11/2026,
-após revisão e CI verde. `main` contém o estado estável da Sprint 2; `dev` permanece
-como branch de integração.
+`main` contém a base estável promovida no fechamento do core da Sprint 2.
+`dev` contém o incremento da Sprint 3 e as correções de manutenção posteriores
+àquele fechamento. Os recortes selecionados da Entrega 2 e da Entrega 3
+cobrem parte de cada entrega.
 
 ## Funcionalidades atuais
 
@@ -48,9 +52,32 @@ Recortes da Sprint 2:
 - Metas diária/semanal/mensal por quantidade concluída e relatórios com texto e
   barras simples (#42 / PR #52); sem tempo total de execução.
 
+### Criação de tarefas no Android
+
+| Entrada | Fluxo e evidência |
+|---|---|
+| Manual | Em **Nova Tarefa**, informe os campos, selecione o Project e confirme em **Criar tarefa**. |
+| Voz | **Criar por voz** usa o SpeechRecognizer on-device em pt-BR. Revise ou edite a transcrição e toque em **Interpretar e preencher**. O parser local interpreta título, prazo e prioridade quando inequívocos. [Issue #65](https://github.com/AlineRaquelC/gestor-diario/issues/65) · [PR #76](https://github.com/AlineRaquelC/gestor-diario/pull/76) · [evidências](docs/sprints/sprint-3-issue-65.md#14-validação-física-final--27112026) |
+| QR Code | **Escanear QR Code** lê um payload estruturado V1 com CameraX e ZXing. Confirme o uso dos dados e revise o formulário. [Issue #66](https://github.com/AlineRaquelC/gestor-diario/issues/66) · [PR #72](https://github.com/AlineRaquelC/gestor-diario/pull/72) · [evidências](docs/sprints/sprint-3-issue-66.md#validação-física-complementar--27112026) |
+| Atalho | Pressione o ícone do app e escolha **Nova tarefa**. O atalho abre o mesmo formulário com o app fechado ou em execução. [Issue #67](https://github.com/AlineRaquelC/gestor-diario/issues/67) · [PR #75](https://github.com/AlineRaquelC/gestor-diario/pull/75) · [evidências](docs/sprints/sprint-3-issue-67.md#validação-física-final--27112026) |
+
+Todos os caminhos usam **Criar tarefa** para confirmar a persistência pelo fluxo
+canônico. O reconhecimento e a interpretação foram validados offline no Moto
+G23 com modelo pt-BR instalado. A criação remota e a sincronização exigem
+comunicação com a API.
+
+Em `dev`, a manutenção pós-Sprint 2 permite ativar recorrência na edição de
+uma tarefa avulsa e excluir instâncias recorrentes com escopo explícito.
+[Ativação por edição (#58)](docs/maintenance/issue-58-recurrence-edit.md) ·
+[Escopos de exclusão (#61)](docs/maintenance/issue-61-recurring-delete-scope.md)
+
 ## Tecnologias
 
-React Native + TypeScript, Node.js + TypeScript, Express, Zod, Drizzle ORM, SQLite, AsyncStorage, Services HTTP, Contexts, testes backend (Vitest/Supertest) e mobile (Jest), Git/GitHub.
+React Native 0.87.1 com TypeScript, Hermes, New Architecture e Codegen.
+Android usa Kotlin, SpeechRecognizer, CameraX/ZXing e ShortcutManager.
+A API usa Node.js, TypeScript, Express, Zod, Drizzle ORM e SQLite.
+AsyncStorage mantém o cache mobile. Os testes usam Jest, Vitest/Supertest e
+JUnit. GitHub Actions executa os checks Mobile e Backend.
 
 ## Arquitetura atual
 
@@ -74,50 +101,107 @@ AsyncStorage
 cache/apoio local durante a transição
 ```
 
-## Validação e dívidas técnicas
+## Validação e compatibilidade
 
-- Referência final da Sprint 2: **697 testes mobile / 37 suítes**, **456 backend /
-  17 suítes** e **16 validadores CI aprovados**; backend typecheck/build aprovados.
-- Android assembleDebug/assembleRelease aprovados no fechamento da #42, com
-  Hermes, New Architecture e Codegen; validação manual Android registrada.
-- [CI pós-merge de main — execução 42488972344](https://github.com/AlineRaquelC/gestor-diario/actions/runs/42488972344):
-  **completed / success — Mobile ✅ / Backend ✅**, no merge do PR #55,
-  commit `403ef114e1c7f21229a85f1522c6d6e58662ebe4`.
-  GitHub Actions valida PR/push de `dev`/`main`.
-- Lint/TypeScript sem regressão nem ampliação de baselines: 3 erros/7 warnings
-  conhecidos no lint (10 diagnósticos / baseline 13); TS 11 / baseline 11.
-  Backend permanece estrito. CI verde não significa ausência de dívida técnica.
-- A dívida específica de `App.test.tsx`/Jest (imports ESM não transformados,
-  AsyncStorage/React Navigation) permanece; o teste tem exclusão explícita no CI.
-- Alertas conhecidos de dependências permanecem, incluindo a cadeia Drizzle Kit.
-- Offline parcial; três Tasks legadas sem `projectId` preservadas localmente,
-  com pendências informadas pela UI. Filhos legados não são migrados automaticamente.
-- Sincronização automática e autenticação real permanecem fora. Login é visual,
-  sem JWT, conta online ou biometria. Recortes da Entrega 2 foram implementados,
-  mas a entrega completa continua parcial; perfis locais não foram implementados.
+A referência funcional de `dev` é o merge do PR #76, com **856 testes Mobile
+em 45 suítes**, **479 testes Backend em 17 suítes** e **17 testes dos validadores
+de CI**. A verificação local inclui **10 testes JVM em 3 suítes**. Os builds
+Android debug e release passaram na validação funcional. Mobile e Backend
+passaram no [CI pós-merge #94](https://github.com/AlineRaquelC/gestor-diario/actions/runs/46035538365).
+A [matriz da Sprint 3](docs/sprints/sprint-3.md#evidências-e-ci) identifica
+CI de PR, pós-merge, emulador e testes no Moto G23/API 34.
 
-Essas dívidas não representam Issues reabertas do core concluído. As evidências de
-execução são as já registradas nos PRs/documentos; esta atualização é documental,
-sem reexecutar testes funcionais ou declarar dívidas corrigidas.
+| Recurso | Compatibilidade e limite |
+|---|---|
+| Aplicativo Android | `minSdk 24`, `targetSdk 36`, `compileSdk 37`. |
+| Voz | API 31+ com reconhecedor on-device compatível e modelo pt-BR instalado. A prova offline é do Moto G23/API 34. |
+| QR V1 | Requer câmera e permissão contextual. RF30 parcial. A rotação física e a reentrada foram validadas. A recriação da Activity ficou sem comprovação. |
+| Atalho | API 25+ e launcher compatível. API 24/25 e launchers incompatíveis seguem sem validação em execução. |
 
-Evidências e operação: [RF20](docs/arquitetura/sincronizacao-manual.md) e
-[CI inicial](docs/arquitetura/ci-inicial.md).
+Lint e TypeScript passaram sem regressão frente às baselines explícitas.
+Permanecem os diagnósticos conhecidos, a exclusão pontual de `App.test.tsx`
+no Jest/CI e os alertas de dependências registrados. Login visual, ausência de
+sincronização automática e limites do cache continuam documentados.
+[Sincronização e legado](docs/arquitetura/sincronizacao-manual.md) ·
+[Workflow e baselines](.github/workflows/README.md)
 
 ## Como executar
 
-Consulte a [execução do backend](backend/README.md) e a [integração Android](docs/arquitetura/integracao-criacao-tarefas.md) para executar localmente.
+Use Node.js 24.21.0, a versão reproduzida pelo CI, npm, JDK 17 e o toolchain
+Android do projeto. Configure o SDK Android no ambiente, com SDK 37, Build Tools
+37.0.0 e NDK 27.1.12297006. [Configuração Gradle](android/build.gradle) ·
+[Backend e SQLite](backend/README.md)
 
-Para reproduzir os checks mobile:
+### API local
+
+A partir da raiz, em um terminal dedicado:
+
+```bash
+cd backend
+npm ci
+npm run db:migrate
+npm run dev
+```
+
+A API usa a porta 3000 por padrão. Aplique migrations no banco configurado
+para o ambiente. Confirme a inicialização com `curl -fsS http://127.0.0.1:3000/health`.
+
+### Emulador Android
+
+Inicie o emulador. Na raiz, instale as dependências e abra o Metro:
 
 ```bash
 npm ci
+npm start
+```
+
+Em outro terminal, execute `npm run android`. A configuração versionada
+usa `http://10.0.2.2:3000` para chegar ao host a partir do emulador.
+Para um APK com bundle embutido que roda sem Metro, execute
+`./gradlew assembleRelease` em `android/`. O artefato fica em
+`android/app/build/outputs/apk/release/app-release.apk`.
+[Integração Android e API](docs/arquitetura/integracao-criacao-tarefas.md#execução-android)
+
+### Dispositivo físico e demonstração via USB
+
+Use uma cópia de trabalho isolada para o APK de demonstração. Via Wi-Fi,
+configure o IP privado do notebook em `src/services/api.ts` e como único
+host HTTP permitido no XML de rede release
+(`android/app/src/release/res/xml/release_network_security_config.xml`).
+O aparelho e o notebook precisam ter comunicação na rede de teste.
+
+Como alternativa, com depuração USB autorizada, identifique o serial com
+`adb devices -l` e execute os comandos abaixo, substituindo
+`SERIAL_DO_APARELHO` pelo serial físico:
+
+```bash
+adb -s SERIAL_DO_APARELHO reverse tcp:3000 tcp:3000
+adb -s SERIAL_DO_APARELHO reverse --list
+```
+
+Para essa cópia USB, use `http://127.0.0.1:3000` como URL da API e
+`127.0.0.1` como único host HTTP permitido no XML release. Gere novamente
+o APK da cópia e instale com `adb -s SERIAL_DO_APARELHO install CAMINHO_DO_APK`.
+Se já houver uma instalação com assinatura compatível, use
+`adb -s SERIAL_DO_APARELHO install -r CAMINHO_DO_APK` para preservar os dados. Confirme a resposta da API e a comunicação no próprio app.
+Ao terminar, remova o encaminhamento com
+`adb -s SERIAL_DO_APARELHO reverse --remove tcp:3000`. Mantenha IPs,
+políticas temporárias e APKs de QA fora do Git. [Prova USB e incidente Wi-Fi](docs/sprints/sprint-3-issue-65.md#comunicação-durante-a-validação)
+
+### Checks locais
+
+```bash
 npm run test:ci-scripts
 npm run lint:ci
 npm run typecheck:ci
 npm run test:ci
+git diff --check
 ```
 
-Triggers, jobs, banco temporário e limites estão no [README do workflow](.github/workflows/README.md).
+No backend, execute a migração com `DATABASE_PATH` apontando para um SQLite
+temporário, depois `npm run typecheck`, `npm test` e `npm run build`.
+Os testes JVM usam `./gradlew :app:testDebugUnitTest` em `android/`.
+[Execução do CI e bancos de teste](.github/workflows/README.md)
 
 ## Metodologia e branches
 
@@ -149,6 +233,7 @@ O planejamento inicial registrava 4/13 = 30,8%. Após a auditoria/refinamento qu
 - [Plano de entregas](docs/backlog/entregas.md)
 - [Sprint 1 — fechamento histórico](docs/sprints/sprint-1.md)
 - [Sprint 2 — core concluído e stretch adiada](docs/sprints/sprint-2.md)
+- [Sprint 3 — incremento e rastreabilidade](docs/sprints/sprint-3.md)
 - [Issues e PRs da Sprint 1](docs/sprints/sprint-1-issues.md)
 - [Arquitetura inicial (histórico)](docs/arquitetura/arquitetura-inicial.md)
 - [Decisões](docs/decisoes/README.md)

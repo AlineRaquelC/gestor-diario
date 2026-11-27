@@ -32,3 +32,11 @@ export const updateRecurrenceSchema = z.strictObject({
 export const materializeSchema = z.strictObject({});
 export type CreateRecurrence = z.infer<typeof createRecurrenceSchema>;
 export type UpdateRecurrence = z.infer<typeof updateRecurrenceSchema>;
+
+export const deleteRecurrenceSchema = z.strictObject({
+  scope: z.enum(['future', 'all']),
+  taskId: z.string().min(1),
+  occurrenceKey: z.string(),
+  expectedUpdatedAt: z.iso.datetime(),
+});
+export type DeleteRecurrence = z.infer<typeof deleteRecurrenceSchema>;

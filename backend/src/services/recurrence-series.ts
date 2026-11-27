@@ -10,7 +10,7 @@ import { RecurrenceError, civilDate, civilDuration, occurrenceDates, recurrenceS
 import type { RecurrenceSeries, RecurrenceTemplate } from '../domain/recurrence/index.js';
 import { normalizeOffsets, resolveReminderSchedule, resolveTaskInstant, validateReminderChange } from '../domain/reminders/index.js';
 import type { Clock } from '../domain/reminders/index.js';
-import type { CreateRecurrence, UpdateRecurrence, ActivateRecurrence } from '../schemas/recurrence-series.js';
+import type { CreateRecurrence, UpdateRecurrence, ActivateRecurrence, DeleteRecurrence } from '../schemas/recurrence-series.js';
 
 type Task = NonNullable<ReturnType<TasksRepository['findDetailedIncludingDeleted']>>;
 export class RecurrenceSeriesService {
@@ -54,7 +54,7 @@ export class RecurrenceSeriesService {
         offsets: input.template.reminders.map(item => item.offsetMinutes) }, undefined, () => now);
       const stamp = new Date(now).toISOString();
       const series: RecurrenceSeries = { ...input, id: randomUUID(), firstOccurrenceKey: input.anchorDate,
-        materializedThrough: input.anchorDate, createdAt: stamp, updatedAt: stamp };
+        materializedThrough: input.anchorDate, endBeforeOccurrenceKey: null, deletedAt: null, createdAt: stamp, updatedAt: stamp };
       if (this.past(input.anchorDate, series, now)) {throw new RecurrenceError('O horário da tarefa já passou. Escolha um horário futuro.');}
       const { template, ...fields } = series;
       this.repository.create({ ...fields, ...template });
@@ -96,6 +96,7 @@ export class RecurrenceSeriesService {
   update(id: string, input: UpdateRecurrence) {
     return this.repository.transaction(() => {
       const current = this.findById(id);
+      if (current.deletedAt) {throw new RecurrenceConflictError();}
       if (input.expectedUpdatedAt !== current.updatedAt) {throw new RecurrenceConflictError();}
       const origin = this.tasks.findById(input.taskId);
       if (!origin || origin.recurrenceSeriesId !== id) {throw new TaskNotFoundError();}
@@ -118,6 +119,48 @@ export class RecurrenceSeriesService {
       return RecurrenceSeriesRepository.toDto(updated);
     });
   }
+  deleteOccurrences(id: string, input: DeleteRecurrence) {
+    return this.repository.transaction(() => {
+      civilDate(input.occurrenceKey);
+      const current = this.findById(id);
+      const origin = this.tasks.findDetailedIncludingDeleted(input.taskId);
+      if (!origin) {throw new TaskNotFoundError();}
+      if (origin.recurrenceSeriesId !== id || origin.occurrenceKey !== input.occurrenceKey) {throw new RecurrenceConflictError();}
+      const all = this.tasks.findBySeries(id);
+      if (all.some(task => !task.deletedAt && (current.deletedAt || (current.endBeforeOccurrenceKey && task.occurrenceKey! >= current.endBeforeOccurrenceKey)))) {
+        throw new RecurrenceConflictError();
+      }
+      const scoped = all.filter(task => input.scope === 'all' || task.occurrenceKey! >= input.occurrenceKey);
+      const alreadyApplied = (current.deletedAt || (input.scope === 'future' && current.endBeforeOccurrenceKey && current.endBeforeOccurrenceKey <= input.occurrenceKey))
+        && scoped.every(task => task.deletedAt);
+      if (alreadyApplied) {
+        return { series: current, scope: input.scope, fromOccurrenceKey: input.scope === 'future' ? input.occurrenceKey : null,
+          tombstones: scoped, deletedCount: 0, alreadyApplied: true };
+      }
+      if (current.deletedAt || current.updatedAt !== input.expectedUpdatedAt) {throw new RecurrenceConflictError();}
+      const timestamp = new Date(all.reduce((latest, task) => Math.max(latest, Date.parse(task.updatedAt) + 1),
+        Math.max(this.clock(), Date.parse(current.updatedAt) + 1))).toISOString();
+      const changes = input.scope === 'all'
+        ? { deletedAt: timestamp, frequency: 'NONE' as const, updatedAt: timestamp }
+        : { endBeforeOccurrenceKey: current.endBeforeOccurrenceKey && current.endBeforeOccurrenceKey < input.occurrenceKey
+          ? current.endBeforeOccurrenceKey : input.occurrenceKey, updatedAt: timestamp };
+      if (!this.repository.update(id, current.updatedAt, changes)) {throw new RecurrenceConflictError();}
+      let deletedCount = 0;
+      for (const task of scoped) {
+        if (task.deletedAt) {continue;}
+        this.tasks.setDeletedAt(task.id, timestamp, timestamp);
+        this.tasks.createHistoryEvent({ id: randomUUID(), taskId: task.id, action: 'DELETE', createdAt: timestamp,
+          metadata: { deletedAt: timestamp, seriesId: id, occurrenceKey: task.occurrenceKey, scope: input.scope, fromOccurrenceKey: input.occurrenceKey } });
+        deletedCount++;
+      }
+      this.tasks.createHistoryEvent({ id: randomUUID(), taskId: origin.id, action: 'UPDATED', createdAt: timestamp,
+        metadata: { fields: ['recurrence'], seriesId: id, scope: input.scope,
+          before: { frequency: current.frequency, endBeforeOccurrenceKey: current.endBeforeOccurrenceKey, deletedAt: current.deletedAt }, after: changes } });
+      return { series: this.findById(id), scope: input.scope, fromOccurrenceKey: input.scope === 'future' ? input.occurrenceKey : null,
+        tombstones: scoped.map(task => this.tasks.findDetailedIncludingDeleted(task.id)!), deletedCount, alreadyApplied: false };
+    });
+  }
+
   materialize(id: string) {
     return this.repository.transaction(() => this.materializeLocked(id, this.clock()));
   }
@@ -131,9 +174,9 @@ export class RecurrenceSeriesService {
   private materializeLocked(id: string, now: number) {
     let series = this.findById(id);
     const created: Task[] = [];
-    if (series.frequency === 'NONE') {return { series, created };}
+    if (series.deletedAt || series.frequency === 'NONE') {return { series, created };}
     const window = recurrenceSlots(series, () => now);
-    if (window.start === null) {return { series, created };}
+    if (window.start === null || (series.endBeforeOccurrenceKey && window.start >= series.endBeforeOccurrenceKey)) {return { series, created };}
     this.validate(series.anchorDate, series.timeZone, series.template);
     for (const slot of window.slots) {
       // A tombstone occupies the slot, independently of its edited dueDate/status.

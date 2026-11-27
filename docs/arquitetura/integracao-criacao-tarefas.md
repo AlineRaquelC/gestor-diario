@@ -19,8 +19,16 @@ Dentro de backend/, execute npm run db:migrate e npm run dev. Na raiz, execute
 npm start e abra o app de desenvolvimento no emulador. A URL está centralizada
 em src/services/api.ts: http://10.0.2.2:3000. Esse endereço acessa o host Linux
 pelo Android Emulator; localhost apontaria para o próprio emulador.
-Para dispositivo físico, altere somente API_BASE_URL para o IP LAN do host,
-com a porta 3000 acessível. HTTP é para desenvolvimento local.
+Para gerar o APK acadêmico sem Metro, execute `./gradlew assembleRelease`
+em `android/`. Para usar o app, mantenha a API local disponível na porta 3000.
+O release permite HTTP somente para o host padrão do emulador, `10.0.2.2`, conforme
+[`release_network_security_config.xml`](../../android/app/src/release/res/xml/release_network_security_config.xml).
+
+Para um build em dispositivo físico na mesma rede, use o IP LAN do computador
+em `API_BASE_URL` e deixe a porta 3000 acessível. Para release via HTTP local,
+substitua também o host permitido no XML pelo mesmo IP e gere o APK novamente.
+`localhost` aponta para o próprio dispositivo. Use HTTP somente na rede local
+de teste.
 TASK_TIMEZONE do backend deve corresponder ao calendário utilizado pelo usuário;
 o padrão é America/Sao_Paulo. Datas são serializadas pelo adapter com componentes
 locais, sem usar toISOString().slice(0, 10).

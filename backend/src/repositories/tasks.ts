@@ -22,7 +22,7 @@ export class TasksRepository {
     return this.db.select({ task: tasks, project: projects, recurrence: {
       frequency: recurrenceSeries.frequency, timeZone: recurrenceSeries.timeZone,
       anchorDate: recurrenceSeries.anchorDate, materializedThrough: recurrenceSeries.materializedThrough,
-      updatedAt: recurrenceSeries.updatedAt,
+      updatedAt: recurrenceSeries.updatedAt, endBeforeOccurrenceKey: recurrenceSeries.endBeforeOccurrenceKey, deletedAt: recurrenceSeries.deletedAt,
     } }).from(tasks).leftJoin(projects, eq(tasks.projectId, projects.id))
       .leftJoin(recurrenceSeries, eq(tasks.recurrenceSeriesId, recurrenceSeries.id));
   }
@@ -81,6 +81,13 @@ export class TasksRepository {
     return { ...row.task, favorite: row.task.favorite === true, project: row.project, ...(row.recurrence ? { recurrence: row.recurrence } : {}),
       subtasks: children, reminders: this.remindersFor(row.task) };
   }
+
+  findBySeries(seriesId: string) {
+    return this.db.select({ id: tasks.id }).from(tasks).where(eq(tasks.recurrenceSeriesId, seriesId)).all()
+      .map(row => this.findDetailedIncludingDeleted(row.id)!);
+  }
+
+  findSeries(id: string) {return this.db.select().from(recurrenceSeries).where(eq(recurrenceSeries.id, id)).get();}
 
   findOccurrence(seriesId: string, occurrenceKey: string) {
     const row = this.db.select({ id: tasks.id }).from(tasks)

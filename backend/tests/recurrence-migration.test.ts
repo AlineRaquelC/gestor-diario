@@ -82,5 +82,35 @@ it.each([['frequency', 'YEARLY'], ['start_offset_days', -1], ['start_offset_days
 });
 it('FK de projeto e clientId único preservam identidade da série', () => {
   expect(() => connection.sqlite.prepare("UPDATE recurrence_series SET project_id = 'missing'").run()).toThrow(/FOREIGN KEY/);
-  expect(() => connection.sqlite.prepare("INSERT INTO recurrence_series SELECT 'other', client_id, frequency, time_zone, anchor_date, first_occurrence_key, materialized_through, title, description, project_id, priority, time, start_offset_days, subtasks, reminders, created_at, updated_at FROM recurrence_series").run()).toThrow(/UNIQUE/);
+  expect(() => connection.sqlite.prepare("INSERT INTO recurrence_series (id,client_id,frequency,time_zone,anchor_date,first_occurrence_key,materialized_through,title,description,project_id,priority,time,start_offset_days,subtasks,reminders,created_at,updated_at) SELECT 'other', client_id, frequency, time_zone, anchor_date, first_occurrence_key, materialized_through, title, description, project_id, priority, time, start_offset_days, subtasks, reminders, created_at, updated_at FROM recurrence_series").run()).toThrow(/UNIQUE/);
+});
+
+it.each(['end_before_occurrence_key', 'deleted_at'])('issue 61: %s é nullable e rejeita valor inválido', column => {
+  expect(connection.sqlite.prepare(`SELECT ${column} AS value FROM recurrence_series`).get()).toEqual({ value: null });
+  expect(() => connection.sqlite.prepare(`UPDATE recurrence_series SET ${column}='invalid'`).run()).toThrow(/CHECK/);
+});
+
+it('issue 61: upgrade da 0004 preserva série antiga sem término implícito e mantém filhos/tombstones', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'delete-scope-upgrade-'));
+  const oldFolder = join(directory, 'old'); mkdirSync(join(oldFolder, 'meta'), { recursive: true });
+  const journal = JSON.parse(readFileSync(join(migrationsFolder, 'meta/_journal.json'), 'utf8'));
+  journal.entries = journal.entries.filter((entry: { idx: number }) => entry.idx < 5);
+  writeFileSync(join(oldFolder, 'meta/_journal.json'), JSON.stringify(journal));
+  for (const entry of journal.entries) {copyFileSync(join(migrationsFolder, `${entry.tag}.sql`), join(oldFolder, `${entry.tag}.sql`));}
+  const legacy = openDatabase(join(directory, 'old.db'));
+  try {
+    migrate(legacy.db, { migrationsFolder: oldFolder });
+    legacy.sqlite.exec(`INSERT INTO projects(id,name,color,icon) VALUES ('p','P','#fff','P');
+      INSERT INTO recurrence_series(id,client_id,frequency,time_zone,anchor_date,first_occurrence_key,title,project_id,priority,start_offset_days,subtasks,reminders)
+      VALUES ('old','old-client','DAILY','UTC','2026-11-10','2026-11-10','Old','p','LOW',0,'[]','[]');
+      INSERT INTO tasks(id,title,project_id,start_date,due_date,priority,recurrence_series_id,occurrence_key,deleted_at)
+      VALUES ('old-task','Old','p','2026-11-10','2026-11-10','LOW','old','2026-11-10','2026-11-10T12:00:00Z');`);
+    const beforeSeries = legacy.sqlite.prepare('SELECT * FROM recurrence_series').get();
+    const beforeTasks = legacy.sqlite.prepare('SELECT * FROM tasks').all();
+    migrate(legacy.db, { migrationsFolder }); migrate(legacy.db, { migrationsFolder });
+    expect(legacy.sqlite.prepare('SELECT * FROM recurrence_series').get()).toEqual({ ...(beforeSeries as object), end_before_occurrence_key: null, deleted_at: null });
+    expect(legacy.sqlite.prepare('SELECT * FROM tasks').all()).toEqual(beforeTasks);
+    expect(legacy.sqlite.pragma('foreign_key_check')).toEqual([]);
+    expect(legacy.sqlite.pragma('integrity_check')).toEqual([{ integrity_check: 'ok' }]);
+  } finally {legacy.sqlite.close(); rmSync(directory, { recursive: true, force: true });}
 });

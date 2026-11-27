@@ -248,3 +248,16 @@ it('favorite canônico permanece em sync dupla e não causa novo upload', async 
   expect(importLocalTask).not.toHaveBeenCalled();
   expect(second.tasks[0].id).toBe('remote-t');
 });
+
+it.each(['future', 'all'] as const)('issue 61: sync %s preserva corte e não restaura tombstones nem importa série', async scope => {
+  const recurrence = { frequency: scope === 'all' ? 'NONE' as const : 'DAILY' as const, timeZone: 'America/Sao_Paulo', anchorDate: '2026-11-10', materializedThrough: '2026-12-11',
+    updatedAt: '2026-11-10T15:00:00Z', endBeforeOccurrenceKey: scope === 'future' ? '2026-11-17' : null, deletedAt: scope === 'all' ? '2026-11-10T15:00:00Z' : null };
+  const before = { ...task, id: 'r1', remoteId: 'r1', recurrenceSeriesId: 'series', occurrenceKey: '2026-11-10', recurrence };
+  const removed = { ...before, id: 'r2', remoteId: 'r2', occurrenceKey: '2026-11-17' };
+  tasks = [{ ...before, ...(scope === 'all' ? { deletedAt: '2026-11-10T15:00:00Z' } : {}) }, { ...removed, deletedAt: '2026-11-10T15:00:00Z' }];
+  const result = await synchronize([], [before, removed]);
+  expect(result.tasks.map(item => item.id)).toEqual(scope === 'all' ? [] : ['r1']);
+  if (scope === 'future') {expect(result.tasks[0].recurrence).toEqual(recurrence);}
+  expect(importLocalTask).not.toHaveBeenCalled(); expect(createProject).not.toHaveBeenCalled();
+  expect(materializeRecurrences).toHaveBeenCalledTimes(1);
+});

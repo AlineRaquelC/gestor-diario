@@ -107,8 +107,8 @@ export const createSubtask = (taskId: string, title: string) => subtaskRequest(s
 export const updateSubtask = (taskId: string, id: string, changes: { title?: string; done?: boolean }) => subtaskRequest(subtaskPath(taskId, id), 'PATCH', changes);
 export const deleteSubtask = (taskId: string, id: string) => subtaskRequest(subtaskPath(taskId, id), 'DELETE');
 
-export async function getTasks(): Promise<Task[]> {
-  const response = await apiRequest<ApiTask[]>('/tasks');
+export async function getTasks(includeDeleted = false): Promise<Task[]> {
+  const response = await apiRequest<ApiTask[]>(includeDeleted ? '/tasks?includeDeleted=true' : '/tasks');
   return response.map(task => fromApiTask(task));
 }
 

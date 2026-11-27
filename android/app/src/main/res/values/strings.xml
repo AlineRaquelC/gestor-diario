@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Gestor Diário</string>
+    <string name="shortcut_new_task">Nova tarefa</string>
 </resources>

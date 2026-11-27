@@ -36,6 +36,13 @@
       "when": 1793311355889,
       "tag": "0004_recurrence_series",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794319944620,
+      "tag": "0005_recurring_delete_scope",
+      "breakpoints": true
     }
   ]
 }

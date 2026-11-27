@@ -4,7 +4,11 @@ import { relative } from 'node:path';
 
 export function normalizeMessage(message) {
   // Literal union order is not meaningful to TypeScript's diagnostic identity.
-  return message.replace(/"(?:[^"\\]|\\.)*"(?:\s*\|\s*"(?:[^"\\]|\\.)*")+/g,
+  return message
+    // RN's unchanged barStyle union may print any member before its ellipsis.
+    .replace(/barStyle\?: "(?:auto|default|dark-content|light-content)" \| \.\.\. 3 more \.\.\. \| undefined/g,
+      'barStyle?: "default" | ... 3 more ... | undefined')
+    .replace(/"(?:[^"\\]|\\.)*"(?:\s*\|\s*"(?:[^"\\]|\\.)*")+/g,
     union => union.match(/"(?:[^"\\]|\\.)*"/g).sort().join(' | '))
     .replace(/\s+/g, ' ').trim();
 }

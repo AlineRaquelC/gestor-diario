@@ -22,6 +22,7 @@ export function taskFields(task: Task) {
     task.time ?? '', task.favorite === true, task.priority, task.status, task.done, task.reminderTimeZone ?? null,
     task.recurrenceSeriesId ?? null, task.occurrenceKey ?? null, task.recurrence?.frequency ?? 'NONE',
     task.recurrence?.timeZone ?? null, task.recurrence?.anchorDate ?? null,
+    task.recurrence?.endBeforeOccurrenceKey ?? null, task.recurrence?.deletedAt ?? null,
     [...(task.reminders ?? [])].sort((a, b) => a.offsetMinutes - b.offsetMinutes).map(item => [item.id, item.taskId, item.offsetMinutes])]);
 }
 export function preserveTask(remote: Task, local?: Task): Task {

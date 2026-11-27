@@ -13,6 +13,8 @@ export const recurrenceSeries = sqliteTable('recurrence_series', {
   // Immutable retry identity even if the current rule's anchor is later edited.
   firstOccurrenceKey: text('first_occurrence_key').notNull(),
   materializedThrough: text('materialized_through'),
+  endBeforeOccurrenceKey: text('end_before_occurrence_key'),
+  deletedAt: text('deleted_at'),
   title: text('title').notNull(),
   description: text('description'),
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'restrict', onUpdate: 'no action' }),
@@ -23,6 +25,8 @@ export const recurrenceSeries = sqliteTable('recurrence_series', {
   reminders: text('reminders', { mode: 'json' }).$type<RecurrenceTemplate['reminders']>().notNull(),
   ...timestamps(),
 }, table => [
+  check('recurrence_end_before_valid', sql`end_before_occurrence_key IS NULL OR (end_before_occurrence_key GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND substr(end_before_occurrence_key,1,4) >= '1900' AND date(end_before_occurrence_key,'+0 days') IS NOT NULL AND date(end_before_occurrence_key,'+0 days') = end_before_occurrence_key)`),
+  check('recurrence_deleted_at_valid', sql`deleted_at IS NULL OR (strftime('%Y-%m-%dT%H:%M:%fZ',deleted_at) IS NOT NULL AND strftime('%Y-%m-%dT%H:%M:%fZ',deleted_at) = deleted_at)`),
   check('recurrence_frequency_valid', sql`${table.frequency} IN ('NONE', 'DAILY', 'WEEKLY', 'MONTHLY')`),
   check('recurrence_client_valid', sql`length(trim(${table.clientId})) > 0`),
   check('recurrence_title_valid', sql`length(trim(${table.title})) > 0`),

@@ -11,6 +11,7 @@ export type RecurrenceTemplate = {
 export type RecurrenceSeries = {
   id: string; clientId: string; frequency: RecurrenceFrequency; timeZone: string;
   anchorDate: string; firstOccurrenceKey: string; materializedThrough: string | null;
+  endBeforeOccurrenceKey?: string | null; deletedAt?: string | null;
   template: RecurrenceTemplate; createdAt: string; updatedAt: string;
 };
 export { RecurrenceError, civilDate, addCivilDays, civilDuration, occurrenceDates } from './calendar.js';
@@ -32,12 +33,13 @@ export function materializationWindow(timeZone: string, materializedThrough: str
     materializedThrough !== null && materializedThrough >= today ? addCivilDays(materializedThrough, 1) : today;
   return { today, start, end };
 }
-export function recurrenceSlots(series: Pick<RecurrenceSeries, 'frequency' | 'anchorDate' | 'timeZone' | 'materializedThrough'>, clock: Clock) {
+export function recurrenceSlots(series: Pick<RecurrenceSeries, 'frequency' | 'anchorDate' | 'timeZone' | 'materializedThrough' | 'endBeforeOccurrenceKey' | 'deletedAt'>, clock: Clock) {
   const window = materializationWindow(series.timeZone, series.materializedThrough, clock);
   civilDate(series.anchorDate);
   if (!['NONE', 'DAILY', 'WEEKLY', 'MONTHLY'].includes(series.frequency)) {throw new RecurrenceError('Frequência inválida.');}
   const slots: string[] = [];
-  if (series.frequency === 'NONE' || window.start === null) {return { ...window, slots };}
+  if (series.endBeforeOccurrenceKey != null) {civilDate(series.endBeforeOccurrenceKey);}
+  if (series.deletedAt || series.frequency === 'NONE' || window.start === null) {return { ...window, slots };}
   const start = window.start > series.anchorDate ? window.start : series.anchorDate;
   if (series.frequency === 'MONTHLY') {
     const [ay, am, ad] = civilDate(series.anchorDate), [sy, sm] = civilDate(start), [ey, em] = civilDate(window.end);
@@ -62,5 +64,5 @@ export function recurrenceSlots(series: Pick<RecurrenceSeries, 'frequency' | 'an
       slot = addCivilDays(slot, step);
     }
   }
-  return { ...window, slots };
+  return { ...window, slots: series.endBeforeOccurrenceKey ? slots.filter(slot => slot < series.endBeforeOccurrenceKey!) : slots };
 }

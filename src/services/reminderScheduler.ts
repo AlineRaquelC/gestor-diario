@@ -82,19 +82,26 @@ export class ReminderScheduler {
   }
 
   /** Provisional durable suppression before DELETE / explicit completion. */
-  suspend(task: Task) {
+  suspend(task: Task) {return this.suspendMany([task]);}
+
+  /** One journal write/cancellation batch, scoped strictly to these Task IDs. */
+  suspendMany(tasks: Task[]) {
     return this.enqueue(async () => {
       const journal = await this.read();
-      const taskId = task.remoteId ?? task.id;
-      if (!journal.suspended.includes(taskId)) {journal.suspended.push(taskId);}
-      for (const [id, intent] of Object.entries(this.desired([task], []))) {
-        journal.entries[id] = { ...intent, state: 'cancel_pending' };
-      }
-      for (const entry of Object.values(journal.entries)) {
-        if (entry.taskId === taskId) {entry.state = 'cancel_pending';}
+      const ids = new Set<string>();
+      for (const task of tasks) {
+        const taskId = task.remoteId ?? task.id;
+        ids.add(taskId);
+        if (!journal.suspended.includes(taskId)) {journal.suspended.push(taskId);}
+        for (const [id, intent] of Object.entries(this.desired([task], []))) {
+          journal.entries[id] = { ...intent, state: 'cancel_pending' };
+        }
+        for (const entry of Object.values(journal.entries)) {
+          if (entry.taskId === taskId) {entry.state = 'cancel_pending';}
+        }
       }
       await this.save(journal);
-      return this.apply(journal, new Set([taskId]), false);
+      return this.apply(journal, ids, false);
     });
   }
 

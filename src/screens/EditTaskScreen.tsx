@@ -406,6 +406,9 @@ export default function EditTaskScreen() {
             timeZone: result.series.timeZone,
           });
           cacheWarning = cacheWarning || !result.cacheSaved;
+          if (result.recurrenceRefreshFailed) {
+            feedback += ' Recorrência salva; atualização das ocorrências pendente. Tente atualizar quando houver conexão.';
+          }
           feedback +=
             ' ' +
             (result.series.frequency === 'NONE'
@@ -872,13 +875,14 @@ export default function EditTaskScreen() {
               accessibilityRole="button"
               accessibilityLabel="Excluir tarefa"
               style={styles.dangerButton}
-              onPress={confirmDelete}
+              ref={confirmDelete.triggerRef}
+            onPress={confirmDelete}
             >
               <View style={styles.flex}>
                 <Text style={styles.deleteTitle}>Excluir tarefa</Text>
 
                 <Text style={styles.deleteSubtitle}>
-                  Você poderá desfazer por 5 segundos
+                  {task.recurrenceSeriesId ? 'Escolha o alcance. Desfazer somente para a ocorrência individual.' : 'Você poderá desfazer por 5 segundos'}
                 </Text>
               </View>
 
@@ -913,6 +917,7 @@ export default function EditTaskScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      {confirmDelete.dialog}
     </SafeAreaView>
   );
 }

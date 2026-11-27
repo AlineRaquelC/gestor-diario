@@ -510,3 +510,13 @@ it('cancelar seleção pendente não altera a série', async () => {
   await editTitle(); await saveForm();
   expect(change).not.toHaveBeenCalled(); expect(patch).toHaveBeenCalledTimes(1);
 });
+
+
+it('issue 58: ativação confirmada com refresh pendente informa sucesso parcial', async () => {
+  const activate = jest.fn().mockResolvedValue({ series: { id: 'series', frequency: 'DAILY', updatedAt: '2026-11-10T14:00:00Z', timeZone: 'America/Sao_Paulo' }, cacheSaved: true, recurrenceRefreshFailed: true });
+  jest.mocked(useTasks).mockReturnValue({ tasks: [task], updateTask: patch, activateTaskRecurrence: activate } as unknown as ReturnType<typeof useTasks>);
+  await act(async () => renderer.update(<EditTaskScreen />));
+  await clickReminder('Configurar repetição'); await clickReminder('Diariamente'); await saveForm();
+  expect(alert.mock.calls.at(-1)?.[1]).toContain('Recorrência salva; atualização das ocorrências pendente');
+  expect(patch).not.toHaveBeenCalled();
+});

@@ -76,3 +76,10 @@ it('rejeita duração, referência e limites inválidos', () => {
   expect(() => referenceDay('UTC', () => NaN)).toThrow(); expect(() => addCivilDays('9999-12-31', 1)).toThrow();
   expect(() => recurrenceSlots(rule('OTHER' as RecurrenceFrequency), clock('2026-10-29'))).toThrow();
 });
+
+it.each(['DAILY', 'WEEKLY', 'MONTHLY'] as const)('issue 61: %s respeita corte exclusivo e tombstone sem slots fictícios', frequency => {
+  const input = { ...rule(frequency), endBeforeOccurrenceKey: '2026-11-01' };
+  expect(recurrenceSlots(input, clock('2026-10-29')).slots.every(slot => slot < input.endBeforeOccurrenceKey)).toBe(true);
+  expect(recurrenceSlots(input, clock('2027-01-01')).slots).toEqual([]);
+  expect(recurrenceSlots({ ...input, deletedAt: '2026-10-29T12:00:00Z' }, clock('2026-10-29')).slots).toEqual([]);
+});
